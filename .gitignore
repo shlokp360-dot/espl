@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------
+# NEVER commit these. GitHub keeps history forever — a file
+# committed once stays recoverable even after you delete it.
+# ---------------------------------------------------------------
+
+# Secrets — passwords, API keys, WhatsApp tokens, database logins
+.env
+*.env
+!.env.example
+secrets.json
+*.pem
+*.key
+
+# Client data — vendor phone numbers, GST numbers, material prices
+*.xlsx
+*.xls
+*.csv
+/data/
+/media/
+/uploads/
+
+# Database
+*.sqlite3
+*.db
+/backups/
+# Backup copies too — "db.sqlite3.backup-before-slice1" does not match *.sqlite3,
+# so without this line a database full of vendor phone numbers would be offered
+# up for committing.
+*.sqlite3.*
+*.backup
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+/staticfiles/
+/static_collected/
+
+# Editors & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

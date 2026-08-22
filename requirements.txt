@@ -1,0 +1,17 @@
+# Core
+# Django 5.2 is the LTS (long-term support) release — 3 years of support
+# rather than the usual ~16 months, and it's what supports Python 3.13.
+Django==5.2.16
+psycopg[binary]==3.2.13        # PostgreSQL driver
+python-dotenv==1.0.1           # reads settings from .env
+gunicorn==23.0.0               # production web server
+
+# Documents
+openpyxl==3.1.5                # Excel import / export
+weasyprint==64.1               # PDF quotes and purchase orders
+
+# Safety net — catches type mistakes before release
+mypy==1.13.0
+django-stubs==5.2.9
+pytest==8.3.4
+pytest-django==4.9.0
