@@ -1,0 +1,421 @@
+{% comment %}
+The shell every screen sits in: header, navigation, messages.
+
+The stylesheet below is lifted from BOM_Prototype.html almost unchanged. That
+prototype IS the agreed design — it was reviewed on screen, argued over and
+signed off — so re-drawing it here would be re-deciding something that is
+already decided.
+
+It is inline rather than a static file on purpose, for now: one file to open
+when something looks wrong, and no `collectstatic` step to remember while this
+still runs on a laptop. When the app is deployed it should move to
+static/css/app.css, and that is a five-minute job, not a rewrite.
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Elegance Skyz{% endblock %}</title>
+<style>
+:root{
+  --navy:#1F3864; --blue:#2E5C9A; --lblue:#D9E2F3; --pale:#F2F6FC;
+  --amber:#C55A11; --amberbg:#FCE4D6; --green:#375623; --greenbg:#E2EFDA;
+  --red:#A32D2D; --redbg:#FCEBEB; --edit:#FFF2CC; --line:#D6DCE4;
+  --text:#26282B; --muted:#6B7280; --gOrd:#FFF6D6; --gSite:#EAF3E4; --gPlan:#F1F1F4;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:var(--text);background:#F7F8FA;font-size:13px}
+a{color:var(--blue)}
+header{background:var(--navy);color:#fff;padding:12px 22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+header h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.3px}
+header h1 a{color:#fff;text-decoration:none}
+header .proj{font-size:11.5px;opacity:.85}
+header .spacer{flex:1}
+header .adm{font-size:11.5px;color:#B9C6DD;text-decoration:none}
+header .adm:hover{color:#fff}
+nav{background:#16294a;padding:0 22px;display:flex;gap:2px}
+nav a{padding:9px 18px;font-size:12.5px;color:#B9C6DD;cursor:pointer;border-bottom:3px solid transparent;text-decoration:none}
+nav a:hover{color:#fff}
+nav a.on{color:#fff;border-bottom-color:#7FA9E8;background:#1F3864}
+nav .badge{background:#7FA9E8;color:#0E1E38;border-radius:9px;padding:0 6px;font-size:10.5px;margin-left:6px;font-weight:700}
+.wrap{padding:14px 22px 60px;max-width:1700px;margin:0 auto}
+
+.toolbar{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar .ttl{font-size:15px;font-weight:600;color:var(--navy)}
+.toolbar .sp{flex:1}
+.toolbar .hint{font-size:11.5px;color:var(--muted);margin-right:4px}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--line)}
+.tab{padding:8px 15px;background:#EDEFF3;border:1px solid var(--line);border-bottom:none;
+     border-radius:6px 6px 0 0;cursor:pointer;font-size:12.5px;color:#41485A;white-space:nowrap;text-decoration:none;display:inline-block}
+.tab:hover{background:#E3E7EE}
+.tab.on{background:#fff;color:var(--navy);font-weight:600;box-shadow:inset 0 3px 0 var(--blue)}
+.tab .n{font-size:11px;color:var(--muted);margin-left:6px}
+.panel{background:#fff;border:1px solid var(--line);border-top:none;padding:14px 16px 18px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-bottom:14px}
+.kpi{background:var(--pale);border-radius:6px;padding:9px 11px}
+.kpi .l{font-size:11px;color:var(--muted);margin-bottom:2px}
+.kpi .v{font-size:17px;font-weight:600;color:var(--navy)}
+.kpi .s{font-size:10.5px;color:var(--muted);margin-top:2px}
+.kpi.warn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)} .kpi.good .v{color:var(--green)}
+.bar{height:6px;background:#E5E8EE;border-radius:4px;overflow:hidden;margin-top:5px}
+.bar>i{display:block;height:100%;background:var(--blue)}
+.bar>i.warn{background:var(--amber)} .bar>i.bad{background:var(--red)}
+
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{background:var(--navy);color:#fff;font-weight:600;padding:6px;text-align:left;font-size:11px;white-space:nowrap}
+tr.grp th{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;text-align:center;padding:4px}
+tr.grp th.gO{background:#8A6D1F} tr.grp th.gS{background:#4C6B3A}
+tr.grp th.gP{background:#4A4E5C} tr.grp th.gM{background:#16294a}
+td{border:1px solid #E3E6EB;padding:4px 6px;vertical-align:middle}
+tbody tr:nth-child(even) td{background:#FCFCFD}
+tbody tr:hover td{background:#F0F5FC}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.code{font-family:Consolas,monospace;font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap}
+tfoot td{background:var(--lblue);font-weight:700;border-color:#C3CEE0}
+.scroll{overflow:auto;border:1px solid var(--line);max-height:560px}
+.scroll thead th{position:sticky;z-index:3}
+{% comment %}
+⚠ THE STICKY OFFSET DEPENDS ON WHETHER THERE IS A GROUP ROW ABOVE.
+
+The BOM has a two-row header — a grouped band ("What to order", "Site stock")
+and then the column names — so the column names have to stick 22px down, below
+the band. Every other table has a single header row, and pushing it 22px down
+parked it ON TOP of the first line of data. On the BOQ that hid the only construction activity
+on the estimate, which is how Saahil found it.
+
+`tr.grp ~ tr.hd` applies the offset ONLY when a group row really precedes it.
+A single-row header sticks at the top, where it belongs.
+{% endcomment %}
+.scroll thead tr.grp th{top:0}
+.scroll thead tr.hd th{top:0}
+.scroll thead tr.grp ~ tr.hd th{top:22px}
+td.gO{background:var(--gOrd)!important} td.gS{background:var(--gSite)!important} td.gP{background:var(--gPlan)!important}
+
+{% comment %}
+⚠ MINIMUM WIDTHS ARE LOAD-BEARING, NOT COSMETIC.
+
+Every typed cell was width:100% of its column with no floor, so a column got
+whatever width its HEADING needed. "Min" is three letters, so that column
+collapsed to something too narrow to type a number into — Saahil hit exactly
+this and could not enter site stock.
+
+That is not a tidiness problem. Stock feeds the order suggestion:
+
+    still to buy = planned − approved − in draft − STOCK
+
+If nobody can type stock, that subtraction is permanently missing a term and
+every suggestion over-orders by whatever is already sitting on site. The low
+stock flag never fires either, because it compares against a threshold nobody
+could enter.
+
+The grid already scrolls sideways inside .scroll, so widening a column costs
+nothing except scrolling — which is the right trade against an unusable input.
+{% endcomment %}
+input.cell,select.cell{width:100%;min-width:70px;border:1px solid #CBD2DC;border-radius:3px;padding:3px 5px;font:inherit;font-size:12px;background:var(--edit)}
+input.cell.num{text-align:right;min-width:74px}
+/* Not stock-tracked — a service or a lumpsum, where "how many are on site" has
+   no meaning. Left visible rather than hidden so the column still lines up. */
+input.cell[readonly]{background:#F1F3F6;border-color:#E1E5EB;color:#9AA1AC;cursor:not-allowed}
+{% comment %}
+A cell that carries a warning triangle beside its input. Used by Stock, Vendor
+and Plan Qty — the flag sits against the number it is about, so nobody has to
+work out which of twenty columns is being complained about.
+{% endcomment %}
+.flagcell{display:flex;align-items:center;gap:4px}
+input.cell:focus,select.cell:focus{outline:2px solid var(--blue);outline-offset:-1px}
+select.cell{background:#fff;min-width:158px}
+input.cell.ord{font-weight:700;font-size:13px;color:var(--navy);border-color:#C9A227;background:#FFFBEA}
+input.cell.ven{background:#fff;min-width:150px}
+.sugg{font-size:10px;color:#8A6D3B;text-align:right;margin-top:2px;white-space:nowrap}
+td.accrue{color:#555;text-align:right;font-variant-numeric:tabular-nums}
+.lowflag{color:var(--red);font-weight:700;font-size:14px;margin-right:3px;cursor:help}
+
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.p-draft{background:#EDEDED;color:#555} .p-approved{background:#DDEBF7;color:#15497E}
+.p-delivered{background:var(--greenbg);color:var(--green)} .p-paid{background:#E8E2F5;color:#4A3B79}
+.p-won{background:var(--greenbg);color:var(--green)} .p-quoted{background:#DDEBF7;color:#15497E}
+.p-lost{background:var(--redbg);color:var(--red)}
+.p-common{background:var(--greenbg);color:var(--green)} .p-onsheet{background:var(--amberbg);color:var(--amber)}
+.p-nogst{background:var(--redbg);color:var(--red)}
+.p-completed{background:#E8E2F5;color:#4A3B79} .p-draft{background:#EDEDED;color:#555}
+.msg{white-space:pre-line}
+.up{color:var(--red);font-weight:600} .down{color:var(--green);font-weight:600}
+
+button{font:inherit;font-size:12.5px;padding:7px 15px;border-radius:5px;border:1px solid var(--navy);
+       background:var(--navy);color:#fff;cursor:pointer}
+button:hover{background:#16294a}
+button.sec{background:#fff;color:var(--navy)}
+button.sec:hover{background:var(--pale)}
+button.sm{padding:4px 10px;font-size:11.5px}
+button.link{background:none;border:none;color:var(--blue);padding:0;font-size:11.5px;text-decoration:underline}
+button.link:hover{background:none;color:var(--navy)}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+.note{background:#FFF8E6;border-left:4px solid var(--amber);padding:9px 13px;font-size:12px;margin:13px 0;color:#6B4A16}
+{% comment %}
+⚠ THE RULE FOR YELLOW BOXES, SAAHIL'S CALL: "make it short and direct as a rule
+  and a little small, or ask is this really needed here and hide it."
+
+  A .note earns its place ONLY if it stops a mistake at the moment somebody is
+  acting — and then it is ONE LINE, in .note.tight. Everything that merely
+  EXPLAINS belongs behind the ⓘ button in the header, where it is available and
+  out of the way.
+
+  The reason this matters beyond tidiness: a page with five warnings on it has
+  no warnings on it. The one that would have prevented a real mistake reads like
+  the other four.
+{% endcomment %}
+.note.tight{font-size:11.5px;padding:6px 11px;margin:10px 0;line-height:1.45}
+.open-q{background:var(--redbg);border-left:4px solid var(--red);padding:9px 13px;font-size:12px;margin:13px 0;color:#7A2222}
+.msgs{margin:0 0 12px}
+.msg{padding:9px 13px;font-size:12.5px;border-radius:5px;margin-bottom:6px;border-left:4px solid}
+.msg.success{background:var(--greenbg);border-color:var(--green);color:#2C441B}
+.msg.info{background:var(--pale);border-color:var(--blue);color:#1B3559}
+.msg.warning{background:#FFF8E6;border-color:var(--amber);color:#6B4A16}
+.msg.error{background:var(--redbg);border-color:var(--red);color:#7A2222}
+
+.searchbox{border:1px solid var(--line);background:#FAFBFD;border-radius:6px;padding:12px 14px;margin-top:14px}
+.searchbox h3{margin:0 0 10px;font-size:13px;color:var(--navy)}
+.srow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.srow input[type=search]{flex:1;min-width:250px;padding:7px 10px;border:1px solid #CBD2DC;border-radius:5px;font:inherit;font-size:12.5px;background:#fff}
+.searchbox select{padding:7px 8px;border:1px solid #CBD2DC;border-radius:5px;font:inherit;font-size:12.5px;background:#fff}
+.results{margin-top:10px;max-height:280px;overflow:auto;border:1px solid #E3E6EB;border-radius:5px;background:#fff}
+.results th{position:sticky;top:0;z-index:2}
+.card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:14px 16px 18px}
+tr.click td{cursor:pointer}
+.legend{display:flex;gap:15px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:9px}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:13px;height:13px;border-radius:3px;border:1px solid #C3C9D4;display:inline-block}
+
+{% comment %}
+The launchpad. Tiles are <a> elements, not divs with a click handler, so the
+browser gives middle-click, "open in new tab" and keyboard focus for free —
+none of which a div would have.
+
+A tile for a screen that does not exist yet gets .soon: greyed, no border
+accent, and NOT a link. Saahil asked for those tiles to be visible so the
+launchpad shows the shape of the whole system; visible is not the same as
+clickable, and a tile that looks live and goes nowhere would be worse than
+leaving it out.
+{% endcomment %}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:11px;margin-bottom:20px}
+.tile{background:#fff;border:1px solid var(--line);border-top:3px solid var(--blue);border-radius:7px;
+      padding:13px 15px 15px;min-height:112px;display:flex;flex-direction:column;
+      text-decoration:none;color:inherit}
+.tile:hover{background:var(--pale);border-color:#B9C6DD;border-top-color:var(--navy)}
+.tile .t{font-size:14px;font-weight:600;color:var(--navy)}
+.tile .s{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+.tile .later{margin-top:auto;padding-top:9px}
+.tile.soon{background:#F5F6F8;border-color:#E1E5EB;border-top-color:#C3C9D4;cursor:default}
+.tile.soon:hover{background:#F5F6F8;border-color:#E1E5EB;border-top-color:#C3C9D4}
+.tile.soon .t{color:#8A9099}
+.tile.soon .s{color:#A6ACB5}
+.grph{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+
+/* ---- the document screen: four header blocks and the totals ladder ------ */
+.crumb{color:var(--muted)}
+.parties{display:flex;gap:12px;flex-wrap:wrap}
+.party{border:1px solid var(--line);border-radius:5px;flex:1 1 210px;min-width:0}
+.party .hd{background:var(--pale);color:var(--navy);font-weight:600;padding:5px 10px;
+           border-bottom:1px solid var(--line);font-size:10.5px;letter-spacing:.7px}
+.party .bd{padding:8px 10px;font-size:12px;line-height:1.5;min-height:96px}
+.party .bd textarea.cell{min-height:52px;font-size:11.5px}
+
+{% comment %}
+The out-of-step warning. ONE LINE until you ask for more.
+
+Saahil's point, and it is the same rule that governs the queries: an activity
+holds three to four hundred lines, so a paragraph per conflict would bury the
+grid it is warning about. A flag against the material says WHERE; this says HOW
+MANY; opening it says WHAT and offers the fix.
+
+<details> is a browser feature — it opens and closes on its own, with no script
+and no state to keep in step.
+{% endcomment %}
+/* A flag that is also a link — the vendor clash opens the document it names. */
+a.lowflag{text-decoration:none;cursor:pointer}
+a.lowflag:hover{color:#7A2222}
+
+.dates{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.dates .d{flex:1 1 150px;border:1px solid var(--line);border-radius:5px;padding:6px 10px;background:#FAFBFD}
+.dates .d.done{background:var(--pale);border-color:#C3CEE0}
+.dates .d .l{display:block;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.dates .d .v{display:block;font-size:12.5px;font-weight:600;color:var(--navy);margin-top:2px}
+.dates .d:not(.done) .v{font-weight:400;color:var(--muted)}
+
+table.tot{font-size:12.5px}
+table.tot td{padding:5px 10px;border:1px solid var(--line)}
+table.tot td.k{text-align:right;color:#333}
+{% comment %}
+⚠ NOTE THE TRAILING SEMICOLON on the width below, and do not tidy it away.
+
+`width:38%}` puts the two characters %} into the page, which is exactly what
+leaked Django template syntax looks like — so the guard that catches bug 11
+cannot tell the two apart, and fails. A semicolon before the brace costs nothing
+and keeps the net working.
+{% endcomment %}
+table.tot td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;width:38%;}
+table.tot tr.order td{background:var(--navy);color:#fff;font-size:13.5px;border-color:var(--navy)}
+table.tot tr.sep td{background:#F3F5F8;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;
+                    color:var(--muted);text-align:center;padding:3px}
+table.tot tr.pay td{background:var(--greenbg);color:#14532d;border-color:#9CC9AE}
+textarea.cell{width:100%;border:1px solid #CBD2DC;border-radius:3px;padding:4px 6px;
+              font:inherit;font-size:12px;background:var(--edit);resize:vertical}
+
+/* ---- the standing security warning. Deliberately louder than a .note ---- */
+.warnbar{background:#FCEBEB;border-left-color:var(--red);color:#7A2222}
+
+/* ---- the ⓘ info panel, shared by every screen -------------------------- */
+.infobtn{background:none;border:1px solid #56698C;color:#D6DEEC;border-radius:50%;
+         width:24px;height:24px;padding:0;font-size:13px;line-height:1;margin-right:14px}
+.infobtn:hover{background:#2E4A7D;color:#fff;border-color:#7FA9E8}
+dialog.info{border:1px solid var(--line);border-radius:8px;padding:0;max-width:680px;width:92%;
+            box-shadow:0 10px 40px rgba(0,0,0,.28)}
+dialog.info::backdrop{background:rgba(15,25,45,.45)}
+dialog.info .hd{background:var(--navy);color:#fff;padding:11px 16px;display:flex;align-items:center}
+dialog.info .hd b{font-size:13.5px;font-weight:600}
+dialog.info .hd .sp{flex:1}
+dialog.info .bd{padding:14px 18px 18px;font-size:12.5px;line-height:1.55;max-height:70vh;overflow:auto}
+dialog.info .bd h4{margin:16px 0 5px;font-size:12.5px;color:var(--navy)}
+dialog.info .bd h4:first-child{margin-top:0}
+dialog.info .bd p{margin:0 0 8px}
+dialog.info button.x{background:none;border:0;color:#B9C6DD;font-size:18px;padding:0 2px;line-height:1}
+dialog.info button.x:hover{color:#fff;background:none}
+
+/* ---- the ⓘ panel as numbered instructions — ANCHOR: INFO-PANELS --------
+   ⚠ THE INDEX IS ONE LINE OF SHORT LABELS, not sentences, so a panel of eight
+     steps can still be scanned in a second. It is generated from the steps. */
+dialog.info .ix{display:flex;flex-wrap:wrap;gap:4px 6px;padding:0 0 12px;margin-bottom:12px;
+                border-bottom:1px solid var(--line)}
+dialog.info .ix span{font-size:11px;color:#41485A;background:var(--pale);border-radius:10px;
+                     padding:2px 9px;white-space:nowrap}
+/* ⚠ A NUMBERED GUTTER, so the eye finds step four without reading one to three. */
+dialog.info .stp{display:flex;gap:11px;margin-bottom:13px}
+dialog.info .stp:last-child{margin-bottom:0}
+dialog.info .stp .n{flex:0 0 21px;height:21px;border-radius:50%;background:var(--navy);color:#fff;
+                    font-size:11px;font-weight:600;display:flex;align-items:center;
+                    justify-content:center;margin-top:1px}
+dialog.info .stp h4{margin:0 0 3px}
+dialog.info .stp p{margin:0;color:#3A4150}
+/* ⚠ BOLD IS ONLY EVER A BUTTON OR A FIELD NAME. Given a colour so the panel can
+   be checked at a glance: anything navy is something on the screen. */
+dialog.info .stp p b{color:var(--navy);font-weight:600}
+.langsw{display:flex;gap:3px;margin-right:12px}
+.langsw button{background:none;border:1px solid #56698C;color:#D6DEEC;border-radius:4px;
+               font-size:11px;padding:2px 9px;line-height:1.5}
+.langsw button.on{background:#2E4A7D;color:#fff;border-color:#7FA9E8}
+dialog.info .bd[data-lang="en"] p.gu,
+dialog.info .bd[data-lang="gu"] p.en{display:none}
+</style>
+<script>
+/* ⚠ ANCHOR: INFO-PANELS — two class flips and an attribute. No framework, no
+   stored preference: the panel opens in English every time, which is what a
+   shared site machine wants. */
+function setLang(key, lang, button) {
+  var body = document.querySelector('#info-' + key + ' .bd');
+  if (body) body.setAttribute('data-lang', lang);
+  var bar = document.getElementById('lang-' + key);
+  if (bar) Array.prototype.forEach.call(bar.children, function (b) {
+    b.classList.toggle('on', b === button);
+  });
+}
+</script>
+</head>
+<body>
+
+<header>
+  {% comment %}
+  The name goes HOME, and home is now the launchpad rather than the project
+  list. Company profile and Company rates used to sit in this bar; they moved
+  under Master data on Saahil's instruction — "Have Company Data under master
+  data itself" — because they are settings touched twice a year, and a header
+  link is prime space.
+  {% endcomment %}
+  <h1><a href="{% url 'launchpad' %}">ELEGANCE SKYZ</a></h1>
+  <span class="proj">{% block subtitle %}{% endblock %}</span>
+  <span class="spacer"></span>
+  {% block headerinfo %}{% endblock %}
+  {% comment %}
+  HOME, BESIDE THE ⓘ, ON EVERY SCREEN.
+
+  ⚠ IT USED TO BE THE LAST TAB IN EACH MODULE'S STRIP, and Saahil moved it here:
+    a tab strip is for the screens of ONE module, and a way out of the module is
+    not one of them. Sitting in the strip it also read as "the module's home"
+    rather than the launchpad.
+
+  ⚠ TWO WAYS OUT, AND BOTH ARE ALWAYS THERE — the ELEGANCE SKYZ title and this
+    link. Somebody who does not know a wordmark is clickable should not be stuck
+    on a screen.
+  {% endcomment %}
+  <a class="adm" href="{% url 'launchpad' %}">Home</a>
+  {% comment %}
+  WHO IS SIGNED IN, AND THE WAY OUT.
+
+  ⚠ LOGOUT IS A FORM, NOT A LINK. Django will not log anybody out on a GET, and
+    it is right not to: a plain link can be fired by any image tag on any page,
+    and "why does it keep signing me out" is a bug nobody enjoys chasing.
+
+  The name is shown rather than the email — on a shared site laptop the useful
+  question is "whose session is this", not "what is the address".
+  {% endcomment %}
+  {% if user.is_authenticated %}
+    <span class="adm" style="color:#D6DEEC">{{ user.get_full_name|default:user.get_username }}</span>
+    <a class="adm" href="{% url 'password_change' %}">Password</a>
+    {% comment %}
+    >>> ANCHOR: NO-DJANGO-ADMIN <<<
+    ⚠⚠ THE "Admin" LINK WAS HERE AND IS GONE. Django Admin is no longer mounted
+      at all — see config/urls.py. Every table it reached has its own screen,
+      and those screens are the ones that enforce the rules.
+    {% endcomment %}
+    <form method="post" action="{% url 'logout' %}" style="display:inline;margin:0">
+      {% csrf_token %}
+      <button type="submit" class="link" style="color:#B9C6DD;font-size:11.5px">Sign out</button>
+    </form>
+  {% endif %}
+</header>
+
+{% block nav %}{% endblock %}
+
+<div class="wrap">
+  {% if messages %}
+    <div class="msgs">
+      {% for message in messages %}<div class="msg {{ message.tags }}">{{ message }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  {% comment %}
+  ⚠ THE "NO LOGIN IS REQUIRED" WARNING USED TO SIT HERE, AND IT IS GONE ON PURPOSE.
+
+  It said: anyone who can open the address can edit any BOM and raise purchase
+  orders. That was true, it was deliberately louder than every other standing
+  note, and it stayed on the page — not behind the ⓘ — because a risk you have
+  to click to discover is a risk nobody discovers.
+
+  It came out with the security slice, exactly as it promised it would. Leaving
+  a warning up after it stops being true is how people learn to skip the next
+  one. Three tests used to assert it was here; one test now asserts it is not.
+
+  ⚠ AND THE MATRIX LANDED TOO. A signed-in Purchase manager no longer reaches
+    every screen an Admin can: accounts/perms.py holds the agreed table, every
+    view carries @requires, and accounts/test_matrix.py walks all six roles
+    against every address. This note is kept as the record of a warning that was
+    taken down because it stopped being true, rather than because it was noisy.
+  {% endcomment %}
+
+  {% block content %}{% endblock %}
+</div>
+
+{% comment %}
+The shared info panel. Any screen can fill `infopanel` and it appears behind the
+ⓘ button in the header — the standing notes that used to sit permanently on the
+page, out of the way until somebody wants them.
+
+No JavaScript framework and no state to keep: <details> is a browser feature
+that opens and closes on its own.
+{% endcomment %}
+{% block infopanel %}{% endblock %}
+
+</body>
+</html>
