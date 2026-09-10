@@ -1,0 +1,53 @@
+{% comment %}
+The navigation bar for every screen that belongs to one project.
+
+Included rather than repeated, so adding a screen is one line here instead of an
+edit in each template that someone will eventually forget. `here` says which tab
+is lit: "bom", "orders" or "projects".
+{% endcomment %}
+{% comment %}
+The process in the order it happens: quote it, plan it, buy it. A tab bar that
+matches the workflow is the cheapest possible reminder of what comes next.
+
+⚠⚠ EVERY TAB CARRIES THE PERMISSION THAT OPENS IT, exactly as the launchpad's
+   tiles do. Saahil found this from a purchase order: "if I'm going through a PO
+   tile, ideally a BOM should not be visible… they should only be able to review
+   information about PO".
+
+   He was righter than he knew. This bar had NO permission check at all, so an
+   accountant saw a BOQ tab that answers 403 and a site engineer saw three. The
+   rule was already written down for tiles — "a tile can never lead to a 403" —
+   and this bar simply never got it.
+
+⚠ `standalone` MEANS "YOU CAME IN FROM THE PURCHASE ORDERS TILE", and then there
+   are no project tabs at all. Same screen, different doorway: arriving through
+   Projects → a project → Purchase orders you are working inside a project and
+   the chain is the point; arriving from the register you are looking at one
+   document and the project chain is somebody else's screen.
+{% endcomment %}
+{% load perms %}
+{% if not standalone %}
+  <nav>
+    {% if user|can:"boq.view" %}
+      <a class="{% if here == 'boq' %}on{% endif %}" href="{% url 'boq_screen' project.id %}">BOQ estimate</a>
+    {% endif %}
+    {% if user|can:"bom.view" %}
+      <a class="{% if here == 'bom' %}on{% endif %}" href="{% url 'bom_screen' project.id %}">Bill of materials</a>
+    {% elif user|can:"bom.stock" %}
+      {% comment %}
+      ⚠ ONLY FOR SOMEBODY WHO CANNOT SEE THE FULL GRID. The stock screen is a
+        subset of the BOM, so offering both to an Admin would be two doors to
+        the same two columns and a longer tab bar for no gain. A site engineer
+        has no other route to it, and it is the only screen on this project
+        they can write to.
+      {% endcomment %}
+      <a class="{% if here == 'stock' %}on{% endif %}" href="{% url 'stock_screen' project.id %}">Site stock</a>
+    {% endif %}
+    {% if user|can:"po.view" %}
+      <a class="{% if here == 'orders' %}on{% endif %}" href="{% url 'po_screen' project.id %}">Purchase orders</a>
+    {% endif %}
+    {% if user|can:"projects.view" %}
+      <a href="{% url 'project_list' %}">All projects</a>
+    {% endif %}
+  </nav>
+{% endif %}

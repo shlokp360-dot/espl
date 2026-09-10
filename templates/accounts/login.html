@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% comment %}
+THE FRONT DOOR. The only address in the application a stranger may open.
+
+⚠ IT DOES NOT SAY WHAT WENT WRONG, AND THAT IS THE POINT. One message covers a
+  wrong password and an address that does not exist, because telling somebody
+  which addresses are real is telling them half of a login.
+
+⚠ NO "FORGOT PASSWORD" LINK, DELIBERATELY. Resets go through the admin — Saahil:
+  "super admin can make a change to the password and add and remove password as
+  per super admins need." That decision removes an SMTP dependency from the one
+  path that must work on a server with nobody to fix it. The line at the bottom
+  says so plainly, so nobody hunts for a link that was left out on purpose.
+{% endcomment %}
+
+{% block title %}Sign in{% endblock %}
+{% block subtitle %}{% endblock %}
+
+{% block content %}
+
+<div style="max-width:380px;margin:6vh auto 0">
+
+  <div class="card">
+    <h2 style="margin:0 0 4px;font-size:16px;color:var(--navy)">Sign in</h2>
+    <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">
+      Use the user ID your admin set you up with.</p>
+
+    {% if form.non_field_errors %}
+      <div class="msg error" style="margin-bottom:12px">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      <label style="display:block;font-size:11.5px;color:var(--muted);margin-bottom:3px">User ID</label>
+      {{ form.username }}
+
+      <label style="display:block;font-size:11.5px;color:var(--muted);margin:12px 0 3px">Password</label>
+      {{ form.password }}
+
+      <button type="submit" style="width:100%;margin-top:16px">Sign in</button>
+    </form>
+  </div>
+
+  <p style="font-size:11.5px;color:var(--muted);margin-top:12px;text-align:center">
+    Forgotten it? Your admin sets a new one for you — there is no email reset.
+  </p>
+
+</div>
+
+{% endblock %}

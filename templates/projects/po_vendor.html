@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load inr %}
+{% comment %}
+LEVEL 2 — every document this project has raised to one vendor.
+
+The filters carry over from level 1 through the query string, so narrowing to
+work orders and then opening a vendor shows their work orders rather than
+quietly showing everything again.
+
+Level 3, the document itself, is the next step. Until then the rows are not yet
+clickable — an "open ▸" that goes nowhere is worse than no link at all.
+{% endcomment %}
+
+{% block title %}{{ vendor.code }} — {{ project.code }}{% endblock %}
+{% block subtitle %}
+  {{ project.name }} &nbsp;|&nbsp; {{ vendor.name }}
+  {% if vendor.contact_person %}&nbsp;|&nbsp; {{ vendor.contact_person }}{% endif %}
+{% endblock %}
+
+{% block nav %}{% include "projects/_nav.html" with here="orders" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'po_screen' project.id %}?{{ request.GET.urlencode }}">Vendors</a>
+  &nbsp;▸&nbsp; <b>{{ vendor.code }} · {{ vendor.name }}</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">{{ vendor.name }}</span>
+  <span class="sp"></span>
+  <span class="hint">
+    {% if vendor.gst_number %}GSTIN <span class="code">{{ vendor.gst_number }}</span>
+    {% elif vendor.is_unregistered %}unregistered — 0% GST
+    {% else %}<b style="color:var(--red)">no GSTIN captured — approval will ask for one</b>{% endif %}
+    {% if vendor.whatsapp_number %}&nbsp;·&nbsp; WhatsApp {{ vendor.whatsapp_number }}{% endif %}
+  </span>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+  {% include "projects/_pofilters.html" with clear_url=request.path %}
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Document</th><th>Type</th><th>Date</th><th>Status</th>
+        <th class="num">Lines</th><th class="num">Basic</th><th class="num">GST</th>
+        <th class="num">Order value</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="click"
+            onclick="window.location='{% url 'po_detail' project.id row.order.id %}'">
+          <td class="code">{{ row.order.number }}</td>
+          <td>{% if row.order.document_type == 'WO' %}
+                <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
+              {% else %}
+                <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
+              {% endif %}</td>
+          <td>{{ row.order.raised_on|date:"d/m/Y" }}</td>
+          {% comment %}
+          status_word, not the raw status: a work order reads "Completed" where a
+          purchase order reads "Delivered". Same status underneath — material is
+          delivered, labour is finished — but the person reading it takes the
+          word literally.
+          {% endcomment %}
+          <td><span class="pill p-{{ row.order.status }}">{{ row.order.status_word }}</span></td>
+          <td class="num">{{ row.totals.line_count }}</td>
+          <td class="num">₹{{ row.totals.taxable|rupees }}</td>
+          <td class="num">₹{{ row.totals.gst|rupees }}</td>
+          <td class="num"><b>₹{{ row.totals.order_value|rupees }}</b></td>
+          <td style="color:var(--blue)">open ▸</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="7">TOTAL — {{ rows|length }} document{{ rows|length|pluralize }}</td>
+        <td class="num">₹{{ total_value|rupees }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      Nothing to {{ vendor.name }} matches those filters.
+      <a href="{{ request.path }}">Clear them</a>.
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>Click any row to open the document.</b> A draft commits nothing;
+    <b>approving locks it permanently</b>.
+  </div>
+</div>
+
+{% endblock %}

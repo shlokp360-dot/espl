@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+SETTLEMENT — what has been paid, and what is still to pay.
+
+Saahil: "the officials, the business heads would want to know how much is to be
+paid and how much has been paid to understand their books better."
+
+⚠ THE THREE BUCKETS ADD BACK TO THE TOTAL, ON ONE BASIS. Settled + payable now +
+  not yet payable = everything approved onward, every figure being what leaves
+  the bank. A settlement view whose parts do not reconcile is the first thing an
+  accountant stops trusting.
+
+⚠ WHAT VENDORS INVOICE AND WHAT LEAVES THE BANK ARE BOTH SHOWN, with the TDS
+  between them named. Showing only one invites "why does this not match the
+  ledger".
+{% endcomment %}
+
+{% block title %}Payments{% endblock %}
+{% block subtitle %}Paid, owed, and coming{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="payments" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_payments" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Payments</span>
+  <span class="hint">as at {{ view.end|date:"j F Y" }}</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">Where the money stands</div>
+  {{ bar }}
+  <div class="legend" style="margin-top:9px">
+    <span><i class="sw" style="background:#107e3e"></i> Settled — money paid</span>
+    <span><i class="sw" style="background:#C55A11"></i> Payable now — delivered, not paid</span>
+    <span><i class="sw" style="background:#6a6d70"></i> Not yet payable — approved, not delivered</span>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi good">
+    <div class="l">Settled</div>
+    <div class="v">{{ split.settled.net_payable|rupees }}</div>
+    <div class="s">{{ split.settled_pct }}% of the total</div>
+  </div>
+  <div class="kpi warn">
+    <div class="l">Payable now</div>
+    <div class="v">{{ split.payable_now.net_payable|rupees }}</div>
+    <div class="s">{{ split.payable_now.count }} documents</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Not yet payable</div>
+    <div class="v">{{ split.not_yet_payable.net_payable|rupees }}</div>
+    <div class="s">{{ split.not_yet_payable.count }} awaiting delivery</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Total</div>
+    <div class="v">{{ split.obligation|rupees }}</div>
+    <div class="s">the three above</div>
+  </div>
+  <div class="kpi">
+    <div class="l">They invoice</div>
+    <div class="v">{{ split.invoiced|rupees }}</div>
+    <div class="s">before tax withheld</div>
+  </div>
+  <div class="kpi">
+    <div class="l">TDS withheld</div>
+    <div class="v">{{ split.tds|rupees }}</div>
+    <div class="s">paid to the department</div>
+  </div>
+</div>
+
+<div class="note tight">
+  <b>Settled + payable now + not yet payable = total.</b> Vendors invoice more by exactly the TDS.
+</div>
+
+<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px">
+  <div class="card">
+    <div class="grph">Ageing</div>
+    {{ ageing_chart }}
+    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
+      From the due date — delivery plus terms.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grph">Owed, by vendor</div>
+    {{ vendor_chart }}
+    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
+      Delivered and unpaid.
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <div class="grph">Invoiced against paid, by month</div>
+  {{ by_month }}
+  <div class="legend">
+    {% for entry in series %}
+      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
+    {% endfor %}
+  </div>
+  <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+    A month where invoiced beats paid is a month that added to what you owe.
+  </div>
+</div>
+
+<div class="toolbar" style="margin-top:16px">
+  <span class="ttl" style="font-size:13px">Delivered and unpaid</span>
+  <span class="hint">{{ vendors|length }} vendor{{ vendors|length|pluralize }}</span>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>Vendor</th>
+      <th class="num" style="width:110px">Documents</th>
+      <th class="num" style="width:150px">They invoice</th>
+      <th class="num" style="width:150px">We pay</th>
+      <th class="num" style="width:130px">TDS withheld</th>
+    </tr></thead>
+    <tbody>
+      {% for row in vendors %}
+        <tr>
+          <td>{{ row.vendor.name|default:"—" }}
+            {% if row.vendor.payment_terms %}
+              <span class="mut" style="color:var(--muted);font-size:11px">· {{ row.vendor.payment_terms }}</span>
+            {% else %}
+              <span class="pill p-onsheet">terms not set</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.count }}</td>
+          <td class="num">{{ row.invoiced|rupees }}</td>
+          <td class="num"><b>{{ row.net|rupees }}</b></td>
+          <td class="num">{{ row.tds|rupees }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" style="color:var(--muted);padding:14px">
+          Nothing is delivered and unpaid. Everything invoiced has been settled.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_payments" %}{% endblock %}

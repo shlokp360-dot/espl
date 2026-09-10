@@ -1,0 +1,155 @@
+{% load inr %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% comment %}
+THE PRINTED ESTIMATE — rendered by WeasyPrint into the PDF.
+
+>>> ANCHOR: BOQ-PDF <<<
+⚠⚠ THE CONVENTIONS HERE ARE COPIED FROM po_pdf.html AND ARE NOT PREFERENCES.
+   Each one came from a fault that was only visible on a real PDF:
+
+     - TABLES, NOT FLEXBOX. WeasyPrint's CSS support is narrower than a
+       browser's and varies by version. A document that lays out differently
+       depending on which machine printed it is not one anybody can rely on.
+     - NO ₹ GLYPH. It is missing from many server fonts and prints as a hollow
+       box. "Rs" is written out instead.
+     - THE FOOTER IS A RUNNING ELEMENT in the page margin, so it never pushes
+       content onto a second page and appears on EVERY page with a number.
+
+⚠ NOT ONE FIGURE IS WORKED OUT HERE. Every row comes from bom_calc.boq_rows and
+  every total is a property on Estimate — the same ones the screen reads. The
+  paper and the screen cannot disagree, which is the whole reason this was safe
+  to add.
+{% endcomment %}
+<style>
+@page {
+  size: A4; margin: 12mm 11mm 16mm 11mm;
+  @bottom-center { content: element(sysline); }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: "DejaVu Sans", sans-serif; font-size: 6.8pt; color: #6B7280;
+  }
+}
+body { font-family: "DejaVu Sans", sans-serif; font-size: 8.2pt; color: #1a1a1a; margin: 0; }
+table { border-collapse: collapse; width: 100%; }
+.n { text-align: right; white-space: nowrap; }
+.c { text-align: center; }
+.b { font-weight: bold; }
+.mono { font-family: "DejaVu Sans Mono", monospace; font-size: 7.4pt; }
+
+.head { border-bottom: 1.4pt solid #1F3864; padding-bottom: 5pt; margin-bottom: 8pt; }
+.co { font-size: 13pt; font-weight: bold; color: #1F3864; }
+.co-sub { font-size: 7.4pt; color: #444; }
+.doc { font-size: 11pt; font-weight: bold; color: #1F3864; }
+
+.meta td { border: 0.6pt solid #C3C9D4; padding: 3pt 5pt; vertical-align: top; }
+.meta .k { background: #EDF1F6; font-size: 7pt; color: #1F3864; width: 22%; }
+
+.grid { margin-top: 9pt; }
+.grid th {
+  background: #1F3864; color: #fff; font-size: 7pt; padding: 4pt 5pt; text-align: left;
+}
+.grid td { border: 0.6pt solid #D6DCE4; padding: 3pt 5pt; }
+.grid tr.tot td { background: #DDEBF7; font-weight: bold; }
+
+/* ⚠ THE LADDER READS DOWNWARDS AND IN ORDER — base, contingency, design fee,
+   then GST on the lot. That order is the calculation, not a layout choice. */
+.ladder { margin-top: 9pt; width: 58%; margin-left: auto; }
+.ladder td { border: 0.6pt solid #C3C9D4; padding: 3pt 6pt; }
+.ladder td.k { background: #F3F5F8; }
+.ladder tr.grand td { background: #1F3864; color: #fff; font-size: 9.4pt; }
+
+.note { margin-top: 9pt; font-size: 7pt; color: #555; border-left: 2pt solid #C9A227;
+        padding: 3pt 6pt; background: #FFF8E6; }
+#sysline { position: running(sysline); font-size: 6.8pt; color: #6B7280; }
+</style>
+</head>
+<body>
+
+<div id="sysline">
+  {{ project.code }} — estimate · {{ company.registered_name|default:"Elegance Skyz" }}
+</div>
+
+<table class="head"><tr>
+  <td>
+    <div class="co">{{ company.registered_name|default:"ELEGANCE SKYZ" }}</div>
+    <div class="co-sub">
+      {{ company.registered_address|linebreaksbr }}
+      {% if company.gstin %}<br>GSTIN: {{ company.gstin }}{% endif %}
+    </div>
+  </td>
+  <td class="n" style="vertical-align:top">
+    <div class="doc">ESTIMATE</div>
+    <div class="co-sub">{{ project.code }}</div>
+  </td>
+</tr></table>
+
+<table class="meta">
+  <tr>
+    <td class="k">Project</td><td class="b">{{ project.name }}</td>
+    <td class="k">Status</td><td>{{ project.get_status_display }}</td>
+  </tr>
+  <tr>
+    <td class="k">Built-up area</td><td>{{ project.bua_sqft|qty }} sqft</td>
+    <td class="k">Location</td><td>{{ project.location|default:"—" }}</td>
+  </tr>
+  {% if bill_to %}
+  <tr><td class="k">Billing address</td><td colspan="3">{{ bill_to|linebreaksbr }}</td></tr>
+  {% endif %}
+</table>
+
+<table class="grid">
+  <thead>
+    <tr>
+      <th style="width:34%">Construction activity</th>
+      <th>Basis</th>
+      <th class="n" style="width:11%">Rate Rs/sqft</th>
+      <th class="c" style="width:7%">GST %</th>
+      <th class="n" style="width:15%">Amount Rs (ex-GST)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+      <tr>
+        <td class="b">{{ line.name }}</td>
+        <td style="font-size:7pt;color:#555">{{ line.basis|default:"—" }}</td>
+        <td class="n mono">{{ line.rate|rupees2 }}</td>
+        <td class="c">{{ line.gst_percent|floatformat:0 }}</td>
+        <td class="n mono">{{ line.amount|rupees }}</td>
+      </tr>
+    {% endfor %}
+    <tr class="tot">
+      <td colspan="2">TOTAL — {{ lines|length }} construction activit{{ lines|length|pluralize:"y,ies" }}</td>
+      <td class="n mono">{{ estimate.composite_rate|rupees2 }}</td>
+      <td></td>
+      <td class="n mono">{{ estimate.base_cost|rupees }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="ladder">
+  <tr><td class="k">Base cost (composite &times; {{ project.bua_sqft|qty }} sqft)</td>
+      <td class="n mono">{{ estimate.base_cost|rupees }}</td></tr>
+  <tr><td class="k">Contingency @ {{ estimate.contingency_percent|floatformat:2 }}%</td>
+      <td class="n mono">{{ estimate.contingency_amount|rupees }}</td></tr>
+  <tr><td class="k">Design fee @ {{ estimate.design_fee_percent|floatformat:2 }}%</td>
+      <td class="n mono">{{ estimate.design_fee_amount|rupees }}</td></tr>
+  <tr><td class="k b">Cost before GST</td>
+      <td class="n mono b">{{ estimate.cost_before_gst|rupees }}</td></tr>
+  <tr><td class="k">GST @ {{ estimate.gst_percent|floatformat:2 }}%</td>
+      <td class="n mono">{{ estimate.gst_amount|rupees }}</td></tr>
+  <tr class="grand"><td class="b">GRAND TOTAL</td>
+      <td class="n mono b">{{ estimate.grand_total|rupees }}</td></tr>
+  <tr><td class="k">Cost per sqft (incl. GST)</td>
+      <td class="n mono">{{ estimate.cost_per_sqft|rupees2 }}</td></tr>
+</table>
+
+<div class="note">
+  All activity rates are ex-GST. Contingency and design fee apply to the base cost in that
+  order; GST applies to the total of all three. Figures are an estimate for the built-up area
+  stated above and move with any change to it.
+</div>
+
+</body>
+</html>

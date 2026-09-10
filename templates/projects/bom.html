@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE BOM SCREEN. BOM_Prototype.html, rendered by Django.
+
+Read this alongside the prototype — the layout, the column groups and the
+colours are the same, because that design was already reviewed and agreed.
+
+⚠ NOT ONE FIGURE IS WORKED OUT IN THIS FILE.
+    Every number printed below comes out of bom_calc, through the `rows` and
+    `totals` dictionaries the view built. The filters from `inr` only decide how
+    a number LOOKS — Indian digit grouping, a fraction shown as a percentage.
+    If a total ever needs adding up, it gets added up in bom_calc, not here.
+    See ANCHORS.md: the prototype had To Order in three places and that is the
+    mistake this rule exists to prevent.
+
+HOW EDITING WORKS
+    The whole grid is one form. Whichever button you press, what you typed is
+    saved first — then that button does its extra thing. So Post POs cannot post
+    yesterday's numbers, and removing a line cannot throw away the quantity you
+    typed two rows above it.
+{% endcomment %}
+
+{% block title %}BOM — {{ project.code }}{% endblock %}
+{% block subtitle %}
+  {{ project.name }} &nbsp;|&nbsp; BUA {{ project.bua_sqft|qty }} sqft
+  &nbsp;|&nbsp; Status: <b>{{ project.get_status_display|upper }}</b>
+{% endblock %}
+
+{% block nav %}{% include "projects/_nav.html" with here="bom" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "bom" %}{% endblock %}
+
+{% block infopanel %}
+{% comment %}
+>>> ANCHOR: INFO-PANELS <<<
+⚠ THE PANEL IS DATA NOW — projects/help_panels.py, key "bom". What stood here
+  was ~700 words explaining WHY the screen works as it does. Saahil asked for
+  instructions instead, so the reasoning moved to ANCHORS.md and to the code
+  comments, where the person changing something reads it. Nobody at a site
+  office needs to know why a rule exists in order to follow it.
+
+⚠ THE SECURITY WARNING IS NOT IN HERE — it stays on the page, in base.html. A
+  risk you have to click to discover is a risk nobody discovers. That rule is
+  unchanged.
+{% endcomment %}
+{% infopanel "bom" %}
+{% endblock %}
+
+{% block content %}
+
+{% if not activity %}
+  <div class="card">
+    <h3 style="margin-top:0;color:var(--navy)">This BOM has no construction activities yet</h3>
+    <p>Tabs come from the activities on the project's estimate. {{ project.code }}'s estimate has
+       none, so there is nothing to plan against. Add activities to the estimate in Admin first.</p>
+  </div>
+{% else %}
+
+<form method="post" action="{% url 'bom_save' project.id %}">
+  {% csrf_token %}
+  <input type="hidden" name="activity" value="{{ activity.abbreviation }}">
+
+  <div class="toolbar">
+    <span class="ttl">Bill of materials</span>
+    <span class="sp"></span>
+    <span class="hint">
+      {% if totals.to_order_count %}
+        {{ totals.to_order_count }} line{{ totals.to_order_count|pluralize }} on this activity ready to order
+      {% else %}
+        nothing to order on this activity
+      {% endif %}
+    </span>
+    {% if draft_count %}
+      {% comment %}
+      The drafts live on the purchase-order screen now. A count and a link rather
+      than a second list of them here — two screens listing the same drafts would
+      eventually disagree about them.
+      {% endcomment %}
+      <a class="tab" style="padding:5px 12px;border-radius:5px;border:1px solid var(--line)"
+         href="{% url 'po_screen' project.id %}?type=">{{ draft_count }} draft{{ draft_count|pluralize }} ▸</a>
+    {% endif %}
+    {% comment %}
+    ⚠ SAVE STAYS FOR ANYBODY WHO MAY WRITE SOMETHING — a site engineer holds
+      bom.stock and their Save writes exactly two cells. Post POs is a
+      different act and a different key; it never appears for them.
+    {% endcomment %}
+    {% if may_edit or may_stock %}
+      <button class="sec" type="submit">Save BOM</button>
+    {% endif %}
+    {# Saves what you typed, then shows the preview. It creates nothing by itself. #}
+    {% if user|can:"bom.post" %}
+      <button type="submit" formaction="{% url 'bom_post_pos' project.id %}">Post POs ▸ review</button>
+    {% endif %}
+  </div>
+
+  <div class="tabs">
+    {% for tab in tabs %}
+      <a class="tab {% if tab.is_open %}on{% endif %}"
+         href="{% url 'bom_screen' project.id %}?activity={{ tab.activity.abbreviation }}">
+        {{ tab.activity.name }}<span class="n">{{ tab.count }}</span></a>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+
+    {# ---------------- the KPI strip. Every value from bom_calc.activity_totals ---- #}
+    <div class="kpis">
+      <div class="kpi">
+        <div class="l">Reserve</div>
+        <div class="v">₹{{ totals.reserve|rupees }}</div>
+        <div class="s">from the estimate line · ex-GST base</div>
+      </div>
+      <div class="kpi {% if totals.percent_used > 1 %}bad{% elif totals.percent_used > 0.9 %}warn{% endif %}">
+        <div class="l">Planned value <span style="font-size:9.5px">ex-GST</span></div>
+        <div class="v">₹{{ totals.planned_value|rupees }}</div>
+        <div class="bar"><i class="{% if totals.percent_used > 1 %}bad{% elif totals.percent_used > 0.9 %}warn{% endif %}"
+                            style="width:{{ totals.percent_used|bar_width }}%"></i></div>
+      </div>
+      <div class="kpi {% if totals.percent_used > 1 %}bad{% else %}good{% endif %}">
+        <div class="l">Variance vs reserve</div>
+        <div class="v">₹{{ totals.variance|rupees }}</div>
+        <div class="s">{{ totals.percent_used|pct }} of reserve used</div>
+      </div>
+      {% comment %}
+      COMMITTED vs PO VALUE NOW — two different questions, and the labels have to
+      keep them apart or somebody will read one as the other.
+
+        Committed    what has ALREADY been ordered, at the rate on the document.
+        PO value now what pressing Post POs would order, which drops to zero the
+                     moment you press it, because posting consumes the quantity.
+      {% endcomment %}
+      <div class="kpi">
+        <div class="l">Committed</div>
+        <div class="v">₹{{ totals.committed_value|rupees }}</div>
+        <div class="s">on approved orders · ex-GST</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Used value</div>
+        <div class="v">₹{{ totals.used_value|rupees }}</div>
+        <div class="s">received × plan rate, ex-GST</div>
+      </div>
+      <div class="kpi {% if totals.below_threshold %}bad{% endif %}">
+        <div class="l">Below threshold</div>
+        <div class="v">{{ totals.below_threshold }}</div>
+        <div class="s">of {{ totals.line_count }} line{{ totals.line_count|pluralize }}</div>
+      </div>
+      <div class="kpi">
+        <div class="l">PO value now</div>
+        <div class="v">₹{{ totals.po_value_now|rupees }}</div>
+        <div class="s">{{ totals.to_order_count }} line{{ totals.to_order_count|pluralize }} to order · ex-GST</div>
+      </div>
+    </div>
+
+    {% comment %}
+    >>> ANCHOR: DRAFT-CONFLICT <<<
+    THERE IS NO BANNER HERE, AND THAT IS DELIBERATE.
+
+    A collapsed summary line used to sit above the grid saying how many lines
+    disagreed with a live draft. Saahil removed it: the red ▲ against the Vendor
+    box and the Plan Qty box already says WHERE, and its tooltip says WHAT — so
+    the banner was one more row of screen furniture on a page that will carry
+    three to four hundred lines.
+
+    The fix has not gone anywhere. The flag on a vendor clash IS a link to the
+    document, and removing a line there is the same operation
+    (po_line_remove -> remove_draft_line): one material off one draft, every
+    other line on that order untouched.
+
+    The rule still holds — the BOM is a plan, the PO is a document. Nothing here
+    changes a document; it points at the one that is out of step.
+    {% endcomment %}
+
+    {% if totals.reserve == 0 %}
+      <div class="note tight">
+        <b>{{ activity.name }} has no reserve on this project.</b> Every percentage against it reads as
+        if there were no budget — fix it on the estimate.
+      </div>
+    {% endif %}
+
+    {# ---------------- the grid ---------------------------------------------------- #}
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="grp">
+            <th class="gM" colspan="4">Material</th>
+            <th class="gO" colspan="7">What to order — and from whom</th>
+            <th class="gS" colspan="2">Site stock</th>
+            <th class="gP" colspan="6">Planned vs actual</th>
+            <th class="gM"></th>
+          </tr>
+          <tr class="hd">
+            <th>Code</th><th>Material</th><th>Remark</th><th>UOM</th>
+            <th class="num">Order Qty</th><th>Vendor</th><th class="num">Vend Rate</th>
+            <th class="num">Plan Rate</th><th class="num">Var %</th><th class="num">GST%</th>
+            <th class="num">PO Value</th>
+            <th class="num">Stock</th><th class="num">Min</th>
+            <th class="num">Plan Qty</th><th class="num">Approved</th><th class="num">In Draft</th>
+            <th class="num">Recd Qty</th><th class="num">Est Value (ex-GST)</th><th class="num">Used Value (ex-GST)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+          {% with line=row.line %}
+          <tr>
+            <td class="code">{{ line.material.code }}</td>
+            <td>{{ line.material.name }}
+              <div style="font-size:10.5px;color:var(--muted)">{{ line.material.specification }}</div>
+              {% if row.discontinued_reason %}
+                {# The same rule po_service refuses on, so the flag and the refusal agree. #}
+                <div><span class="pill p-nogst" title="Post POs will refuse while this is true">
+                  ⛔ {{ row.discontinued_reason }}</span></div>
+              {% endif %}</td>
+            <td>{% if may_edit %}<input class="cell" name="remark-{{ line.id }}" value="{{ line.remark }}" placeholder="—">{% else %}{{ line.remark|default:"—" }}{% endif %}</td>
+            <td>{{ line.material.uom }}</td>
+
+            <td class="gO">
+              {# ⚠ BLANK ORDERS NOTHING. The figure below is advice, not an instruction. #}
+              {% if may_edit %}<input class="cell num ord" id="ord-{{ line.id }}" name="ord-{{ line.id }}"
+                     value="{{ line.order_qty_override|qty }}" placeholder="0">
+              {% else %}<span class="accrue">{{ line.order_qty_override|qty|default:"—" }}</span>{% endif %}
+              <div class="sugg">
+                still to buy {{ row.suggested_order_qty|qty }}
+                {% if row.suggested_order_qty > 0 %}
+                  <button type="button" class="link"
+                          onclick="document.getElementById('ord-{{ line.id }}').value='{{ row.suggested_order_qty|qty }}';"
+                          title="Fill this box with the suggested quantity">use</button>
+                {% endif %}
+              </div>
+            </td>
+
+            {% comment %}
+            The flag sits against the field that disagrees, the same way the
+            stock triangle sits against Stock. A live draft was raised to a
+            different vendor than this line now names — the document has not
+            been touched, and the panel above offers to lift this one line off it.
+            {% endcomment %}
+            <td class="gO"><div class="flagcell">
+              {% comment %}
+              THE FLAG IS THE LINK. Clicking it opens the document that no longer
+              agrees with this line, where removing the line is one button — the
+              same operation, one material off one draft, everything else on that
+              order untouched. Warn and offer, in the space of a triangle.
+              {% endcomment %}
+              {% for clash in row.conflict.vendor %}<a class="lowflag"
+                   href="{% url 'po_detail' project.id clash.order_id %}"
+                   title="{{ clash.number }} was raised to {{ clash.vendor_name }} for {{ clash.quantity|qty }} {{ line.material.uom }}, but this line now says {% if line.vendor %}{{ line.vendor.name }}{% else %}no vendor{% endif %}. Nothing has been changed on it. Click to open {{ clash.number }} and take this line off.">▲</a>{% endfor %}
+              {% if may_edit %}<input class="cell ven" name="vendor-{{ line.id }}" list="vendorlist"
+                     value="{% if line.vendor %}{{ line.vendor.code }} · {{ line.vendor.name }}{% endif %}"
+                     placeholder="none — will not be ordered">
+              {% else %}{% if line.vendor %}{{ line.vendor.name }}{% else %}—{% endif %}{% endif %}
+            </div></td>
+            {% comment %}
+            >>> ANCHOR: VENDOR-RATE-CAPTURE <<<
+            ⚠⚠ THE PLACEHOLDER IS NOT A HINT, IT IS WHAT A BLANK CELL WILL USE.
+               That is why it changes here and not only in the arithmetic: when
+               this line names a vendor we have been billed by before, the grey
+               number is the rate we last actually paid them, and leaving the
+               cell blank uses exactly that. A grey 340 over a cell that computes
+               with 20 would be the chart that contradicts its own numbers, in a
+               cell that drives PO value.
+
+            ⚠ NO NEW ELEMENT AND NO EXTRA TEXT. Saahil, shown the alternative of
+               a "last paid ₹340, PO-000031" line beside the field: "I dont wish
+               to add extra text on the BOM Line, we can keep it as grey text as
+               we do for other key fields." The provenance lives on the Vendor
+               rates screen, and here only as a hover.
+            {% endcomment %}
+            <td class="gO">{% if may_edit %}<input class="cell num" name="vrate-{{ line.id }}"
+                     value="{{ line.vendor_rate|rupees2 }}"
+                     {% if row.captured_rate %}placeholder="{{ row.captured_rate|rupees2 }}"
+                       title="The rate last paid to {{ line.vendor.name }} for this material. Leave the cell blank to use it."
+                     {% else %}placeholder="{{ row.planning_rate|rupees2 }}"{% endif %}>
+              {% else %}<span class="accrue">₹{{ row.vendor_rate|rupees2 }}</span>{% endif %}</td>
+            {% comment %}
+            THE PLANNING RATE. Blank inherits the material master's estimation
+            rate, which the placeholder shows — so a blank cell is not an empty
+            one, it is "the company figure applies here".
+
+            Type in it and this project plans at its own rate without touching
+            the master, which is what a Lumpsum material needs: quantity 1, and
+            the amount typed here.
+            {% endcomment %}
+            <td class="gO">{% if may_edit %}<input class="cell num" name="prate-{{ line.id }}"
+                     value="{{ line.planned_rate|rupees2 }}"
+                     placeholder="{{ row.planning_rate|rupees2 }}"
+                     title="Blank uses the material master's rate. Type one to plan this project differently.">
+              {% else %}<span class="accrue">₹{{ row.planning_rate|rupees2 }}</span>{% endif %}
+              {% if row.rate_is_overridden %}
+                <div class="sugg" style="color:var(--blue)">this project only</div>
+              {% endif %}</td>
+            <td class="gO num {% if row.rate_variance > 0 %}up{% elif row.rate_variance < 0 %}down{% endif %}">
+              {{ row.rate_variance|pct }}</td>
+            <td class="gO num">{{ line.material.gst_percent|qty }}%</td>
+            <td class="gO num" style="font-weight:700;color:var(--navy)">₹{{ row.po_value|rupees }}</td>
+
+            {% comment %}
+            SITE STOCK AND THE REORDER THRESHOLD.
+
+            Both are typed by a person and neither is ever calculated. Stock is
+            load-bearing: "still to buy" subtracts it, so a stock box nobody can
+            reach makes every suggestion over-order.
+
+            A material in a non-stock group — a service, transport, a lumpsum —
+            has no meaningful "how many are on site", so those two are shown
+            read-only rather than inviting a number that would mean nothing.
+            {% endcomment %}
+            {% with stocked=line.material.group.is_stock_item %}
+            <td class="gS"><div class="flagcell">
+              {% if row.below_threshold %}<span class="lowflag" title="below threshold">▲</span>{% endif %}
+              {% comment %}
+              ⚠ THE SAME MATERIAL CARRIES STOCK ON ANOTHER LINE OF THIS BOM.
+                Not an error — per-line stock is an allocation, so two lines of
+                100 mean 200 bags split between two construction activities, and that is the
+                intended way to use it. It is simply indistinguishable from one
+                pile of 100 typed twice, and only the person entering it knows
+                which they meant. So: say where else it is and what it adds up
+                to, in the tooltip, against the box it is about. No banner —
+                three to four hundred lines an activity would bury the grid.
+              {% endcomment %}
+              {% if row.stock_echo %}
+                <span class="lowflag" style="color:var(--amber)"
+                      title="This material also holds stock on {% for name, qty in row.stock_echo.elsewhere %}{{ name }} ({{ qty|qty }}){% if not forloop.last %}, {% endif %}{% endfor %}. Together they come to {{ row.stock_echo.total|qty }} on this project. That is correct if the pile really is split between construction activities — check it is not the same stock entered twice.">▲</span>
+              {% endif %}
+              {% if may_stock %}<input class="cell num" name="stock-{{ line.id }}" value="{{ row.stock_qty|qty }}"
+                     {% if not stocked %}readonly title="{{ line.material.group.name }} is not stock-tracked"{% endif %}>
+              {% else %}<span class="accrue">{{ row.stock_qty|qty }}</span>{% endif %}
+            </div></td>
+            <td class="gS">{% if may_stock %}<input class="cell num" name="min-{{ line.id }}" value="{{ row.min_qty|qty }}"
+                     {% if not stocked %}readonly title="{{ line.material.group.name }} is not stock-tracked"{% endif %}>
+              {% else %}<span class="accrue">{{ row.min_qty|qty }}</span>{% endif %}</td>
+            {% endwith %}
+
+            {% comment %}
+            The plan was cut below what live drafts are already ordering, so the
+            flag belongs here — against the number that moved, not against the
+            material code. Approved quantities are not counted: they are already
+            committed and are not this screen's argument to have.
+            {% endcomment %}
+            <td class="gP"><div class="flagcell">
+              {% if row.conflict.over_planned %}<span class="lowflag"
+                   title="Live drafts are ordering {{ row.conflict.over_planned|qty }} {{ line.material.uom }} more than this plan still needs. Reduce the quantity on the draft itself, or put the plan back up.">▲</span>{% endif %}
+              {% if may_edit %}<input class="cell num" name="plan-{{ line.id }}" value="{{ row.planned_qty|qty }}">
+              {% else %}<span class="accrue">{{ row.planned_qty|qty }}</span>{% endif %}
+            </div></td>
+            <td class="gP accrue">{{ row.approved_qty|qty }}</td>
+            <td class="gP accrue">{{ row.draft_qty|qty }}</td>
+            <td class="gP accrue">{{ row.received_qty|qty }}</td>
+            <td class="gP num">₹{{ row.estimated_value|rupees }}</td>
+            <td class="gP num">₹{{ row.used_value|rupees }}</td>
+
+            <td>{% if may_edit %}<button type="submit" class="link"
+                        formaction="{% url 'bom_remove_line' project.id line.id %}"
+                        onclick="return confirm('Remove {{ line.material.code|escapejs }} from {{ activity.name|escapejs }}?');"
+                        >remove</button>{% endif %}</td>
+          </tr>
+          {% endwith %}
+        {% empty %}
+          <tr><td colspan="20" style="color:var(--muted);padding:14px">
+            Nothing on {{ activity.name }} yet. Search below and add materials.</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if rows %}
+        <tfoot>
+          <tr>
+            <td colspan="4">TOTAL — {{ totals.line_count }} line{{ totals.line_count|pluralize }}</td>
+            <td class="num">{{ totals.order_qty_total|qty }}</td>
+            <td colspan="5"></td>
+            <td class="num">₹{{ totals.po_value_now|rupees }}</td>
+            <td colspan="6"></td>
+            <td class="num">₹{{ totals.planned_value|rupees }}</td>
+            <td class="num">₹{{ totals.used_value|rupees }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+
+    <datalist id="vendorlist">
+      {% for vendor in vendors %}<option value="{{ vendor.code }} · {{ vendor.name }}"></option>{% endfor %}
+    </datalist>
+
+    <div class="legend">
+      <span><i class="sw" style="background:#FFFBEA;border-color:#C9A227"></i> <b>order qty — blank orders nothing.</b> "still to buy" is advice, not an instruction</span>
+      <span><i class="sw" style="background:var(--edit)"></i> you type</span>
+      <span><span class="lowflag">▲</span> look at this figure — stock below its threshold, or a live
+        draft that no longer agrees with it</span>
+      <span>Approved, In Draft and Received are added up from the purchase orders — they cannot be typed</span>
+    </div>
+  </div>
+</form>
+
+{% comment %}
+THE DRAFT-PURCHASE-ORDER PANEL THAT USED TO SIT HERE HAS GONE.
+
+It was scaffolding, and it said so at the time: it existed only because Saahil
+wanted a discard warning and there was no other way to see a draft. The real
+purchase-order screen now does that job properly — vendors, their documents, and
+the document itself with everything on it.
+
+The count in the toolbar above links straight there, so a draft is still one
+click away from the BOM. Two screens listing the same drafts would eventually
+disagree about them.
+{% endcomment %}
+
+{% comment %}
+⚠ THE WHOLE ADD-MATERIALS PANEL IS bom.edit. Putting a material onto the sheet
+  is planning, not stock-keeping; a site engineer reading this screen to keep
+  the stock figure honest has no business adding lines to it.
+{% endcomment %}
+{% if may_edit %}
+{# ---------------- adding materials. Its own form: searching is a GET, adding is a POST ---- #}
+{% comment %}
+⚠ {% comment %}, not {# #}. Django's hash comment is SINGLE-LINE ONLY — spread
+it over three lines and it is not a comment at all, it is text, and it appears
+on the screen for everyone to read. That happened here and Saahil spotted it on
+his own BOM screen. A test now scans every template for it.
+
+The id below is load-bearing: tests slice the page on it to check what the
+material search offers. Without it they split on the class, which silently
+started matching the draft-PO panel above once that was added.
+{% endcomment %}
+<div class="searchbox" id="material-search">
+  <h3>Add materials to {{ activity.name }}</h3>
+
+  <form method="get" action="{% url 'bom_screen' project.id %}">
+    <input type="hidden" name="activity" value="{{ activity.abbreviation }}">
+    <div class="srow">
+      <input type="search" name="q" value="{{ query }}"
+             placeholder="Type 2+ characters — searches code, description, specification and group together">
+      <select name="group">
+        <option value="">All groups</option>
+        {% for group in groups %}
+          <option value="{{ group.code }}" {% if group.code == group_code %}selected{% endif %}>
+            {{ group.code }} — {{ group.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="scope">
+        <option value="activity" {% if scope != "all" %}selected{% endif %}>This activity + common</option>
+        <option value="all" {% if scope == "all" %}selected{% endif %}>Every construction activity</option>
+      </select>
+      <button class="sec" type="submit">Search</button>
+    </div>
+  </form>
+
+  <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">
+    {{ hit_count }} match{{ hit_count|pluralize:"es" }}{% if hit_count > search_limit %} — showing the first {{ search_limit }}{% endif %}.
+    Which materials this activity offers comes from the material–activity links, not from the code.
+  </div>
+
+  <form method="post" action="{% url 'bom_add_lines' project.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="activity" value="{{ activity.abbreviation }}">
+    <div class="results">
+      <table>
+        <thead><tr><th style="width:26px"></th><th>Code</th><th>Material</th><th>Spec</th>
+          <th>Group</th><th>UOM</th><th class="num">Market rate</th><th></th></tr></thead>
+        <tbody>
+        {% for material in hits %}
+          <tr>
+            <td><input type="checkbox" name="material" value="{{ material.id }}"></td>
+            <td class="code">{{ material.code }}</td>
+            <td>{{ material.name }}</td>
+            <td style="color:var(--muted)">{{ material.specification }}</td>
+            <td>{{ material.group.code }}</td>
+            <td>{{ material.uom }}</td>
+            <td class="num">{{ material.estimation_rate|rupees2 }}</td>
+            <td>{% if material.is_common %}<span class="pill p-common">Common</span>{% endif %}
+                {% if material.id in on_sheet %}<span class="pill p-onsheet">on sheet</span>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" style="color:var(--muted);padding:12px">
+            No match. Try fewer filters, or switch the scope to Every construction activity.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if hits %}
+      <div style="margin-top:9px;display:flex;align-items:center;gap:12px">
+        <button type="submit">Add ticked materials</button>
+        <span style="color:var(--muted);font-size:12px">they drop in with quantity blank, ready to type</span>
+      </div>
+    {% endif %}
+  </form>
+</div>
+{% endif %}
+
+{% comment %}
+⚠ THE TWO STANDING NOTES MOVED BEHIND THE ⓘ BUTTON — see the infopanel block.
+
+  They said what is still open (stock double-counted across activities, Delivered
+  before Paid, used value at master rate) and that WhatsApp is not really wired.
+  Both are still true and both are still on this screen — one click away.
+
+  The rule they now follow was already written down: standing notes go behind ⓘ,
+  because a permanent block of explanatory text stops being read after the third
+  visit. The ONE exception is the no-login warning, which stays on the page,
+  because a risk you have to click to discover is a risk nobody discovers.
+
+  Saahil asked what these boxes even said, which is the clearest possible
+  evidence that they had stopped being read.
+{% endcomment %}
+
+{% endif %}
+{% endblock %}

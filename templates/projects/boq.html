@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+THE BOQ SCREEN — step 2 of the process, from BOQ_Prototype.html.
+
+A flat ₹/sqft quote: each activity carries a rate, the amount is rate × built-up
+area, and the total is a composite ₹/sqft.
+
+⚠ IT PRODUCES MONEY BY CONSTRUCTION ACTIVITY, NEVER QUANTITIES. The BOQ cannot say how many bags
+  of cement to buy — planned quantities are typed by the admin on the BOM.
+
+⚠ AND THE MONEY IS NOT JUST A QUOTE. Each activity's amount becomes that
+  activity's RESERVE on the BOM: the budget every purchase is measured against.
+  That is why this screen locks the moment the project is Won.
+
+⚠ NOT ONE FIGURE IS CALCULATED IN THIS FILE. Every total is a property on
+  Estimate, so this screen, Admin and any future export read identical numbers.
+{% endcomment %}
+
+{% block title %}BOQ — {{ project.code }}{% endblock %}
+{% block subtitle %}
+  {{ project.name }} &nbsp;|&nbsp; BUA {{ project.bua_sqft|qty }} sqft
+  &nbsp;|&nbsp; Status: <b>{{ project.get_status_display|upper }}</b>
+{% endblock %}
+
+{% block nav %}{% include "projects/_nav.html" with here="boq" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "boq" %}{% endblock %}
+
+{% block content %}
+
+{% comment %}
+⚠ THE STATUS CONTROL LIVES HERE, ON THE SCREEN IT LOCKS.
+
+  It was only on the project edit form — two clicks away behind Projects → edit
+  — and Saahil went looking for it here and could not find it: "I could not see
+  a button to change the approval status from draft to quote to won? where is
+  that?"
+
+  The estimate below is what Won locks, so this is where the decision is made.
+  It is a form of its own rather than a control in the toolbar because HTML
+  forms cannot nest, and the toolbar already sits inside the save form.
+{% endcomment %}
+<div class="searchbox" style="margin-top:0;margin-bottom:12px;padding:9px 13px">
+  <form method="post" action="{% url 'project_status' project.id %}" class="srow"
+        style="margin-bottom:0">
+    {% csrf_token %}
+    <span class="hint" style="margin-right:2px">Project status</span>
+    <select name="status" class="cell" style="max-width:230px">
+      {% for value, label in statuses %}
+        <option value="{{ value }}" {% if project.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="sec sm" type="submit"
+            onclick="return confirm('Change {{ project.code|escapejs }} to the status selected?\n\nWon, Completed and Lost LOCK this estimate permanently — including in Admin. The only way back is to set it to Quoted again, which leaves a visible trace.');">
+      Set status</button>
+    <span class="hint" style="margin-left:4px">
+      {% if editable %}Editable while Draft or Quoted.
+      {% else %}<b style="color:var(--red)">Locked</b> — {{ project.get_status_display }}.{% endif %}
+      Won locks the estimate, because the reserve every site is measured against is a live link to
+      these rates.</span>
+  </form>
+</div>
+
+<form method="post" action="{% url 'boq_save' project.id %}">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">BOQ estimate</span>
+    <span class="sp"></span>
+    <span class="hint">{{ lines|length }} activit{{ lines|length|pluralize:"y,ies" }} quoted</span>
+    {% comment %}
+    >>> ANCHOR: BOQ-PDF <<<
+    ⚠ QUOTED ONWARDS ONLY, and the button is not shown at all on a Draft. Saahil:
+      "once they quote it, they download it, and then they upload it onto a
+      portal." A draft estimate is a number still being argued about; on paper,
+      in somebody else's inbox, it is indistinguishable from an offer. The view
+      refuses a Draft as well — the hidden button is the courtesy, the refusal
+      is the rule.
+
+    ⚠ AN ORDINARY LINK, NOT A SUBMIT. It sits inside the save form, so a submit
+      button here would post the estimate on its way to fetching a PDF.
+    {% endcomment %}
+    {% if lines and project.status != 'draft' %}
+      <a class="sec sm" href="{% url 'boq_pdf' project.id %}"
+         style="text-decoration:none;padding:7px 15px;border:1px solid var(--navy);
+                border-radius:5px;color:var(--navy);background:#fff;font-size:12.5px">⤓ PDF</a>
+    {% endif %}
+    {% if editable %}
+      <button class="sec" type="submit">Save estimate</button>
+      {% if lines and not has_bom %}
+        {% comment %}
+        The gate is COMMERCIAL, not editorial: you do not plan purchases for work
+        nobody has agreed to pay for. It warns rather than refuses when the
+        project is not Won, because quoting and winning are days apart.
+        {% endcomment %}
+        <button type="submit" formaction="{% url 'bom_generate' project.id %}"
+                onclick="return confirm('Generate the bill of materials for {{ project.code|escapejs }}?\n\nEach activity on this estimate becomes a section of the BOM, carrying its amount as the budget you spend against.');"
+                >Generate BOM ▸</button>
+      {% endif %}
+    {% elif has_bom %}
+      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);
+                            background:var(--navy);color:#fff;font-weight:600"
+         href="{% url 'bom_screen' project.id %}">Open the BOM ▸</a>
+    {% endif %}
+  </div>
+
+  {% if not editable %}
+    {% comment %}
+    >>> ANCHOR: BOQ-LOCK <<<
+    Saahil's rule, 10 Aug: once a project is Won its BOQ is not editable, with no
+    exceptions — Admin included. The reserve is a live link to these rates, so
+    this is what stops the budget moving underneath the people measured against
+    it. The message says how to reopen it, because a rule nobody can work with
+    gets worked around.
+    {% endcomment %}
+    <div class="note" style="border-left-color:var(--green);background:var(--greenbg);color:#2C441B">
+      <b>🔒 Locked.</b> {{ locked_reason }}
+    </div>
+  {% endif %}
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    {% comment %}
+    ---------------- the summary. Every figure a property on Estimate ----
+
+    >>> ANCHOR: BOQ-LIVE-KPIS <<<
+    ⚠⚠ THE CARDS MOVE AS THE PERCENTAGES ARE TYPED, and until now they did not.
+       Saahil: the contingency and design fee inputs "do not move the KPI cards".
+       They were rendered server-side and the inputs sit BELOW them, so the
+       change was both invisible and off-screen until Save was pressed.
+
+    ⚠⚠ THE ARITHMETIC STILL LIVES IN PYTHON. What the browser does here is a
+       PREVIEW of three formulas, from a base cost the server worked out. It
+       cannot save anything: `boq_save` recomputes every figure from the model,
+       so the worst a wrong line of JavaScript can do is show a number that
+       corrects itself on Save. That is the property that makes this acceptable
+       at all — see the note on the script at the foot of this file.
+
+    ⚠ THE SUB-TEXT SAYS WHAT THE CARD DOES NOT (point 9). Three of these lines
+      used to restate the percentage typed in the box below — "5% of base"
+      under a field containing 5 — which is worse now that the two move
+      together. They carry the share of the QUOTE instead, which is the figure
+      nobody had: an 8% contingency is 6.4% of what the client is billed, and
+      that is the number that gets argued about.
+    {% endcomment %}
+    <div class="kpis" id="kpistrip"
+         data-base="{{ estimate.base_cost|stringformat:'f' }}"
+         data-bua="{{ project.bua_sqft|stringformat:'f' }}">
+      <div class="kpi">
+        <div class="l">Composite rate</div>
+        <div class="v">₹{{ estimate.composite_rate|rupees2 }}</div>
+        <div class="s">per sqft, ex-GST · {{ estimate.lines.count }} construction
+          activit{{ estimate.lines.count|pluralize:"y,ies" }}</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Base cost</div>
+        <div class="v">₹{{ estimate.base_cost|rupees }}</div>
+        <div class="s">composite × {{ project.bua_sqft|qty }} sqft</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Contingency</div>
+        <div class="v" data-kpi="contingency">₹{{ estimate.contingency_amount|rupees }}</div>
+        <div class="s" data-share="contingency">{{ estimate.contingency_share|qty }}% of the quote</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Design fee</div>
+        <div class="v" data-kpi="design">₹{{ estimate.design_fee_amount|rupees }}</div>
+        <div class="s" data-share="design">{{ estimate.design_fee_share|qty }}% of the quote</div>
+      </div>
+      <div class="kpi">
+        <div class="l">GST</div>
+        <div class="v" data-kpi="gst">₹{{ estimate.gst_amount|rupees }}</div>
+        <div class="s" data-share="gst">{{ estimate.gst_share|qty }}% of the quote</div>
+      </div>
+      <div class="kpi good">
+        <div class="l">Grand total</div>
+        <div class="v" data-kpi="total">₹{{ estimate.grand_total|rupees }}</div>
+        <div class="s" data-kpi="persqft">₹{{ estimate.cost_per_sqft|rupees2 }} per sqft</div>
+      </div>
+    </div>
+
+    {# ---------------- the construction activities ------------------------------------------ #}
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="hd">
+            <th>Construction activity / parameter</th><th>Basis</th>
+            <th class="num">Rate ₹/sqft</th><th class="num">GST %</th>
+            <th class="num">BUA sqft</th><th class="num">Amount ₹ (ex-GST)</th>
+            <th class="num">% of quote</th>
+            {% if editable %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+        {% for line in lines %}
+          <tr>
+            <td><b>{{ line.name }}</b>
+              {% if line.is_custom %}
+                <span class="pill p-onsheet" title="Added for this project">custom</span>{% endif %}</td>
+            <td style="color:var(--muted);font-size:11px">{{ line.basis|default:"—" }}</td>
+            {% if editable %}
+              <td><input class="cell num" name="rate-{{ line.id }}" value="{{ line.rate|rupees2 }}"></td>
+              <td><input class="cell num" name="gst-{{ line.id }}" value="{{ line.gst_percent|qty }}"></td>
+            {% else %}
+              <td class="num">{{ line.rate|rupees2 }}</td>
+              <td class="num">{{ line.gst_percent|qty }}%</td>
+            {% endif %}
+            <td class="num" style="color:var(--muted)">{{ project.bua_sqft|qty }}</td>
+            <td class="num"><b>₹{{ line.amount|rupees }}</b></td>
+            <td class="num" style="color:var(--muted)">
+              {% if estimate.composite_rate %}{{ line.share|pct }}{% else %}—{% endif %}</td>
+            {% if editable %}
+              <td><button type="submit" class="link"
+                          formaction="{% url 'boq_remove_activity' project.id line.id %}"
+                          onclick="return confirm('Remove {{ line.name|escapejs }} from this estimate?\n\nIt is excluded from the quote. The activity master is untouched.');"
+                          >remove</button></td>
+            {% endif %}
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" style="color:var(--muted);padding:14px">
+            Nothing quoted yet. Add the construction activities this project covers, below.</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if lines %}
+        <tfoot>
+          <tr>
+            <td colspan="2">TOTAL — {{ lines|length }} activit{{ lines|length|pluralize:"y,ies" }}</td>
+            <td class="num">₹{{ estimate.composite_rate|rupees2 }}</td>
+            <td></td>
+            <td class="num">{{ project.bua_sqft|qty }}</td>
+            <td class="num">₹{{ estimate.base_cost|rupees }}</td>
+            <td class="num">100.0%</td>
+            {% if editable %}<td></td>{% endif %}
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+
+    {# ---------------- the statutory add-ons -------------------------------- #}
+    {% if editable %}
+      <h3 style="margin:18px 0 4px;font-size:13px;color:var(--navy)">Statutory and add-on factors</h3>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">
+        Applied to the base cost, in this order: contingency, then design fee, then GST on the lot.
+      </div>
+      <div class="srow">
+        <span>Contingency
+          <input class="cell num" name="contingency" value="{{ estimate.contingency_percent|qty }}"
+                 style="width:70px;min-width:70px;display:inline-block"> %</span>
+        <span style="margin-left:18px">Design fee
+          <input class="cell num" name="design_fee" value="{{ estimate.design_fee_percent|qty }}"
+                 style="width:70px;min-width:70px;display:inline-block"> %</span>
+        <span style="margin-left:18px">GST (blended)
+          <input class="cell num" name="gst" value="{{ estimate.gst_percent|qty }}"
+                 style="width:70px;min-width:70px;display:inline-block"> %</span>
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{# ---------------- what is NOT quoted, and how to add it ------------------- #}
+{% comment %}
+⚠ EXCLUSIONS ARE A FACT ABOUT THE QUOTE, not an empty space. A construction activity that is not
+  on this estimate has no reserve, so anything bought under it later shows as
+  spend that was never quoted. Naming them here is how somebody notices before
+  the client does.
+{% endcomment %}
+<div class="searchbox">
+  <h3>{% if editable %}Add a construction activity{% else %}Excluded from this estimate{% endif %}
+    <span style="font-weight:400;color:var(--muted)">— {{ available|length }} activit{{ available|length|pluralize:"y,ies" }}
+      in the master {% if editable %}not yet on this quote{% else %}were not quoted{% endif %}</span></h3>
+
+  {% if available %}
+    {% comment %}
+    ⚠ TICK SEVERAL, ADD THEM IN ONE PRESS — the same interaction as the material
+      picker on the BOM. Saahil's point: a quote covers a dozen construction activities, and one
+      page reload per construction activity is twelve trips to do one job. It is also the
+      gesture people have already learnt on the other screen.
+    {% endcomment %}
+    <form method="post" action="{% url 'boq_add_activity' project.id %}">
+      {% csrf_token %}
+      <div class="results" style="max-height:none">
+        <table>
+          <thead><tr>
+            {% if editable %}<th style="width:30px"></th>{% endif %}
+            <th>Construction activity / parameter</th><th class="num">Company rate ₹/sqft</th>
+            <th class="num">GST %</th><th>What it covers</th>
+          </tr></thead>
+          <tbody>
+          {% for activity in available %}
+            <tr>
+              {% if editable %}
+                <td><input type="checkbox" name="activity" value="{{ activity.id }}"
+                           id="act-{{ activity.id }}"></td>
+              {% endif %}
+              <td><label for="act-{{ activity.id }}" style="cursor:pointer">{{ activity.name }}</label></td>
+              <td class="num">{{ activity.rate|rupees2 }}</td>
+              <td class="num">{{ activity.gst_percent|qty }}%</td>
+              <td style="color:var(--muted);font-size:11px">{{ activity.basis|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if editable %}
+        <div style="margin-top:9px;display:flex;align-items:center;gap:12px">
+          <button type="submit">Add ticked construction activities</button>
+          <span style="color:var(--muted);font-size:12px">
+            they come in at the company rate, editable above for this project only</span>
+        </div>
+      {% else %}
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+          These have no reserve on this project, so anything bought under them shows as spend that
+          was never quoted — which is the point of listing them.
+        </div>
+      {% endif %}
+    </form>
+  {% else %}
+    <div style="color:var(--muted)">Every construction activity in the master is on this estimate.</div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "boq" %}{% endblock %}

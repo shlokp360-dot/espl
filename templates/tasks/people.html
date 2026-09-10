@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+PEOPLE — who is carrying what, and who is stuck.
+
+⚠ THIS IS NOT A LEAGUE TABLE AND MUST NOT BECOME ONE. The columns say what is on
+  somebody's plate, not how good they are: six overdue rows may mean one person
+  is the only one on a site that has been waiting three weeks for material. The
+  delay log is where the reason lives, and every row links straight to it.
+
+⚠ UNASSIGNED IS THE FIRST ROW, NOT THE LAST. Work nobody is holding is the one
+  line on this screen that is somebody's job to fix today.
+{% endcomment %}
+
+{% block title %}People{% endblock %}
+{% block subtitle %}Open work per person{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="people" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "people" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">People</span>
+  <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
+    <select name="project" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <option value="">Every project</option>
+      {% for option in projects %}
+        <option value="{{ option.pk }}" {% if project_id == option.pk|stringformat:"s" %}selected{% endif %}>
+          {{ option.code }} — {{ option.name }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="sec sm">Show</button></noscript>
+  </form>
+  <span class="sp"></span>
+  <span class="hint">{{ today|date:"l, j F Y" }}</span>
+</div>
+
+{% if unassigned %}
+  {% comment %}
+  ⚠ THIS ONE SURVIVES BECAUSE IT IS AN INSTRUCTION, NOT AN EXPLANATION. Nobody
+    sees that work on their own screen and nobody can tick it, so it will sit
+    there until somebody is told.
+  {% endcomment %}
+  <div class="note tight">
+    <b>{{ unassigned.open|add:unassigned.blocked }} subtask{{ unassigned.open|add:unassigned.blocked|pluralize }}
+    have nobody on them.</b> Nobody can see or tick them — assign them on the board.
+  </div>
+{% endif %}
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead>
+      <tr class="hd">
+        <th>Person</th>
+        <th class="num" style="width:80px">Open</th>
+        <th class="num" style="width:80px">Blocked</th>
+        <th class="num" style="width:80px">Overdue</th>
+        <th class="num" style="width:80px">Done</th>
+        <th class="num" style="width:110px">Days late</th>
+        <th>Next one due</th>
+        <th style="width:110px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            {% if row.person %}
+              <b>{{ row.person.get_full_name|default:row.person.username }}</b>
+              {% if row.person.profile %}
+                <span class="pill p-approved">{{ row.person.profile.get_role_display }}</span>
+              {% endif %}
+            {% else %}
+              <b style="color:var(--amber)">Not assigned to anybody</b>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.open }}</td>
+          <td class="num">{% if row.blocked %}<span class="pill p-onsheet">{{ row.blocked }}</span>{% else %}0{% endif %}</td>
+          <td class="num">{% if row.overdue %}<span class="pill p-lost">{{ row.overdue }}</span>{% else %}0{% endif %}</td>
+          <td class="num">{{ row.done }}</td>
+          <td class="num">
+            {% comment %}
+            Days late across everything they have finished — arithmetic, never a
+            score. It is here because a pattern is worth seeing; it is next to
+            the delay log link because the pattern is rarely about the person.
+            {% endcomment %}
+            {% if row.days_late %}<span class="up">{{ row.days_late }}</span>{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.next %}
+              {{ row.next.title }}
+              <span class="mut" style="color:var(--muted)">
+                · {{ row.next.header.project.code }} · due {{ row.next.planned_end|date:"d/m/Y" }}</span>
+            {% else %}
+              <span style="color:var(--muted)">nothing outstanding</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right">
+            {% if row.person %}
+              <a href="{% url 'task_delay_log' %}?person={{ row.person.pk }}">
+                <button type="button" class="sec sm">Delays</button></a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" style="color:var(--muted);padding:14px">
+          No subtasks have been created{% if project_id %} on this project{% endif %} yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "people" %}{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+THE VENDOR MASTER — 173 rows.
+
+⚠ GROUP AND ACTIVITY ARE TWO DIFFERENT COLUMNS AND BOTH ARE SHOWN. They answer
+  different questions and were nearly merged into one:
+
+    group     WHAT THIS VENDOR IS — Cement, Fabricator, Structure Engineer.
+              How you find them when you are searching.
+    activity  WHICH CONSTRUCTION ACTIVITY THEY SERVE. What the BOM filters its dropdown on.
+
+  Sambhav Hardware is one group and serves two construction activities. Collapsing the two would
+  have lost the ability to ask either question.
+
+⚠ THE MISSING-GSTIN COUNT IS ON THE TOOLBAR, NOT BURIED. A vendor without one
+  cannot have a purchase order approved, and that is much better discovered here
+  than by somebody trying to approve one.
+{% endcomment %}
+
+{% block title %}Vendors{% endblock %}
+{% block subtitle %}The vendor master{% endblock %}
+
+{% block headerinfo %}{% infobutton "vendor_list" %}{% endblock %}
+{% block infopanel %}{% infopanel "vendor_list" %}{% endblock %}
+
+{% block content %}
+
+{% include "projects/_mastertabs.html" with strip="vendors" here="vendor_list" %}
+
+<div class="toolbar">
+  <span class="ttl">Vendors</span>
+  <span class="sp"></span>
+  {% if missing_gstin %}
+    <span class="hint"><b style="color:var(--red)">{{ missing_gstin }} without a GSTIN</b></span>
+  {% endif %}
+  <span class="hint">{{ matched }} vendor{{ matched|pluralize }} found</span>
+  <a href="{% url 'vendor_new' %}"><button class="sm" type="button">+ New vendor</button></a>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+
+  <form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <h3>Find a vendor</h3>
+    <div class="srow">
+      <input type="search" name="q" value="{{ applied.q|default:'' }}"
+             placeholder="Code, name, contact, phone number or group">
+      <button class="sec sm" type="submit">Search</button>
+    </div>
+    <div class="srow">
+      <select name="group" title="What the vendor is">
+        <option value="">Every group</option>
+        {% for g in groups %}
+          <option value="{{ g.id }}" {% if applied.group == g.id %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="activity" title="Which construction activity they serve">
+        <option value="">Every construction activity</option>
+        {% for a in activities %}
+          <option value="{{ a.abbreviation }}" {% if applied.activity == a.abbreviation %}selected{% endif %}>
+            {{ a.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="type" title="Suppliers or contractors">
+        <option value="">PO &amp; WO — all</option>
+        <option value="PO" {% if applied.type == 'PO' %}selected{% endif %}>Suppliers (PO)</option>
+        <option value="WO" {% if applied.type == 'WO' %}selected{% endif %}>Contractors (WO)</option>
+      </select>
+      <select name="show">
+        <option value="active" {% if applied.show == 'active' %}selected{% endif %}>Active only</option>
+        <option value="inactive" {% if applied.show == 'inactive' %}selected{% endif %}>Inactive only</option>
+        <option value="all" {% if applied.show == 'all' %}selected{% endif %}>Active and inactive</option>
+      </select>
+      <label style="font-size:11.5px"><input type="checkbox" name="nogst" value="1"
+        {% if applied.nogst %}checked{% endif %}> No GSTIN only</label>
+      {% if applied.q or applied.group or applied.activity or applied.type or applied.nogst %}
+        <a href="{% url 'vendor_list' %}" style="font-size:11.5px">clear filters</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <h3>Bulk edit in Excel</h3>
+    <div class="srow">
+      <form method="post" action="{% url 'vendor_template' %}" style="margin:0">
+        {% csrf_token %}
+        <button class="sec sm" type="submit"
+                title="An empty sheet with the same columns, dropdowns and reference list — for adding new vendors">⤓ Blank template</button>
+      </form>
+      <form method="post" action="{% url 'vendor_export' %}?{{ querystring }}" style="margin:0">
+        {% csrf_token %}
+        {% comment %}
+        ⚠ THE QUERY STRING IS THE SELECTION — see the material list. The filters
+          above are how somebody picks a few vendors out of 173, so the export
+          follows them and the label says which it is doing.
+        {% endcomment %}
+        {% comment %}
+        ⚠ C4 — DISABLED AT ZERO, NOT HIDDEN. "⤓ Download these 0" was pressable
+          and produced a workbook with no rows. Hiding it would have been the
+          smaller change and the worse one: a control that vanishes makes people
+          hunt for it, while a greyed one stays where they expect and says why.
+          Same treatment on the material list.
+        {% endcomment %}
+        <button class="sec sm" type="submit" {% if not matched %}disabled
+                title="Nothing matches these filters, so there is nothing to download."{% endif %}>
+          {% comment %}
+          >>> ANCHOR: MASTER-EXPORT-FOLLOWS-FILTERS <<<
+          ⚠ `matched`, NOT `total_vendors` — the same fault as B3 on materials,
+            which was only invisible here because every vendor happens to be
+            active today. The screen shows active vendors by default and the
+            export follows the same filters, so the count must be the filtered
+            one. Deactivate one vendor and the old code would have started
+            lying.
+          {% endcomment %}
+          {% if filtered %}⤓ Download these {{ matched }}{% else %}⤓ Download all {{ matched }}{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'vendor_import' %}" enctype="multipart/form-data"
+            class="srow" style="margin:0">
+        {% csrf_token %}
+        <input type="file" name="file" accept=".xlsx" required
+               style="font-size:11.5px;max-width:280px">
+        <button class="sec sm" type="submit">⤒ Upload the corrected file</button>
+      </form>
+    </div>
+    <div class="legend" style="margin-top:2px">
+      <span><b>This is how to fill in GSTINs in bulk</b> — download, paste the column, upload.</span>
+    </div>
+    <div class="legend">
+      <span>Leave the code blank for a new vendor. Nothing is deleted by uploading; set
+        <b>Active</b> to No instead.</span>
+    </div>
+  </div>
+
+  {% if rows %}
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr class="hd">
+          <th>Code</th><th>Name</th><th>Contact</th><th>Phone</th>
+          <th>Group</th><th>Serves</th><th>Type</th><th>GSTIN</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in rows %}
+          <tr class="click" onclick="window.location='{% url 'vendor_edit' v.id %}'">
+            <td class="code">{{ v.code }}</td>
+            <td>{{ v.name }}{% if not v.is_active %}
+                  <span class="pill" style="background:#EDEDED;color:#555">inactive</span>{% endif %}</td>
+            <td style="color:var(--muted)">{{ v.contact_person }}</td>
+            <td>{{ v.phone }}</td>
+            <td>{{ v.group.name|default:"—" }}</td>
+            <td>{{ v.activity_1.abbreviation|default:"—" }}{% if v.activity_2 %} ·
+                  {{ v.activity_2.abbreviation }}{% endif %}</td>
+            <td>{% if v.default_document_type == 'WO' %}
+                  <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
+                {% else %}
+                  <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
+                {% endif %}</td>
+            <td>{% if v.gst_number %}<span class="code">{{ v.gst_number }}</span>
+                {% elif v.is_unregistered %}<span class="pill p-nogst">unregistered</span>
+                {% else %}<span class="pill p-nogst">missing</span>{% endif %}</td>
+            <td style="color:var(--blue)">edit ▸</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+    <div class="srow" style="margin-top:10px">
+      <span class="hint">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_previous %}
+        <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">◂ previous</a>{% endif %}
+      {% if page_obj.has_next %}
+        <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">next ▸</a>{% endif %}
+    </div>
+  {% endif %}
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      No vendors match that. <a href="{% url 'vendor_list' %}">Clear the filters</a>.
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>A vendor is identified by their phone number, not their name.</b> <b>Group and Serves are
+    different things</b> — group is what they are, Serves is what the BOM offers them on.
+  </div>
+</div>
+
+{% endblock %}

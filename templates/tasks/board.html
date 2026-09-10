@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+THE WORK BOARD — one project's milestones with their tasks underneath.
+
+⚠ THE ADD BUTTONS ARE AT THE TOP AND NOWHERE ELSE. Saahil's instruction while
+  reviewing the prototype: "bring all the add options on the top, if the list is
+  long, how much will the user scroll". Three buttons, one row, above everything.
+
+⚠ THE PROJECT PICKER IS THE FIRST CONTROL ON THE SCREEN, and every list below it
+  is filtered by it. Tasks do not cross sites — "all tasks are unique" — and the
+  New-subtask box below lists THIS project's headers only, which is the fault he
+  found in the prototype.
+
+⚠ WHAT A ROLE CANNOT DO IS NOT DRAWN. `tasks.manage` hides the three buttons and
+  the three dialogs; the views refuse as well. A button that answers with a 403
+  looks like a fault in the system rather than a rule of the business.
+{% endcomment %}
+
+{% block title %}Task management{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="board" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "board" %}{% endblock %}
+
+{% block content %}
+
+<style>
+/* Scoped to this screen. The add dialogs are plain forms in a <dialog>: no
+   framework, no state to keep, and the browser closes them on Escape. */
+.addform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
+.addform label{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+               color:var(--muted);margin-bottom:3px}
+.addform input,.addform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
+                               border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
+.addform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.addform .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+/* ⚠ normal, not nowrap. A one-line explanation inside a dialog overflowed it on
+   Saahil's screen and he sent a picture of it. */
+.addform p{margin:0;color:var(--muted);font-size:11.5px;white-space:normal;line-height:1.5}
+
+.hdr{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px}
+.hdr .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 13px;
+          border-bottom:1px solid var(--line);background:#FAFBFD}
+.hdr .top .nm{font-size:13.5px;font-weight:600;color:var(--navy)}
+.hdr .top .sp{flex:1}
+.hdr .win{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.hdr .prog{width:130px}
+.hdr .prog .n{font-size:10.5px;color:var(--muted);text-align:right}
+.hdr .body{padding:0}
+.hdr table{font-size:12px}
+.hdr .none{padding:11px 13px;font-size:12px;color:var(--muted)}
+.mstones{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px}
+.mstone{border:1px solid #C3CEE0;background:var(--pale);border-radius:5px;padding:6px 11px;font-size:11.5px}
+.mstone b{color:var(--navy);display:block;font-size:12px}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">Task management</span>
+
+  {% if projects %}
+    {% comment %}
+    A GET form, so the chosen project is in the address — which means the screen
+    can be bookmarked, sent to somebody, and reloaded after an add without
+    losing where you were.
+    {% endcomment %}
+    <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
+      <select name="project" onchange="this.form.submit()"
+              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        {% for option in projects %}
+          <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
+            {{ option.code }} — {{ option.name }}{% if option.status == 'completed' %} (completed){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="sec sm">Show</button></noscript>
+    </form>
+  {% endif %}
+
+  <span class="sp"></span>
+
+  {% if project and user|can:"tasks.manage" %}
+    {% comment %}
+    ⚠⚠ TWO BUTTONS, NOT THREE. "Add milestone" made a separate record with a
+       TYPED date; a milestone is a milestone now, so this button IS that one.
+       Saahil: "it's either milestone or head work… we can go ahead with head
+       work, remove the milestone, and then we change the name of head work to
+       milestone."
+    {% endcomment %}
+    <button type="button" onclick="document.getElementById('newheader').showModal()">Add milestone</button>
+    <button type="button" class="sec"
+            {% if not headers %}disabled title="Add a milestone first — a task has to sit under one"{% else %}onclick="document.getElementById('newsubtask').showModal()"{% endif %}>Add task</button>
+  {% endif %}
+</div>
+
+{% if not projects %}
+
+  <div class="note tight">
+    <b>No project is Won yet.</b> The board opens once a project is marked Won on its BOQ.
+  </div>
+
+{% else %}
+
+  {% if user|can:"tasks.manage" and rows %}
+    {% comment %}
+    ⚠ ONE FORM, DECLARED HERE, AND THE TICK BOXES LIVE INSIDE THE CARDS BELOW.
+      They join it through the HTML `form` attribute rather than by being wrapped
+      in it — wrapping would put the per-row Reopen forms INSIDE this one, and a
+      form inside a form is invalid markup that browsers resolve by dropping one
+      of them, usually the one you needed.
+
+    ⚠ AND IT IS AT THE TOP, like the three Add buttons. "If the list is long, how
+      much will the user scroll."
+    {% endcomment %}
+    <form method="post" action="{% url 'task_subtasks_bulk' %}" id="bulkform"
+          class="card" style="padding:9px 12px;margin-bottom:11px;display:flex;gap:8px;
+                              align-items:center;flex-wrap:wrap;font-size:12px">
+      {% csrf_token %}
+      <input type="hidden" name="project" value="{{ project.pk }}">
+
+      <b style="color:var(--navy)">Ticked tasks:</b>
+
+      <span style="display:flex;gap:5px;align-items:center">
+        move
+        <input type="number" name="days" value="7" style="width:64px;padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12px">
+        days
+        <select name="shift_reason" style="padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12px;background:#fff">
+          <option value="">why?</option>
+          {% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+        <button type="submit" name="action" value="shift" class="sec sm">Shift</button>
+      </span>
+
+      <span style="color:var(--line)">|</span>
+
+      <span style="display:flex;gap:5px;align-items:center">
+        hand to
+        <select name="assignee" style="padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12px;background:#fff">
+          <option value="">nobody</option>
+          {% for person in people %}
+            <option value="{{ person.pk }}">{{ person.get_full_name|default:person.username }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" name="action" value="reassign" class="sec sm">Reassign</button>
+      </span>
+
+      <span class="sp" style="flex:1"></span>
+      <span style="color:var(--muted);font-size:11px">
+        a negative number pulls work forward, and needs no reason</span>
+    </form>
+  {% endif %}
+
+  {% for row in rows %}
+    <div class="hdr">
+      <div class="top">
+        {% if user|can:"tasks.manage" %}
+          <a class="nm" href="{% url 'task_header_edit' row.header.pk %}"
+             style="text-decoration:none">{{ row.header.name }}</a>
+        {% else %}
+          <span class="nm">{{ row.header.name }}</span>
+        {% endif %}
+        <span class="pill p-approved">{{ row.header.activity.abbreviation }}</span>
+        {% if row.header.was_rescheduled %}
+          <span class="pill p-onsheet"
+                title="First promised {{ row.header.promised_end|date:'d/m/Y' }}">rescheduled
+                {{ row.header.days_shifted }}d</span>
+        {% endif %}
+        <span class="mut" style="font-size:11.5px;color:var(--muted)">
+          {% if row.header.owner %}{{ row.header.owner.get_full_name|default:row.header.owner.username }}
+          {% else %}no owner{% endif %}
+        </span>
+
+        {% if row.over %}
+          {% comment %}
+          ⚠ THIS IS NOT "LATE". Nothing has slipped — the tasks simply add up
+            to more than the window the manager committed to, which is visible
+            before any date passes. See TaskHeader.days_over_plan.
+          {% endcomment %}
+          <span class="pill p-onsheet" title="The subtasks run past the window this header task was given">
+            {{ row.over }} day{{ row.over|pluralize }} past plan</span>
+        {% endif %}
+
+        <span class="sp"></span>
+        <span class="win">{{ row.header.start|date:"d/m/Y" }} → {{ row.header.planned_end|date:"d/m/Y" }}</span>
+        <span class="prog">
+          <span class="bar"><i style="width:{{ row.percent }}%"></i></span>
+          <span class="n">{{ row.done }} of {{ row.total }} done</span>
+        </span>
+        {% comment %}
+        >>> ANCHOR: TASK-DELETE <<<
+        ⚠ ONLY ON AN EMPTY MILESTONE. The server refuses either way and says how
+          many tasks are in the way, but a Delete button on a phase holding a
+          fortnight of work is a cascade wearing a phase name. Empty it
+          deliberately, one row at a time.
+        {% endcomment %}
+        {% if user|can:"tasks.manage" and not row.subtasks %}
+          <form method="post" action="{% url 'task_header_delete' row.header.pk %}"
+                style="margin:0 0 0 6px;display:inline"
+                onsubmit="return confirm('Delete the milestone “{{ row.header.name|escapejs }}”?\n\nIt holds no tasks. This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="sec sm"
+                    style="color:var(--red);border-color:#E0B4B4">Delete</button>
+          </form>
+        {% endif %}
+      </div>
+
+      <div class="body">
+        {% if row.subtasks %}
+          <table>
+            <thead>
+              <tr class="hd">
+                {% if user|can:"tasks.manage" %}<th style="width:26px"></th>{% endif %}
+                <th>Task</th><th>Who</th><th style="width:70px">Priority</th>
+                <th style="width:90px">Start</th><th style="width:90px">Due</th>
+                <th style="width:110px">Status</th><th style="width:150px">Delay</th>
+                {% if user|can:"tasks.manage" %}<th style="width:135px"></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for subtask in row.subtasks %}
+                <tr>
+                  {% if user|can:"tasks.manage" %}
+                    {% comment %}
+                    ⚠ form="bulkform" — this box belongs to the form at the top of
+                      the screen without being wrapped in it. See the note there.
+                    {% endcomment %}
+                    <td style="text-align:center">
+                      <input type="checkbox" name="subtask" value="{{ subtask.pk }}" form="bulkform">
+                    </td>
+                  {% endif %}
+                  <td>
+                    {{ subtask.title }}
+                    {% if subtask.was_rescheduled %}
+                      <span class="pill p-onsheet"
+                            title="First promised {{ subtask.promised_end|date:'d/m/Y' }}{% if subtask.shift_reason %} · {{ subtask.get_shift_reason_display }}{% endif %}">+{{ subtask.days_shifted }}d</span>
+                    {% endif %}
+                  </td>
+                  <td>{% if subtask.assignee %}{{ subtask.assignee.get_full_name|default:subtask.assignee.username }}
+                      {% else %}<span style="color:var(--muted)">unassigned</span>{% endif %}</td>
+                  <td>
+                    {% if subtask.priority == 'H' %}<span class="pill p-nogst">High</span>
+                    {% elif subtask.priority == 'L' %}<span class="pill p-draft">Low</span>
+                    {% else %}<span style="color:var(--muted)">Normal</span>{% endif %}
+                  </td>
+                  <td>{{ subtask.start|date:"d/m/Y" }}</td>
+                  <td>{{ subtask.planned_end|date:"d/m/Y" }}</td>
+                  <td>
+                    {% if subtask.status == 'done' %}<span class="pill p-delivered">Done</span>
+                    {% elif subtask.status == 'blocked' %}<span class="pill p-lost">Blocked</span>
+                    {% else %}<span class="pill p-draft">Not started</span>{% endif %}
+                  </td>
+                  <td>
+                    {% comment %}
+                    ⚠ THE NUMBER OF DAYS IS ARITHMETIC AND THE REASON IS TYPED —
+                      "recorded meaning, automatically captured, but the reason
+                      should be entered by the user". Neither is shown on the
+                      chart; the delay log is a screen of its own.
+                    {% endcomment %}
+                    {% if subtask.days_late %}
+                      <span class="up">{{ subtask.days_late }} day{{ subtask.days_late|pluralize }} late</span>
+                      {% if subtask.delay_reason %}<br><span style="font-size:11px;color:var(--muted)">{{ subtask.get_delay_reason_display }}</span>{% endif %}
+                    {% elif subtask.days_overdue %}
+                      <span class="up">{{ subtask.days_overdue }} day{{ subtask.days_overdue|pluralize }} overdue</span>
+                    {% else %}
+                      <span style="color:var(--muted)">—</span>
+                    {% endif %}
+                  </td>
+                  {% if user|can:"tasks.manage" %}
+                    <td style="text-align:right;white-space:nowrap">
+                      <a href="{% url 'task_subtask_edit' subtask.pk %}"><button type="button" class="sec sm">Edit</button></a>
+                      {% comment %}
+                      ⚠ THE ONLY WAY A TICK COMES BACK, AND AN ENGINEER CANNOT DO
+                        IT. "The engineer's tick is final" cuts both ways: nobody
+                        overrules it, and nobody quietly takes it back either.
+                        Correcting a record is a manager's act.
+                      {% endcomment %}
+                      {% if subtask.status == 'done' %}
+                        <form method="post" action="{% url 'task_subtask_reopen' subtask.pk %}"
+                              style="margin:0;display:inline"
+                              onsubmit="return confirm('Reopen this? The finish date and the delay reason are cleared.');">
+                          {% csrf_token %}
+                          <button type="submit" class="sec sm">Reopen</button>
+                        </form>
+                      {% endif %}
+                      {% comment %}
+                      >>> ANCHOR: TASK-DELETE <<<
+                      ⚠ THE ONLY CONTROL IN THIS MODULE THAT DESTROYS A RECORD, so
+                        the confirmation names the row and says what goes with it.
+                        Saahil's option B: Admin and PM may delete any task,
+                        history included, and it is their judgement.
+                      ⚠ THE DELAY LOG COUNTS FROM THE SUBTASKS THEMSELVES — there
+                        is no separate log table — so deleting a late task takes
+                        its days out of the count. Said here rather than
+                        discovered later.
+                      {% endcomment %}
+                      <form method="post" action="{% url 'task_subtask_delete' subtask.pk %}"
+                            style="margin:0;display:inline"
+                            onsubmit="return confirm('Delete “{{ subtask.title|escapejs }}”?\n\nThis cannot be undone.{% if subtask.days_late %} Its {{ subtask.days_late }} late day{{ subtask.days_late|pluralize }} will no longer be counted in the delay log.{% endif %}');">
+                        {% csrf_token %}
+                        <button type="submit" class="sec sm"
+                                style="color:var(--red);border-color:#E0B4B4">Delete</button>
+                      </form>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="none">Nothing under this yet. The window above is what was committed to.</div>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <div class="card" style="color:var(--muted)">
+      <b style="color:var(--navy)">No work planned on {{ project.code }} yet.</b><br>
+      A milestone is a package of work — Earthing, Slab shuttering — with an owner and a window.
+      The tasks under it are what one person actually does.
+    </div>
+  {% endfor %}
+
+{% endif %}
+
+{% if project and user|can:"tasks.manage" %}
+
+  <dialog class="info" id="newheader">
+    <div class="hd"><b>Add a milestone</b><span class="sp"></span>
+      <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+    <form method="post" action="{% url 'task_header_new' %}" class="addform">
+      {% csrf_token %}
+      <input type="hidden" name="project" value="{{ project.pk }}">
+      <p>A package of work on {{ project.code }} — the name people use on site. The activity ties it to
+         the estimate, which is what will one day let the system say "Electrical is three days behind".</p>
+      <div>
+        <label>Name</label>
+        <input type="text" name="name" maxlength="120" required placeholder="Earthing" autofocus>
+      </div>
+      <div class="two">
+        <div>
+          <label>Construction activity</label>
+          <select name="activity" required>
+            <option value="">Choose one</option>
+            {% for activity in activities %}
+              <option value="{{ activity.pk }}">{{ activity.abbreviation }} — {{ activity.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Owner</label>
+          <select name="owner">
+            <option value="">Nobody yet</option>
+            {% for person in people %}
+              <option value="{{ person.pk }}">{{ person.get_full_name|default:person.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="two">
+        <div><label>Starts</label><input type="date" name="start" required></div>
+        <div><label>Days</label><input type="number" name="days" min="1" value="{{ default_days }}" required></div>
+      </div>
+      <p>The finish is worked out from the start and the duration, and counts the first day — three days
+         from Monday finishes Wednesday. It is never typed, so it can never disagree with itself.</p>
+      <div class="foot">
+        <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit">Add milestone</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="info" id="newsubtask">
+    <div class="hd"><b>Add a task</b><span class="sp"></span>
+      <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+    <form method="post" action="{% url 'task_subtask_new' %}" class="addform">
+      {% csrf_token %}
+      <input type="hidden" name="project" value="{{ project.pk }}">
+      <p>One person, one piece of work, one date. Whoever it is assigned to is the only person who can
+         mark it done.</p>
+      <div>
+        <label>Under which milestone</label>
+        {% comment %}
+        ⚠ THIS PROJECT'S HEADERS ONLY. The prototype listed every header in the
+          system and Saahil caught it: filing Earthing against the wrong building
+          is not a mistake the person making it would ever notice. The view
+          checks the same thing again on the way in.
+        {% endcomment %}
+        <select name="header" required>
+          {% for header in headers %}
+            <option value="{{ header.pk }}">{{ header.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>What needs doing</label>
+        <input type="text" name="title" maxlength="200" required placeholder="Dig earth pits">
+      </div>
+      <div class="two">
+        <div>
+          <label>Assigned to</label>
+          <select name="assignee">
+            <option value="">Nobody yet</option>
+            {% for person in people %}
+              <option value="{{ person.pk }}">{{ person.get_full_name|default:person.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Priority</label>
+          <select name="priority">
+            {% for value, label in priorities %}
+              <option value="{{ value }}" {% if value == 'N' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="two">
+        <div><label>Starts</label><input type="date" name="start" required></div>
+        <div><label>Days</label><input type="number" name="days" min="1" value="1" required></div>
+      </div>
+      <div class="foot">
+        <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit">Add task</button>
+      </div>
+    </form>
+  </dialog>
+
+
+{% endif %}
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "board" %}{% endblock %}

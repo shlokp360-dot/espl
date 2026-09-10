@@ -1,0 +1,27 @@
+{% comment %}
+The analytics tab strip. `here` lights one of them.
+
+⚠ THE TABS MIRROR THE LAUNCHPAD TILES. Saahil's instruction: an overview across
+  everything, then analytics for each tile a business head already knows — the
+  estimate, the buying, the money, the work. A reporting module organised by
+  anything other than the way the business is organised has to be learned.
+
+⚠ EVERY TAB CARRIES THE CURRENT FILTERS. Moving between pages with the project
+  and month you were already looking at is the difference between a module and
+  five unrelated screens.
+{% endcomment %}
+{% with q=request.GET.urlencode %}
+<nav>
+  <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'analytics_home' %}?{{ q }}">Overview</a>
+  <a class="{% if here == 'g2n' %}on{% endif %}" href="{% url 'analytics_g2n' %}?{{ q }}">Gross to net</a>
+  <a class="{% if here == 'budget' %}on{% endif %}" href="{% url 'analytics_budget' %}?{{ q }}">Budget</a>
+  <a class="{% if here == 'bom' %}on{% endif %}" href="{% url 'analytics_bom' %}?{{ q }}">Buying</a>
+  <a class="{% if here == 'payments' %}on{% endif %}" href="{% url 'analytics_payments' %}?{{ q }}">Payments</a>
+  <a class="{% if here == 'tasks' %}on{% endif %}" href="{% url 'analytics_tasks' %}?{{ q }}">Work</a>
+  <a class="{% if here == 'documents' %}on{% endif %}" href="{% url 'analytics_documents' %}?{{ q }}">Documents</a>
+  {% comment %}
+  ⚠ NO "HOME" HERE ANY MORE — it is beside the ⓘ in the header, on every screen.
+    In the strip it read as "the analytics home" rather than the launchpad.
+  {% endcomment %}
+</nav>
+{% endwith %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+DOCUMENTS — where every clickable figure in the module lands.
+
+⚠ A LIST, NOT A SECOND DOCUMENT SCREEN. Opening a row goes to the real purchase
+  order, which is the only place one may be read in full or changed. This page
+  exists so that a reader who disbelieves a figure can see what was added up.
+
+⚠ THE FOOTER ADDS THE ROWS ON SCREEN. If it does not match the figure that sent
+  you here, the figure is wrong — and that is the point of having it.
+{% endcomment %}
+
+{% block title %}Documents{% endblock %}
+{% block subtitle %}{{ view.label }}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="documents" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_documents" %}{% endblock %}
+{% block infopanel %}{% infopanel "analytics_documents" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Documents</span>
+  {% if stage %}<span class="pill p-approved">{{ stage }}</span>{% endif %}
+  {% if status %}<span class="pill p-quoted">{{ status }}</span>{% endif %}
+  {% if vendor %}<span class="pill p-onsheet">{{ vendor.name }}</span>{% endif %}
+  <span class="hint">{{ rows|length }} document{{ rows|length|pluralize }}</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th style="width:120px">Number</th>
+      <th>Vendor</th>
+      <th style="width:110px">Project</th>
+      <th style="width:90px">Status</th>
+      <th style="width:90px">Approved</th>
+      <th style="width:90px">Delivered</th>
+      <th style="width:90px">Due</th>
+      <th style="width:90px">Paid</th>
+      <th class="num" style="width:120px">Basic</th>
+      <th class="num" style="width:110px">GST</th>
+      <th class="num" style="width:130px">Order value</th>
+      <th class="num" style="width:130px">Net payable</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="code">
+            <a href="{% url 'po_detail' row.order.project_id row.order.pk %}">{{ row.order.number }}</a>
+          </td>
+          <td>{{ row.order.vendor.name }}</td>
+          <td>{{ row.order.project.code }}</td>
+          <td>
+            {% if row.order.status == 'paid' %}<span class="pill p-paid">Paid</span>
+            {% elif row.order.status == 'delivered' %}<span class="pill p-delivered">Delivered</span>
+            {% elif row.order.status == 'approved' %}<span class="pill p-approved">Approved</span>
+            {% else %}<span class="pill p-draft">Draft</span>{% endif %}
+          </td>
+          <td>{{ row.order.approved_at|date:"d/m/Y"|default:"—" }}</td>
+          <td>{{ row.order.delivered_at|date:"d/m/Y"|default:"—" }}</td>
+          <td>{{ row.due|date:"d/m/Y"|default:"—" }}
+            {% if row.assumed and row.due %}
+              <span class="mut" style="color:var(--muted);font-size:10.5px" title="No terms on the vendor — the default 30 days">*</span>
+            {% endif %}
+          </td>
+          <td>{{ row.order.paid_at|date:"d/m/Y"|default:"—" }}</td>
+          <td class="num">{{ row.totals.taxable|rupees }}</td>
+          <td class="num">{{ row.totals.gst|rupees }}</td>
+          <td class="num">{{ row.totals.order_value|rupees }}</td>
+          <td class="num"><b>{{ row.totals.net_payable|rupees }}</b></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="12" style="color:var(--muted);padding:14px">
+          Nothing matches. Widen the period, or clear the project filter.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+      <tfoot><tr>
+        <td colspan="8">All {{ rows|length }}</td>
+        <td class="num">{{ ladder.taxable|rupees }}</td>
+        <td class="num">{{ ladder.gst|rupees }}</td>
+        <td class="num">{{ ladder.order_value|rupees }}</td>
+        <td class="num">{{ ladder.net_payable|rupees }}</td>
+      </tr></tfoot>
+    {% endif %}
+  </table>
+</div>
+
+<div class="note tight" style="margin-bottom:0">
+  <b>* means the due date used the default 30-day terms</b> — nothing is set on that vendor.
+</div>
+
+{% endblock %}

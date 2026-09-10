@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+The cross-project document register — the Purchase orders tile.
+
+⚠ THIS IS THE "LOOKING" SCREEN, NOT THE "WORKING" ONE. Documents are created
+  from the BOM and worked on inside a project; that path is untouched. This one
+  exists so nobody has to travel through a project to find something, which is
+  the reason Saahil asked for it in those words.
+
+⚠ TWO FORMS ON THIS PAGE, DELIBERATELY.
+  The filters are a plain GET form, so a narrowed view lives in the URL and can
+  be bookmarked or sent to somebody — same as the per-project filter bar.
+  The table is a POST form, because ticking rows and then acting on them is not
+  something a URL should be able to do on its own.
+
+  The action buttons carry the current query string in their formaction, so an
+  export always means "what I am looking at" without a second copy of the
+  filtering existing anywhere.
+{% endcomment %}
+
+{% block title %}Purchase orders — all projects{% endblock %}
+{% block subtitle %}Every document, every project{% endblock %}
+
+{% block headerinfo %}{% infobutton "po_register" %}{% endblock %}
+{% block infopanel %}{% infopanel "po_register" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp; <b>Purchase orders</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">Purchase orders and work orders</span>
+  <span class="sp"></span>
+  <span class="hint">{{ matched }} document{{ matched|pluralize }} found</span>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+
+  {% comment %}
+  ⚠ EVERY DROPDOWN IS BUILT FROM ALL DOCUMENTS, NOT THIS PAGE. Saahil asked for
+    the filters to search "from the whole relevant lot" — a dropdown built from
+    one page can only find what you can already see, which is no filter at all.
+    And only projects, vendors and activities that actually have documents
+    appear: an empty filter option is a promise the screen cannot keep.
+  {% endcomment %}
+  <form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <h3>Find documents</h3>
+
+    <div class="srow">
+      <select name="project" title="Which site">
+        <option value="">Every project</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}" {% if applied.project == p.id %}selected{% endif %}>
+            {{ p.code }} — {{ p.name }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="vendor" title="Which supplier or contractor">
+        <option value="">Every vendor</option>
+        {% for v in vendors %}
+          <option value="{{ v.id }}" {% if applied.vendor == v.id %}selected{% endif %}>
+            {{ v.name }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="activity" title="Documents containing at least one line from this construction activity">
+        <option value="">Every construction activity</option>
+        {% for a in activities %}
+          <option value="{{ a.abbreviation }}" {% if applied.activity == a.abbreviation %}selected{% endif %}>
+            {{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="srow">
+      <select name="type" title="Purchase orders, work orders, or both">
+        <option value="">PO &amp; WO — all</option>
+        <option value="PO" {% if applied.type == 'PO' %}selected{% endif %}>Purchase orders</option>
+        <option value="WO" {% if applied.type == 'WO' %}selected{% endif %}>Work orders</option>
+      </select>
+
+      <select name="status" title="Where the document has got to">
+        <option value="">Any status</option>
+        {% for value, label in statuses %}
+          <option value="{{ value }}" {% if applied.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      {% comment %}
+      A RANGE, not an operator dropdown. Saahil's simplification and it is the
+      better one: leave "from" empty and it means before, leave "to" empty and
+      it means after. One pair of boxes does what three controls would have.
+      {% endcomment %}
+      <span class="hint">Raised between</span>
+      <input type="month" name="from" value="{{ applied.from|default:'' }}" title="From this month">
+      <span class="hint">and</span>
+      <input type="month" name="to" value="{{ applied.to|default:'' }}" title="Up to and including this month">
+    </div>
+
+    <div class="srow">
+      <input type="search" name="q" value="{{ applied.q|default:'' }}"
+             placeholder="Document number — type any part of it, e.g. 0007">
+      <button class="sec sm" type="submit">Apply</button>
+      {% if applied %}<a href="{% url 'po_register' %}" style="font-size:11.5px">clear filters</a>{% endif %}
+    </div>
+  </form>
+
+  {% if rows %}
+  <form method="post" id="bulk">
+    {% csrf_token %}
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="hd">
+            <th style="width:28px"><input type="checkbox" id="all" title="Select every row on this page"></th>
+            <th>Document</th><th>Type</th><th>Date</th><th>Project</th><th>Vendor</th><th>Status</th>
+            <th class="num">Lines</th><th class="num">Basic</th><th class="num">GST</th>
+            <th class="num">Order value</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td><input type="checkbox" class="pick" name="ids" value="{{ row.order.id }}"></td>
+              <td class="code">{{ row.order.number }}</td>
+              <td>{% if row.order.document_type == 'WO' %}
+                    <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
+                  {% else %}
+                    <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
+                  {% endif %}</td>
+              <td>{{ row.order.raised_on|date:"d/m/Y" }}</td>
+              <td class="code">{{ row.order.project.code }}
+                <div style="font-weight:400;color:var(--muted);font-size:11px">{{ row.order.project.name }}</div>
+              </td>
+              <td>{{ row.order.vendor.name }}</td>
+              {% comment %}
+              status_word, not the raw status: a work order reads "Completed"
+              where a purchase order reads "Delivered".
+              {% endcomment %}
+              <td><span class="pill p-{{ row.order.status }}">{{ row.order.status_word }}</span></td>
+              <td class="num">{{ row.totals.line_count }}</td>
+              <td class="num">₹{{ row.totals.taxable|rupees }}</td>
+              <td class="num">₹{{ row.totals.gst|rupees }}</td>
+              <td class="num"><b>₹{{ row.totals.order_value|rupees }}</b></td>
+              {% comment %}
+              ⚠ `from=register` IS THE DOORWAY, and it is why the document then
+                shows no project tabs. Saahil: coming in through this tile you
+                are reviewing one document, not working inside a project. The
+                crumb back to the register replaces the chain.
+              {% endcomment %}
+              <td><a href="{% url 'po_detail' row.order.project_id row.order.id %}?from=register">open ▸</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          {% comment %}
+          ⚠ THIS PAGE, and it says so. order_value comes from totals(), which
+            walks a document's lines in Python — totalling every matching
+            document on every page load would mean fetching every line of every
+            one of them. The Excel export carries the whole set and its own
+            total, which is where a figure like that belongs.
+          {% endcomment %}
+          <td colspan="10">THIS PAGE — {{ rows|length }} of {{ matched }} document{{ matched|pluralize }}</td>
+          <td class="num">₹{{ page_value|rupees }}</td>
+          <td></td>
+        </tfoot>
+      </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <div class="srow" style="margin-top:10px">
+        <span class="hint">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_previous %}
+          <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">◂ previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">next ▸</a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="searchbox" style="margin-top:14px">
+      <h3>Download or update</h3>
+      <div class="srow">
+        <span class="hint" id="scope">Acting on all {{ matched }} document{{ matched|pluralize }}
+          matching these filters</span>
+      </div>
+      {% comment %}
+      ⚠ THE BOX OFFERS ONLY WHAT THIS ROLE COULD DO ONE DOCUMENT AT A TIME.
+        Saahil's rule when the matrix was agreed: a Purchase manager cannot mark
+        a single document Paid, so offering to mark twenty at once would make
+        the single-document rule decoration. The view checks the same mapping —
+        hiding a button is a courtesy, not the gate.
+
+        A Site engineer therefore sees this screen, its filters and Delivered,
+        and neither the Excel nor the zip: both carry every money column.
+      {% endcomment %}
+      <div class="srow">
+        {% if user|can:"register.export" %}
+          <button class="sec sm" type="submit"
+                  formaction="{% url 'po_register_excel' %}?{{ querystring }}">⤓ Excel register</button>
+          <button class="sec sm" type="submit"
+                  formaction="{% url 'po_register_zip' %}?{{ querystring }}">⤓ PDFs as a zip</button>
+          <span style="width:18px"></span>
+        {% endif %}
+        {% if user|can:"po.deliver" %}
+          <button class="sec sm" type="submit" name="to" value="delivered"
+                  formaction="{% url 'po_register_advance' %}?{{ querystring }}">Mark delivered / completed</button>
+        {% endif %}
+        {% if user|can:"po.pay" %}
+          <button class="sec sm" type="submit" name="to" value="paid"
+                  formaction="{% url 'po_register_advance' %}?{{ querystring }}">Mark paid</button>
+        {% endif %}
+      </div>
+      <div class="legend" style="margin-top:4px">
+        <span>Tick nothing and an action applies to everything the filters found.</span>
+      </div>
+    </div>
+  </form>
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      No documents match those filters.
+      <a href="{% url 'po_register' %}">Clear them</a>.
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>Documents are created from the BOM, inside a project.</b> This screen finds and reads them
+    across every site; <b>approving is done on the document itself</b>. The zip takes
+    {{ zip_limit }} at most and skips drafts.
+  </div>
+</div>
+
+{% comment %}
+The only script on this screen, and it decides nothing — it reports what the
+buttons are about to act on, so "Excel register" is never a surprise. If it
+fails to run, the sentence simply stays as the server rendered it and every
+button still does exactly what it says.
+{% endcomment %}
+<script>
+(function () {
+  var all = document.getElementById("all");
+  var picks = Array.prototype.slice.call(document.querySelectorAll(".pick"));
+  var scope = document.getElementById("scope");
+  if (!all || !scope) { return; }
+  var matched = "{{ matched }}";
+
+  function refresh() {
+    var n = picks.filter(function (p) { return p.checked; }).length;
+    scope.textContent = n
+      ? "Acting on " + n + " selected document" + (n === 1 ? "" : "s")
+      : "Acting on all " + matched + " document" + (matched === "1" ? "" : "s") +
+        " matching these filters";
+  }
+
+  all.addEventListener("change", function () {
+    picks.forEach(function (p) { p.checked = all.checked; });
+    refresh();
+  });
+  picks.forEach(function (p) { p.addEventListener("change", refresh); });
+  refresh();
+})();
+</script>
+
+{% endblock %}

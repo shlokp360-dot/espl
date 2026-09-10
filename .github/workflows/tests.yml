@@ -1,0 +1,56 @@
+# Runs every test, automatically, on every push and every pull request.
+#
+# WHAT IT IS FOR
+#     So that "the tests exist" becomes "the tests are enforced". You will see a
+#     green tick or a red cross on the pull request before you merge it, without
+#     having to remember to run anything. If it is red, main stays clean.
+#
+# WHERE TO SEE IT
+#     github.com → your repository → the Actions tab, or the tick beside any
+#     commit or pull request. Click it to read exactly which test failed and why
+#     — the names are sentences, so a failure reads as the rule that broke.
+#
+# WHAT IT COSTS
+#     Nothing for a public repository, and a monthly free allowance for a
+#     private one that a two-second test suite will never come close to using.
+#
+# ⚠ WHY IT DOES NOT INSTALL requirements.txt
+#     That file includes weasyprint, which needs native system libraries and
+#     several minutes to build, and psycopg for PostgreSQL, which the tests do
+#     not touch — they run on a throwaway SQLite database. Installing only what
+#     the tests actually need keeps this to about twenty seconds. If a future
+#     slice imports a new package, add it to the list below as well.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the same Python as the laptop
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install what the tests need
+        run: |
+          python -m pip install --upgrade pip
+          pip install "Django==5.2.16" "python-dotenv==1.0.1" "openpyxl==3.1.5"
+
+      - name: Check the project is wired up correctly
+        run: python manage.py check
+
+      - name: Every migration must be written down
+        # Catches a model changed without its migration — which works on the
+        # laptop that made the change and breaks on every other machine.
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run the tests
+        run: python manage.py test --verbosity 2

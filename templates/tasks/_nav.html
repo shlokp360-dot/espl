@@ -1,0 +1,23 @@
+{% load perms %}
+{% comment %}
+The tab strip for task management. `here` says which tab is lit: "board", "mine"
+or "delays".
+
+⚠ THE DELAY LOG IS A TAB SOME PEOPLE DO NOT HAVE, and it is hidden rather than
+  shown-and-refused. A tab that answers with a 403 looks like a fault in the
+  system rather than a rule of the business.
+{% endcomment %}
+<nav>
+  <a class="{% if here == 'board' %}on{% endif %}" href="{% url 'task_board' %}">Board</a>
+  <a class="{% if here == 'schedule' %}on{% endif %}" href="{% url 'task_schedule' %}">Schedule</a>
+  <a class="{% if here == 'mine' %}on{% endif %}" href="{% url 'task_mine' %}">My work</a>
+  {% if user|can:"tasks.manage" %}
+    <a class="{% if here == 'people' %}on{% endif %}" href="{% url 'task_people' %}">People</a>
+    <a class="{% if here == 'delays' %}on{% endif %}" href="{% url 'task_delay_log' %}">Delay log</a>
+  {% endif %}
+  {% comment %}
+  ⚠ NO "HOME" HERE ANY MORE. It lives beside the ⓘ in the header — a tab strip
+    is for the screens of one module, and the way out of the module is not one
+    of them.
+  {% endcomment %}
+</nav>

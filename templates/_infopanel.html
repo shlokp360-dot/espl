@@ -1,0 +1,49 @@
+{% comment %}
+The ⓘ panel, one shape for every screen.
+
+>>> ANCHOR: INFO-PANELS <<<
+⚠ ONE TEMPLATE, NOT TWENTY. Every screen's panel is rendered from this file, so
+  the index, the numbering and the step layout cannot drift apart between
+  screens. The content is data — see projects/help_panels.py.
+
+⚠ THE INDEX IS GENERATED FROM THE STEP LABELS, so it can never fall out of step
+  with the steps below it. Written by hand, it would be wrong the first time
+  somebody inserted a step in the middle.
+
+⚠ THE LANGUAGE TOGGLE IS TWO CLASS FLIPS, NO FRAMEWORK. English is shown and
+  Gujarati hidden, or the other way round. It appears only when every step has
+  been translated — see `bilingual`.
+{% endcomment %}
+{% if panel %}
+<dialog class="info" id="info-{{ key }}">
+  <div class="hd">
+    <b>{{ panel.title }}</b>
+    <span class="sp"></span>
+    {% if bilingual %}
+      <span class="langsw" id="lang-{{ key }}">
+        <button type="button" class="on" onclick="setLang('{{ key }}','en',this)">English</button>
+        <button type="button" onclick="setLang('{{ key }}','gu',this)">ગુજરાતી</button>
+      </span>
+    {% endif %}
+    <button class="x" type="button"
+            onclick="document.getElementById('info-{{ key }}').close()">✕</button>
+  </div>
+
+  <div class="bd steps" data-lang="en">
+    <div class="ix">
+      {% for step in steps %}<span>{{ forloop.counter }} {{ step.label }}</span>{% endfor %}
+    </div>
+
+    {% for step in steps %}
+      <div class="stp">
+        <span class="n">{{ forloop.counter }}</span>
+        <div>
+          <h4>{{ step.head }}</h4>
+          <p class="en">{{ step.html }}</p>
+          {% if step.gu_html %}<p class="gu">{{ step.gu_html }}</p>{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</dialog>
+{% endif %}

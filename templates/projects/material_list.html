@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+THE MATERIAL MASTER — 705 rows, and the estimation rate on each of them drives
+every BOQ in the company.
+
+⚠ SEARCHED, NOT SCROLLED. Seven hundred rows is not a list anybody reads; the
+  filters are the screen. Hence a wide search box first, three narrowing
+  dropdowns, and pages of a hundred behind them.
+
+⚠ THE CONSTRUCTION ACTIVITY IS ON THE ROW, not behind a link. That was the point of moving it
+  off a link table: "Material is to be linked to activity in the same material
+  master screen, not as a separate tile."
+{% endcomment %}
+
+{% block title %}Materials{% endblock %}
+{% block subtitle %}The material master{% endblock %}
+
+{% block headerinfo %}{% infobutton "material_list" %}{% endblock %}
+{% block infopanel %}{% infopanel "material_list" %}{% endblock %}
+
+{% block content %}
+
+{% include "projects/_mastertabs.html" with strip="materials" here="material_list" %}
+
+<div class="toolbar">
+  <span class="ttl">Materials</span>
+  <span class="sp"></span>
+  <span class="hint">{{ matched }} material{{ matched|pluralize }} found</span>
+  <a href="{% url 'material_new' %}"><button class="sm" type="button">+ New material</button></a>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+
+  <form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <h3>Find a material</h3>
+    <div class="srow">
+      {% comment %}
+      The search normalises the same way the import does when it looks for
+      duplicates. If the two disagreed you would get duplicates that this box
+      cannot find — 78 of the 705 write their size inconsistently.
+      {% endcomment %}
+      <input type="search" name="q" value="{{ applied.q|default:'' }}"
+             placeholder="Code, name, specification or a site alias — try “saria” or “chips”">
+      <button class="sec sm" type="submit">Search</button>
+    </div>
+    <div class="srow">
+      <select name="group" title="Which group">
+        <option value="">Every group</option>
+        {% for g in groups %}
+          <option value="{{ g.code }}" {% if applied.group == g.code %}selected{% endif %}>
+            {{ g.code }} — {{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="activity" title="Home construction activity, or the second one">
+        <option value="">Every construction activity</option>
+        {% for a in activities %}
+          <option value="{{ a.abbreviation }}" {% if applied.activity == a.abbreviation %}selected{% endif %}>
+            {{ a.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="show" title="Active materials, or the ones taken out of use">
+        <option value="active" {% if applied.show == 'active' %}selected{% endif %}>Active only</option>
+        <option value="inactive" {% if applied.show == 'inactive' %}selected{% endif %}>Inactive only</option>
+        <option value="all" {% if applied.show == 'all' %}selected{% endif %}>Active and inactive</option>
+      </select>
+      {% if applied.q or applied.group or applied.activity %}
+        <a href="{% url 'material_list' %}" style="font-size:11.5px">clear filters</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% comment %}
+  ⚠ THE ROUND TRIP IS THE POINT OF THIS BLOCK. Somebody maintaining 705
+    materials fixes three by hand and two hundred by spreadsheet. The rule that
+    makes one file do both jobs: code filled in means update that record, code
+    blank means it is new and a code is generated on import.
+  {% endcomment %}
+  <div class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <h3>Bulk edit in Excel</h3>
+    <div class="srow">
+      <form method="post" action="{% url 'material_template' %}" style="margin:0">
+        {% csrf_token %}
+        <button class="sec sm" type="submit"
+                title="An empty sheet with the same columns, dropdowns and reference list — for adding new materials without downloading every existing one">⤓ Blank template</button>
+      </form>
+      <form method="post" action="{% url 'material_export' %}?{{ querystring }}" style="margin:0">
+        {% csrf_token %}
+        {% comment %}
+        ⚠ THE QUERY STRING IS THE SELECTION. The filters above are already how
+          somebody picks a few materials out of 705, so the export carries them
+          rather than the screen growing a second way to choose. The label says
+          which it is doing, because a file of 40 rows when you expected 705
+          looks like data loss.
+        {% endcomment %}
+        {% comment %}
+        ⚠ C4 — DISABLED AT ZERO, NOT HIDDEN. See the vendor list for the reason.
+        {% endcomment %}
+        <button class="sec sm" type="submit" {% if not matched %}disabled
+                title="Nothing matches these filters, so there is nothing to download."{% endif %}>
+          {% comment %}
+          >>> ANCHOR: MASTER-EXPORT-FOLLOWS-FILTERS <<<
+          ⚠⚠ `matched` IN BOTH BRANCHES, AND THAT WAS BUG B3. The unfiltered
+            branch used to read `total_materials`, which is every row in the
+            table — but the screen shows ACTIVE materials by default and the
+            export goes through the same `_filtered_materials`, so it returns
+            the active ones too. The header said 706 and the button said 707
+            while the file that arrived held 706.
+
+            A button that misstates its own count is worse than one that says
+            nothing: this is the safeguard against downloading 40 rows when you
+            expected the whole master, so its number has to be the number.
+            Only the WORD changes with `filtered` — "all" or "these".
+          {% endcomment %}
+          {% if filtered %}⤓ Download these {{ matched }}{% else %}⤓ Download all {{ matched }}{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'material_import' %}" enctype="multipart/form-data"
+            class="srow" style="margin:0">
+        {% csrf_token %}
+        <input type="file" name="file" accept=".xlsx" required
+               style="font-size:11.5px;max-width:280px">
+        <button class="sec sm" type="submit">⤒ Upload the corrected file</button>
+      </form>
+    </div>
+    <div class="legend" style="margin-top:2px">
+      <span><b>Leave the code blank</b> on a row and it is treated as a new material — the code is
+        generated on import. Fill it in and that material is updated.</span>
+    </div>
+    <div class="legend">
+      <span>Nothing is ever deleted by uploading. Set <b>Active</b> to No instead, and every
+        historical order still resolves.</span>
+    </div>
+  </div>
+
+
+  {% if rows %}
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr class="hd">
+          <th>Code</th><th>Name</th><th>Specification</th><th>Group</th>
+          <th>Construction activity</th><th>Also used in</th><th>UOM</th>
+          <th class="num">Estimation rate</th><th class="num">GST</th>
+          <th class="num">Stock</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in rows %}
+          <tr class="click" onclick="window.location='{% url 'material_edit' m.id %}'">
+            <td class="code">{{ m.code }}</td>
+            <td>{{ m.name }}{% if not m.is_active %}
+                  <span class="pill" style="background:#EDEDED;color:#555">inactive</span>{% endif %}
+                {% if m.is_common %}
+                  <span class="pill p-common" title="Bought by every construction activity">common</span>{% endif %}</td>
+            <td style="color:var(--muted)">{{ m.specification }}</td>
+            <td>{{ m.group.code }}</td>
+            <td>{{ m.home_activity.abbreviation }}</td>
+            <td style="color:var(--muted)">{{ m.also_used_in.abbreviation|default:"—" }}</td>
+            <td>{{ m.uom }}</td>
+            <td class="num">₹{{ m.estimation_rate|rupees }}</td>
+            {% comment %}
+            ⚠ |qty and a literal %, NOT |pct. `pct` turns a FRACTION into a
+              percentage — 0.842 becomes 84.2%. `gst_percent` is stored as 18,
+              already a percentage, so pct rendered it as 1800.0%. Every other
+              screen in the app writes it this way; these were the odd ones out.
+            {% endcomment %}
+            <td class="num">{{ m.gst_percent|qty }}%</td>
+            <td class="num">{{ m.current_stock|qty }}</td>
+            <td style="color:var(--blue)">edit ▸</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+    <div class="srow" style="margin-top:10px">
+      <span class="hint">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_previous %}
+        <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">◂ previous</a>{% endif %}
+      {% if page_obj.has_next %}
+        <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">next ▸</a>{% endif %}
+    </div>
+  {% endif %}
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      No materials match that. <a href="{% url 'material_list' %}">Clear the filters</a>.
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>The estimation rate is what the BOM plans at</b>, not a vendor's price — changing it
+    changes every future plan. <b>A code is assigned once and never changes.</b>
+  </div>
+</div>
+
+{% endblock %}

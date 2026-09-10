@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+COMPLIANCE OVERVIEW — every Won site against every regime.
+
+⚠ THE NUMBER THAT LEADS IS "NEEDS ATTENTION", NOT "PERCENT COMPLETE". A project
+  at 94% with an expired fire NOC is not 94% fine, and a percentage is exactly
+  the figure that lets somebody feel comfortable about it.
+{% endcomment %}
+
+{% block title %}Compliance{% endblock %}
+{% block subtitle %}What every site holds, and what it is missing{% endblock %}
+{% block nav %}{% include "compliance/_nav.html" with here="home" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "compliance_overview" %}{% endblock %}
+{% block infopanel %}{% infopanel "compliance_overview" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Compliance</span>
+  {% if attention %}<span class="pill p-lost">{{ attention }} need attention</span>{% endif %}
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>Project</th>
+      {% for type in types %}<th class="num" style="width:150px">{{ type.code }}</th>{% endfor %}
+      <th class="num" style="width:130px">Needs attention</th>
+      <th class="num" style="width:110px">Held</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><a href="{% url 'compliance_project' row.project.pk %}">{{ row.project.code }} — {{ row.project.name }}</a></td>
+          {% for type in types %}
+            <td class="num">
+              {% for regime in row.regimes %}
+                {% if regime.type.pk == type.pk %}
+                  {{ regime.summary.held }} / {{ regime.summary.total }}
+                  {% if regime.summary.attention %}
+                    <span class="pill p-lost">{{ regime.summary.attention }}</span>
+                  {% endif %}
+                {% endif %}
+              {% empty %}—{% endfor %}
+            </td>
+          {% endfor %}
+          <td class="num">
+            {% if row.attention %}<span class="up">{{ row.attention }}</span>{% else %}—{% endif %}
+          </td>
+          <td class="num">{{ row.percent }}%</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" style="color:var(--muted);padding:14px">
+          No project is Won yet. Compliance opens with the site.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="note tight" style="margin-bottom:0">
+  <b>The checklist content is a first draft</b> and must be confirmed by whoever does the liaison work.
+</div>
+
+{% endblock %}

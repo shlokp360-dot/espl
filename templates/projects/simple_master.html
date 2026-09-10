@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+ONE TEMPLATE, THREE TABLES — material groups, vendor groups, units of measure.
+
+>>> ANCHOR: MASTER-TABS <<<
+⚠ THEY ARE THE SAME SHAPE: a short key, a name, a flag or two, and a count of
+  what depends on the row. Three near-identical templates would be three places
+  to fix the next thing. What differs is DATA, in master_tabs.SIMPLE_MASTERS.
+
+⚠ EDITED IN PLACE, with a blank row at the bottom to add with. These tables are
+  touched a few times a year; a list plus a form plus a confirm page would be
+  three screens earning their place on a table of eleven rows.
+
+⚠ NO DELETE. Active is the route out, and the count column says what would break.
+{% endcomment %}
+
+{% block title %}{{ spec.title }}{% endblock %}
+{% block subtitle %}Master data{% endblock %}
+
+{% block headerinfo %}{% infobutton "simple_master" %}{% endblock %}
+{% block infopanel %}{% infopanel "simple_master" %}{% endblock %}
+
+{% block content %}
+
+{% include "projects/_mastertabs.html" %}
+
+<form method="post" action="{% url save_url %}">
+  {% csrf_token %}
+  <div class="toolbar">
+    <span class="ttl">{{ spec.title }}</span>
+    <span class="sp"></span>
+    <span class="hint">{{ rows|length }} row{{ rows|length|pluralize }}</span>
+    {% if user|can:"masters.edit" %}<button type="submit">Save</button>{% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="note tight">{{ spec.blurb }}</div>
+
+    <table>
+      <thead>
+        <tr class="hd">
+          <th style="width:170px">{{ spec.key_label }}</th>
+          {% for field, label, kind in spec.extra %}<th>{{ label }}</th>{% endfor %}
+          <th class="num" style="width:100px">{{ spec.usage_label }}</th>
+          <th style="width:80px">Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in rows %}
+          <tr {% if entry.row.is_active is False %}style="opacity:.55"{% endif %}>
+            <td>
+              {% comment %}
+              >>> ANCHOR: MASTER-TABS <<<
+              ⚠⚠ THE MARKER THAT SAYS "THIS ROW WAS ON THE FORM" — bug B1. An
+                unticked checkbox is not submitted at all, so without this the
+                server cannot tell "the user cleared Active" from "this row was
+                never shown", and every row missing from a stale form went
+                quietly inactive. `_simple_master_save` skips any row that
+                arrives without its marker.
+              {% endcomment %}
+              <input type="hidden" name="row-{{ entry.row.id }}" value="1">
+              {% if user|can:"masters.edit" %}
+                <input class="cell" name="{{ spec.key_field }}-{{ entry.row.id }}"
+                       value="{{ entry.key }}">
+              {% else %}<b>{{ entry.key }}</b>{% endif %}
+            </td>
+            {% for cell in entry.cells %}
+              <td>
+                {% if cell.kind == 'flag' %}
+                  <label style="font-size:12px"><input type="checkbox" name="{{ cell.field }}-{{ entry.row.id }}"
+                    {% if cell.value %}checked{% endif %}
+                    {% if not user|can:"masters.edit" %}disabled{% endif %}> yes</label>
+                {% elif user|can:"masters.edit" %}
+                  <input class="cell" name="{{ cell.field }}-{{ entry.row.id }}" value="{{ cell.value }}">
+                {% else %}{{ cell.value|default:"—" }}{% endif %}
+              </td>
+            {% endfor %}
+            <td class="num" style="color:var(--muted)">{{ entry.used }}</td>
+            <td>
+              <label style="font-size:12px"><input type="checkbox" name="is_active-{{ entry.row.id }}"
+                {% if entry.row.is_active %}checked{% endif %}
+                {% if not user|can:"masters.edit" %}disabled{% endif %}> in use</label>
+            </td>
+          </tr>
+        {% endfor %}
+
+        {% if user|can:"masters.edit" %}
+          {% comment %}
+          The blank row. Leaving the key empty adds nothing, which is the same
+          rule the BOM's order quantity follows: nothing happens unless somebody
+          typed something.
+          {% endcomment %}
+          <tr style="background:var(--pale)">
+            <td><input class="cell" name="new-{{ spec.key_field }}" placeholder="add one…"></td>
+            {% for field, label, kind in spec.extra %}
+              <td>{% if kind == 'flag' %}
+                    <label style="font-size:12px"><input type="checkbox" name="new-{{ field }}" checked> yes</label>
+                  {% else %}<input class="cell" name="new-{{ field }}" placeholder="{{ label|lower }}">{% endif %}</td>
+            {% endfor %}
+            <td colspan="2" style="color:var(--muted);font-size:11px">{{ spec.key_help }}</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+WORK — progress and delay per construction activity, and the same chart the site team reads.
+
+⚠ NO MONEY ON THIS PAGE, ON SAAHIL'S INSTRUCTION: "task is different and bom is
+  different… no need to combine them in a screen for the head over here". Both
+  appear on the Overview, which is where the crossing question is asked. A
+  subtask names no material and no order, so a figure claiming what a particular
+  delay cost in rupees would be invented.
+
+⚠ THE GANTT IS DRAWN FROM tasks/schedule.py — the same module the site screen
+  uses. Two drawings of one schedule would eventually disagree.
+{% endcomment %}
+
+{% block title %}Work{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="tasks" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_work" %}{% endblock %}
+
+{% block content %}
+
+<style>
+.gantt{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.grow{display:flex;align-items:stretch;border-bottom:1px solid #EDEFF3;min-height:24px}
+.grow:last-child{border-bottom:none}
+.gname{flex:0 0 240px;padding:4px 10px;font-size:11.5px;border-right:1px solid var(--line);
+       display:flex;align-items:center;min-width:0}
+.gname.hdr{font-weight:600;color:var(--navy);background:#FAFBFD}
+.gname.sub{padding-left:22px}
+.gtrack{position:relative;flex:1;min-width:0}
+.gbar{position:absolute;top:5px;height:12px;border-radius:3px;min-width:3px}
+.gbar.hdr{background:var(--blue)} .gbar.hdrover{background:var(--amber);opacity:.55}
+.gbar.open{background:#9BB4D8} .gbar.blocked{background:var(--amber)}
+.gbar.done{background:#7FA86A} .gbar.late{background:var(--red)}
+.gscale{display:flex;background:var(--navy);color:#fff}
+.gscale .m{font-size:10.5px;padding:3px 0;text-align:center;border-right:1px solid #2E4A7D;overflow:hidden}
+.gscale .pad{flex:0 0 240px;border-right:1px solid #2E4A7D;padding:3px 10px;font-size:10.5px}
+.gmark{position:absolute;top:0;bottom:0;border-left:2px dashed #7A5AA6}
+.gtoday{position:absolute;top:0;bottom:0;border-left:2px solid var(--red);opacity:.55}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">Work</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+{% if not project %}
+  <div class="note tight"><b>No Won project yet.</b></div>
+{% else %}
+
+  <div class="kpis">
+    <div class="kpi {% if days_lost %}bad{% endif %}">
+      <div class="l">Days lost</div><div class="v">{{ days_lost }}</div>
+      <div class="s">late plus replanned</div>
+    </div>
+    {% for row in rows|slice:":5" %}
+      <div class="kpi">
+        <div class="l">{{ row.label }}</div>
+        <div class="v">{{ row.progress }}%</div>
+        <div class="s">{{ row.done }} of {{ row.total }} done</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:13px">
+    <div class="card">
+      <div class="grph">Progress by construction activity</div>
+      {{ progress_chart }}
+    </div>
+    <div class="card">
+      <div class="grph">Days lost, by cause</div>
+      {{ chart }}
+    </div>
+  </div>
+
+  <div class="scroll" style="max-height:none;margin-bottom:13px">
+    <table>
+      <thead><tr class="hd">
+        <th>Construction activity</th>
+        <th class="num" style="width:90px">Packages</th>
+        <th class="num" style="width:90px">Done</th>
+        <th class="num" style="width:90px">Blocked</th>
+        <th class="num" style="width:90px">Late</th>
+        <th class="num" style="width:100px">Replanned</th>
+        <th class="num" style="width:90px">Progress</th>
+      </tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.label }}</td>
+            <td class="num">{{ row.headers }}</td>
+            <td class="num">{{ row.done }} / {{ row.total }}</td>
+            <td class="num">{% if row.blocked %}<span class="pill p-onsheet">{{ row.blocked }}</span>{% else %}0{% endif %}</td>
+            <td class="num">{% if row.late %}<span class="up">{{ row.late }} d</span>{% else %}—{% endif %}</td>
+            <td class="num">{% if row.shifted %}<span class="up">{{ row.shifted }} d</span>{% else %}—{% endif %}</td>
+            <td class="num">{{ row.progress }}%</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" style="color:var(--muted);padding:14px">
+            No work planned on this project yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if chart_data %}
+    <div class="toolbar"><span class="ttl" style="font-size:13px">Schedule</span>
+      {% comment %}
+      ⚠ ANCHOR: ANALYTICS-WORK-FILTERS — the chart deliberately ignores the
+        milestone and activity filters. It is the same drawing the site team
+        reads every morning, and a Gantt showing one phase out of six is a
+        different picture from the one they discuss. Said on screen rather than
+        left to be noticed.
+      {% endcomment %}
+      {% if filtered %}
+        <span class="hint" style="margin-left:8px">the whole plan — the filters narrow the
+          tables above, not the chart</span>
+      {% endif %}
+      <span class="hint">{{ chart_data.span.start|date:"M Y" }} → {{ chart_data.span.end|date:"M Y" }}</span></div>
+    <div class="gantt">
+      <div class="gscale">
+        <span class="pad">Work</span>
+        {% for month in chart_data.months %}
+          <span class="m" style="flex:0 0 {{ month.width }}%">{{ month.label }}</span>
+        {% endfor %}
+      </div>
+      {% for row in chart_data.rows %}
+        <div class="grow">
+          <span class="gname {% if row.kind == 'header' %}hdr{% else %}sub{% endif %}"
+                style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {% if row.kind == 'header' %}{{ row.header.name }}{% else %}{{ row.subtask.title }}{% endif %}
+          </span>
+          <span class="gtrack">
+            {% for entry in chart_data.milestones %}<span class="gmark" style="left:{{ entry.left }}%"></span>{% endfor %}
+            {% if chart_data.today %}<span class="gtoday" style="left:{{ chart_data.today }}%"></span>{% endif %}
+            {% if row.kind == 'header' %}
+              <span class="gbar hdr" style="left:{{ row.bar.left }}%;width:{{ row.bar.width }}%"></span>
+              {% if row.over_bar %}<span class="gbar hdrover" style="left:{{ row.over_bar.left }}%;width:{{ row.over_bar.width }}%"></span>{% endif %}
+            {% else %}
+              <span class="gbar {% if row.subtask.status == 'done' %}done{% elif row.subtask.status == 'blocked' %}blocked{% else %}open{% endif %}"
+                    style="left:{{ row.bar.left }}%;width:{{ row.bar.width }}%"></span>
+              {% if row.late_bar %}<span class="gbar late" style="left:{{ row.late_bar.left }}%;width:{{ row.late_bar.width }}%"></span>{% endif %}
+            {% endif %}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="note tight" style="margin-bottom:0">
+      <b>Red is late. Amber is not</b> — amber means the plan no longer fits the window.
+    </div>
+  {% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_work" %}{% endblock %}

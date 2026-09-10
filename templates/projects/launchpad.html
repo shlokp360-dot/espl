@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+The launchpad — the first screen anybody sees.
+
+Saahil asked for this shape by name: Fiori tiles, "so the admin sees 4-5 tiles
+… it gives a view to the user holistically". The point is not navigation, which
+the header and the per-project tabs already did. The point is that somebody who
+opens this app should be able to see what the whole system is for without
+clicking anything.
+
+⚠ NO NAV BAR HERE. The tab strip belongs to one project — BOQ, BOM, orders, all
+  of them meaningless until you say whose. This screen sits above all of that.
+
+⚠ NO NUMBERS ON THE TILES YET, deliberately. Counts would mean a query per tile
+  on the one page everybody loads most often, and Saahil's call was to see it
+  and use it before deciding whether a figure earns that. Adding one later is a
+  line in hub.py, not a redesign.
+{% endcomment %}
+
+{% block title %}Elegance Skyz{% endblock %}
+
+{% block headerinfo %}{% infobutton "launchpad" %}{% endblock %}
+{% block infopanel %}{% infopanel "launchpad" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Elegance Skyz — construction automation</span>
+</div>
+
+<div class="tiles">
+  {% for tile in tiles %}
+    {% if tile.live %}
+      {% comment %}
+      A real <a>, so middle-click, open-in-new-tab and keyboard focus all work
+      without a line of script.
+      {% endcomment %}
+      <a class="tile" href="{{ tile.url }}">
+        <span class="t">{{ tile.title }}</span>
+        <span class="s">{{ tile.subtitle }}</span>
+      </a>
+    {% else %}
+      <div class="tile soon">
+        <span class="t">{{ tile.title }}</span>
+        <span class="s">{{ tile.subtitle }}</span>
+        <span class="later">
+          <span class="pill" style="background:#E4E7EC;color:#5F6670">Coming later</span>
+        </span>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% if anything_coming %}
+  <div class="note tight" style="margin-bottom:0">
+    <b>The greyed tiles are not built yet.</b> They are shown so the shape of the system is visible
+    from the start. Everything else works today.
+  </div>
+{% endif %}
+
+{% endblock %}

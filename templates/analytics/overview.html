@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+THE ANALYTICS OVERVIEW.
+
+⚠ NO SINGLE HEADLINE NUMBER, ON PURPOSE. Committed, owed and paid answer three
+  different questions, and a business reading only one of them is guessing at
+  the other two. Six boxes, each labelled with the stage it counts.
+
+⚠ EVERY BOX SAYS WHICH DATE IT COUNTS ON. "Spend" is money that left the bank;
+  "committed" is approved onward and ex-GST; "outstanding" is delivered and not
+  paid. The words are the feature.
+{% endcomment %}
+
+{% block title %}Analytics{% endblock %}
+{% block subtitle %}{{ view.label }}{% if view.project %} · {{ view.project.code }}{% endif %}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="home" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_overview" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Analytics</span>
+  <span class="pill {% if view.kind == 'PTD' %}p-approved{% else %}p-quoted{% endif %}">{{ view.kind }}</span>
+  <span class="hint">{{ view.label }}</span>
+
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi good">
+    <div class="l">Paid</div>
+    <div class="v">{{ paid.net_payable|rupees }}</div>
+    <div class="s">{{ paid.count }} document{{ paid.count|pluralize }}</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Committed</div>
+    <div class="v">{{ committed.taxable|rupees }}</div>
+    <div class="s">ordered, before GST</div>
+  </div>
+  <div class="kpi warn">
+    <div class="l">Owed</div>
+    <div class="v">{{ owed.net_payable|rupees }}</div>
+    <div class="s">delivered, not paid</div>
+  </div>
+  <div class="kpi {% if due_soon_count %}bad{% endif %}">
+    <div class="l">Due in 30 days</div>
+    <div class="v">{{ due_soon.net_payable|rupees }}</div>
+    <div class="s">{{ due_soon_count }} document{{ due_soon_count|pluralize }}</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Budget used</div>
+    <div class="v">{{ reserve_pct }}%</div>
+    <div class="s">committed against quoted</div>
+  </div>
+  <div class="kpi {% if days_lost %}bad{% endif %}">
+    <div class="l">Days lost</div>
+    <div class="v">{{ days_lost }}</div>
+    <div class="s">late plus replanned</div>
+  </div>
+</div>
+
+{% if assumed %}
+  {% comment %}
+  ⚠ THE ASSUMPTION IS COUNTED, NOT HIDDEN. Saahil chose a house default of 30
+    days so the ageing works at all; that is right, and the reader should still
+    know how much of the figure rests on a guess rather than on agreed terms.
+  {% endcomment %}
+  <div class="note tight">
+    <b>{{ assumed }} unpaid document{{ assumed|pluralize }} use the default 30-day terms</b> — nothing is
+    set on the vendor.
+  </div>
+{% endif %}
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">Where the money stands</div>
+  {{ settlement_bar }}
+  <div class="legend" style="margin-top:9px">
+    <span><i class="sw" style="background:#107e3e"></i> Settled {{ split.settled.net_payable|rupees }}</span>
+    <span><i class="sw" style="background:#C55A11"></i> Payable now {{ split.payable_now.net_payable|rupees }}</span>
+    <span><i class="sw" style="background:#6a6d70"></i> Not yet payable {{ split.not_yet_payable.net_payable|rupees }}</span>
+    <span class="sp" style="flex:1"></span>
+    <span><a href="{% url 'analytics_payments' %}?{{ request.GET.urlencode }}">Open settlement →</a></span>
+  </div>
+</div>
+
+<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:13px">
+  <div class="card">
+    <div class="grph">Paid, by construction activity</div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      {{ activity_donut }}
+      <div style="flex:1;min-width:160px;display:grid;gap:4px;font-size:11.5px">
+        {% for row in activity_rows %}
+          <div style="display:flex;align-items:center;gap:7px">
+            <i class="sw" style="background:{{ row.colour }}"></i>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }}</span>
+            <span style="color:var(--muted)">{{ row.pct }}%</span>
+            <span style="font-variant-numeric:tabular-nums">{{ row.value|rupees }}</span>
+          </div>
+        {% empty %}
+          <span style="color:var(--muted)">Nothing paid in this period.</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% comment %}
+    ⚠ EX-GST, AND IT SAYS SO ON THE SCREEN. A document's deduction, round-off
+      and TDS belong to the whole document; there is no non-arbitrary way to
+      split them across construction activities, so this uses the line-level basic value —
+      the same basis the BOQ reserve uses. It will not add up to money paid.
+    {% endcomment %}
+    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">Before GST. See ⓘ.</div>
+  </div>
+
+  <div class="card">
+    <div class="grph">Committed against paid, by month</div>
+    {{ by_month }}
+  <div class="legend">
+    {% for entry in series %}
+      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
+    {% endfor %}
+  </div>
+  <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+    The gap is money still to leave the bank.
+  </div>
+</div>
+</div>
+
+{% comment %}
+⚠ THE TILES THAT USED TO SIT HERE ARE GONE. Saahil: "I still see tiles in the
+  overview page, what is the purpose here" — and he is right. They were written
+  before the tab strip existed and became a second copy of it: six clicks to the
+  same six places, taking the space where the page should have been saying
+  something. The launchpad's greyed-tile argument does not carry over, because
+  the tabs already show the shape of the module.
+
+  What survives is the one thing the tabs cannot say: which pages are not built.
+  One line.
+{% endcomment %}
+<div class="note tight">
+  <b>Still to come:</b> GST and TDS for the CA, and the vendor scorecard.
+</div>
+
+{% if drafts %}
+  <div class="note tight" style="margin-bottom:0">
+    <b>{{ drafts }} draft{{ drafts|pluralize }} counted nowhere on this page.</b>
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_overview" %}{% endblock %}

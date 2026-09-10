@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+LEVEL 3 — the document itself.
+
+Built from PO_WO_Prototype.html, which is the agreed design: four header blocks
+(FROM · TO · BILL TO · SHIP TO), the line table, and the totals ladder ending in
+ORDER VALUE and then NET PAYABLE.
+
+⚠ NOT ONE FIGURE IS WORKED OUT IN THIS FILE. Every line figure is a property on
+  PurchaseOrderLine and every total comes from PurchaseOrder.totals(). The same
+  function draws the vendor list, this screen and the PDF, so they cannot
+  disagree. The `inr` filters only decide how a number LOOKS.
+
+⚠ WHAT IS EDITABLE HERE, AND ONLY WHILE DRAFT: quantity, rate, value, discount %,
+  GST %, the line reference, and the document's deduction %, TDS, terms and
+  delivery. Approving locks every one of them, permanently.
+
+⚠ WHAT IS NEVER EDITABLE: the material code, name and specification. They are
+  master data and the code is identity. If somebody could retype the description
+  you could print "OPC 53 grade" against a code meaning something else, and
+  planned-versus-actual would silently be comparing two different materials.
+{% endcomment %}
+
+{% block title %}{{ order.number }} — {{ project.code }}{% endblock %}
+{% block subtitle %}
+  {{ order.type_label }} &nbsp;|&nbsp; {{ project.name }} &nbsp;|&nbsp; {{ order.vendor.name }}
+{% endblock %}
+
+{% block nav %}{% include "projects/_nav.html" with here="orders" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "po_detail" %}{% endblock %}
+{% block infopanel %}{% infopanel "po_detail" %}{% endblock %}
+
+{% block content %}
+
+{% comment %}
+⚠ THE CRUMB FOLLOWS THE DOORWAY — see ANCHOR: PO-DOORWAY. Arriving from the
+  Purchase orders tile, the way back is the register you were just looking at,
+  with your filters still on it. Sending somebody to a project's vendor list
+  instead would be sending them somewhere they never were.
+{% endcomment %}
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  {% if standalone %}
+    <a href="{% url 'po_register' %}">Purchase orders</a>
+    &nbsp;▸&nbsp; <b>{{ order.number }}</b>
+  {% else %}
+    <a href="{% url 'po_screen' project.id %}">Vendors</a>
+    &nbsp;▸&nbsp; <a href="{% url 'po_vendor' project.id order.vendor.id %}">{{ order.vendor.code }} · {{ order.vendor.name }}</a>
+    &nbsp;▸&nbsp; <b>{{ order.number }}</b>
+  {% endif %}
+</div>
+
+<form method="post" action="{% url 'po_save' project.id order.id %}">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">{{ order.number }}</span>
+    <span class="pill p-{{ order.status }}" style="font-size:12px">{{ order.status_word|upper }}</span>
+    {% if order.document_type == 'WO' %}
+      <span class="pill" style="background:var(--lblue);color:var(--navy)">WORK ORDER</span>
+    {% endif %}
+    <span class="sp"></span>
+    <span class="hint">₹{{ totals.order_value|rupees }} order value</span>
+
+    {% if editable %}
+      {# Filled in by the approve prompt when the vendor has no GSTIN on file. #}
+      <input type="hidden" name="gstin" id="gstin">
+      <button class="sec" type="submit">Save draft</button>
+      {% comment %}
+      ⚠ THE WAY BACK OUT. This link was on the draft panel that used to sit on
+      the BOM screen; removing that panel in step 5 left the discard page with
+      no entry point at all, and the sweep caught it — a whole flow reachable
+      only by typing the URL.
+
+      It goes to a confirmation page rather than discarding here, because that
+      page shows exactly which quantities move before anything moves.
+      {% endcomment %}
+      {% if user|can:"po.discard" %}
+        <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line);color:var(--red)"
+           href="{% url 'po_discard_confirm' project.id order.id %}">Discard draft</a>
+      {% endif %}
+      {% comment %}
+      Approve posts through the same form, so whatever is on screen is written
+      before it commits. A document approved from stale figures would be a
+      document that says something different from what somebody agreed.
+
+      ⚠ AND IT IS THE ONE BUTTON THE MATRIX GUARDS MOST TIGHTLY: Admin and
+        Project manager only. A Purchase manager raises the order; somebody else
+        commits the money. That is the only maker-and-checker step in the
+        system, so hiding it here — and refusing it in the view — is the whole
+        of that control.
+      {% endcomment %}
+      {% if user|can:"po.approve" %}
+        <button type="submit" formaction="{% url 'po_advance' project.id order.id %}"
+                name="to" value="approved"
+                onclick="return confirmApprove()">Approve &amp; lock ▸</button>
+      {% else %}
+        <span class="hint">Approval is an Admin or Project manager step.</span>
+      {% endif %}
+    {% else %}
+      {% comment %}
+      ⚠ DOWNLOAD APPEARS ONLY ONCE THE DOCUMENT IS APPROVED. Saahil's rule: a
+      draft produces no file, because a draft PDF reaching a vendor is
+      indistinguishable from a real order. The view refuses it as well — the
+      button being hidden is convenience, not the safeguard.
+      {% endcomment %}
+      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);
+                            background:#fff;color:var(--navy);font-weight:600"
+         href="{% url 'po_pdf' project.id order.id %}">⤓ Download PDF</a>
+      {% comment %}
+      Delivered and Paid are two different permissions, held by two different
+      people — the site sees the lorry, the accountant releases the money — so
+      the one button that says "Mark <next status>" has to ask about whichever
+      step is actually next.
+      {% endcomment %}
+      {% comment %}
+      ⚠ `next_status` is the STATUS, never the word. A work order shows
+        "Completed" to the reader through status_word, but the value here is
+        still `delivered` — so the permission asked for is po.deliver either way.
+      {% endcomment %}
+      {% if order.next_status %}
+        {% if order.next_status == 'paid' and user|can:"po.pay" or order.next_status == 'delivered' and user|can:"po.deliver" %}
+          <button type="submit" formaction="{% url 'po_advance' project.id order.id %}"
+                  name="to" value="{{ order.next_status }}"
+                  onclick="return confirm('Mark {{ order.number|escapejs }} as {{ order.next_status|escapejs }}?');">
+            Mark {{ order.next_status }}</button>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {% comment %}
+  ⚠ A PILL, NOT A PARAGRAPH. This was three lines across the top of every
+    approved document explaining that prices are a frozen copy. Saahil: "The
+    green lock is too long, can it not be a little smaller? Just say Locked with
+    a symbol."
+
+    He is right, and the reason is the same one that moved the standing notes
+    behind ⓘ — a sentence that appears on every document, unchanged, stops being
+    read. What matters at a glance is the padlock. Why it is locked is in the
+    tooltip for anyone who wants it, and in the info panel for anyone who wants
+    it properly.
+  {% endcomment %}
+  {% if not editable %}
+    <div style="margin:0 0 12px">
+      <span class="pill p-delivered" style="font-size:12px;padding:4px 12px"
+            title="Nothing on this document can be changed by anyone. Its prices are a frozen copy, so later changes to the material master or to {{ order.vendor.name }}'s rates do not touch it.{% if order.approved_at %} Approved {{ order.approved_at|date:'d/m/Y H:i' }}.{% endif %}">🔒
+        {{ order.status_word }} — locked</span>
+    </div>
+  {% endif %}
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    {# ---------------- the four header blocks ------------------------------ #}
+    <div class="parties">
+      {% comment %}
+      THREE BLOCKS, NOT FOUR. There was a separate BILL TO, and Saahil removed it
+      on sight: on a purchase order the buyer IS the billing party, so FROM was
+      already saying it. Two boxes carrying the same name and address is how a
+      document starts looking untrustworthy.
+
+      The project's billing address still has a use — it is the address printed
+      here when a particular job invoices somewhere other than the registered
+      office. Folded into FROM rather than given a box of its own.
+      {% endcomment %}
+      <div class="party">
+        <div class="hd">FROM — BILL TO</div>
+        <div class="bd">
+          <b>{{ company.name }}</b>
+          {% if project.billing_address %}
+            <div>{{ project.billing_address|linebreaksbr }}</div>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:4px">
+              billing address from {{ project.code }}</div>
+          {% elif company.address %}
+            <div>{{ company.address|linebreaksbr }}</div>
+          {% endif %}
+          {% if company.gst_number %}
+            <div>GSTIN <span class="code">{{ company.gst_number }}</span>
+              {% if company.state %}· {{ company.state }}{% endif %}</div>
+          {% else %}
+            <div><span class="pill p-nogst">our GSTIN is not set — add it in Company profile</span></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="party">
+        <div class="hd">TO — {% if order.document_type == 'WO' %}CONTRACTOR{% else %}VENDOR{% endif %}</div>
+        <div class="bd">
+          <b>{{ order.vendor.name }}</b> <span class="code">{{ order.vendor.code }}</span>
+          {% if order.vendor.contact_person %}<div>Kind attn: {{ order.vendor.contact_person }}</div>{% endif %}
+          {% if order.vendor.address %}<div>{{ order.vendor.address|linebreaksbr }}</div>{% endif %}
+          <div>Phone {{ order.vendor.phone }}</div>
+          {% comment %}
+          The GSTIN frozen onto the document at approval, not today's from the
+          master. A correction to the vendor record later must not rewrite what
+          was actually sent.
+          {% endcomment %}
+          {% if order.vendor_gstin %}
+            <div>GSTIN <span class="code">{{ order.vendor_gstin }}</span></div>
+          {% elif order.vendor.is_unregistered %}
+            <div><b style="color:var(--amber)">UNREGISTERED — no GSTIN, no GST charged</b></div>
+          {% elif order.vendor.gst_number %}
+            <div>GSTIN <span class="code">{{ order.vendor.gst_number }}</span></div>
+          {% else %}
+            <div><span class="pill p-nogst">no GSTIN — approval will ask for one</span></div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% comment %}
+      SHIP TO comes from the project's site address. It is copied onto the order
+      when the order is created, and again — if still blank — at approval, so an
+      issued document carries its own frozen copy rather than following the
+      project around afterwards.
+
+      While it is blank and the order is a draft, the project's site address
+      shows through as the placeholder, so nobody has to retype what the system
+      already knows.
+      {% endcomment %}
+      <div class="party">
+        <div class="hd">SHIP TO — SITE</div>
+        <div class="bd">
+          {% if editable %}
+            <textarea name="delivery_address" rows="3" class="cell"
+                      placeholder="{{ project.site_address|default:'No site address on this project — set one in Admin' }}">{{ order.delivery_address }}</textarea>
+            <div style="margin-top:6px">Required by
+              <input class="cell" type="date" name="required_by"
+                     value="{{ order.required_by|date:'Y-m-d' }}" style="min-width:130px"></div>
+          {% else %}
+            <div>{{ ship_to|linebreaksbr|default:"—" }}</div>
+            {% if order.required_by %}<div>Required by <b>{{ order.required_by|date:"d/m/Y" }}</b></div>{% endif %}
+          {% endif %}
+          {% if order.vendor.payment_terms %}
+            <div style="margin-top:5px">Payment: <b>{{ order.vendor.payment_terms }}</b></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% comment %}
+    THE DATES. All four are recorded — Saahil asked where they were, and they had
+    been captured since slice 4 but never shown.
+
+    Printed as a progression rather than a list, so the document says how far
+    along it is at a glance. A stage not reached yet shows as pending rather than
+    as a blank, because a blank date reads like missing data.
+
+    ⚠ THE NAMES ARE HERE NOW, AND THE OLD NOTE SAID WHY THEY WERE NOT.
+      It read: "approved_by exists and is deliberately not shown. There is no
+      login, so it is always empty, and an empty 'approved by' is worse than
+      none at all — it invites someone to treat this as an audit trail, which it
+      is not until the security slice lands." The security slice has landed, so
+      they appear.
+
+    ⚠ A NAME IS SHOWN ONLY WHEN THERE IS ONE. Documents raised, delivered or
+      paid before this was recorded keep a blank, and a blank is honest —
+      writing "—" under a date somebody genuinely set is better than guessing
+      whose account it was.
+
+    ⚠ THIS IS ON SCREEN AND NOT ON THE PDF. The print format is signed off; the
+      approver's name has never been on it, and putting it there would mean
+      re-approving that layout.
+    {% endcomment %}
+    <div class="dates">
+      <div class="d {% if order.raised_on %}done{% endif %}">
+        <span class="l">Raised</span>
+        <span class="v">{{ order.raised_on|date:"d/m/Y"|default:"—" }}</span>
+        {% if order.created_by %}
+          <span class="l" style="text-transform:none;letter-spacing:0">
+            by {{ order.created_by.get_full_name|default:order.created_by.username }}</span>
+        {% endif %}</div>
+      <div class="d {% if order.approved_at %}done{% endif %}">
+        <span class="l">Approved</span>
+        <span class="v">{{ order.approved_at|date:"d/m/Y H:i"|default:"not yet" }}</span>
+        {% if order.approved_by %}
+          <span class="l" style="text-transform:none;letter-spacing:0">
+            by {{ order.approved_by.get_full_name|default:order.approved_by.username }}</span>
+        {% endif %}</div>
+      <div class="d {% if order.delivered_at %}done{% endif %}">
+        <span class="l">{% if order.document_type == 'WO' %}Completed{% else %}Delivered{% endif %}</span>
+        <span class="v">{{ order.delivered_at|date:"d/m/Y H:i"|default:"not yet" }}</span>
+        {% if order.delivered_by %}
+          <span class="l" style="text-transform:none;letter-spacing:0">
+            by {{ order.delivered_by.get_full_name|default:order.delivered_by.username }}</span>
+        {% endif %}</div>
+      <div class="d {% if order.paid_at %}done{% endif %}">
+        <span class="l">Paid</span>
+        <span class="v">{{ order.paid_at|date:"d/m/Y H:i"|default:"not yet" }}</span>
+        {% if order.paid_by %}
+          <span class="l" style="text-transform:none;letter-spacing:0">
+            by {{ order.paid_by.get_full_name|default:order.paid_by.username }}</span>
+        {% endif %}</div>
+    </div>
+
+    {# ---------------- the lines ------------------------------------------ #}
+    <div class="scroll" style="margin-top:14px">
+      <table>
+        <thead>
+          <tr class="hd">
+            <th>Construction activity</th><th>Code</th><th>Material / scope</th><th>UOM</th>
+            <th class="num">Qty</th><th class="num">Rate</th><th class="num">Value</th>
+            <th class="num">Disc %</th><th class="num">Basic</th>
+            <th class="num">GST %</th><th class="num">GST</th><th class="num">Line total</th>
+            {% if editable %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+        {% for line in lines %}
+          <tr>
+            <td style="font-size:11px;color:var(--muted)">{{ line.bom_line.activity.name }}</td>
+            <td class="code">{{ line.bom_line.material.code }}</td>
+            <td>{{ line.bom_line.material.name }}
+              <div style="font-size:10.5px;color:var(--muted)">{{ line.bom_line.material.specification }}</div>
+              {% if editable %}
+                <textarea class="cell" name="ref-{{ line.id }}" rows="2" maxlength="300"
+                          style="font-size:10.8px;font-style:italic;margin-top:4px"
+                          placeholder="Reference for the vendor — free text, about 50 words">{{ line.reference }}</textarea>
+              {% elif line.reference %}
+                <div style="font-size:10.8px;font-style:italic;margin-top:3px">↳ {{ line.reference }}</div>
+              {% endif %}</td>
+            <td>{{ line.bom_line.material.uom }}</td>
+
+            {% if editable %}
+              <td><input class="cell num" name="qty-{{ line.id }}" value="{{ line.quantity|qty }}"></td>
+              <td><input class="cell num" name="rate-{{ line.id }}" value="{{ line.rate|rupees2 }}"></td>
+              {% comment %}
+              THE LUMPSUM BOX. Type an amount here and the quantity is worked out
+              from the rate — Saahil's call, and it means the line stays
+              qty x rate like every other, with no second formula anywhere.
+
+              ⚠ It will not always come back to the figure you typed. Quantity
+                holds three decimals, so ₹50,000 at ₹1,854.91 is 26.955 Trip and
+                ₹49,999.10. The box redisplays what the line actually comes to,
+                because a document that quietly disagrees with itself is worse
+                than one showing a ninety-paise difference.
+              {% endcomment %}
+              <td><input class="cell num" name="value-{{ line.id }}" value="{{ line.basic|rupees2 }}"
+                         title="Type a lump sum here and the quantity is derived from the rate"></td>
+              <td><input class="cell num" name="disc-{{ line.id }}" value="{{ line.discount_pct|qty }}"></td>
+              <td class="num">₹{{ line.taxable|rupees }}</td>
+              <td><input class="cell num" name="gst-{{ line.id }}" value="{{ line.gst_percent|qty }}"></td>
+            {% else %}
+              <td class="num">{{ line.quantity|qty }}</td>
+              <td class="num">₹{{ line.rate|rupees2 }}</td>
+              <td class="num">₹{{ line.basic|rupees }}</td>
+              <td class="num">{% if line.discount_pct %}{{ line.discount_pct|qty }}%{% else %}—{% endif %}</td>
+              <td class="num">₹{{ line.taxable|rupees }}</td>
+              <td class="num">{{ line.gst_percent|qty }}%</td>
+            {% endif %}
+
+            <td class="num">{% if line.gst_amount %}₹{{ line.gst_amount|rupees }}{% else %}—{% endif %}</td>
+            <td class="num"><b>₹{{ line.total|rupees }}</b></td>
+            {% if editable %}
+              <td><button type="submit" class="link"
+                          formaction="{% url 'po_line_remove' project.id order.id line.id %}"
+                          onclick="return confirm('Remove {{ line.bom_line.material.code|escapejs }} from {{ order.number|escapejs }}?\n\nIts quantity goes back to \'still to buy\' on the BOM. The rest of this order is untouched.');"
+                          >remove</button></td>
+            {% endif %}
+          </tr>
+        {% empty %}
+          <tr><td colspan="13" style="color:var(--muted);padding:14px">This order has no lines.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ---------------- the totals ladder ----------------------------------- #}
+    <div class="foot" style="display:flex;gap:22px;margin-top:16px;align-items:flex-start">
+      <div style="width:52%">
+        <div class="card" style="padding:10px 12px">
+          <div style="font-size:10.5px;letter-spacing:.7px;color:var(--muted);text-transform:uppercase">
+            Order value in words</div>
+          <div style="font-weight:600;margin-top:3px">{{ totals.order_value|rupees_words }}</div>
+        </div>
+
+        <div class="card" style="padding:10px 12px;margin-top:10px">
+          <div style="font-size:11.5px;letter-spacing:.6px;color:var(--navy);font-weight:600;margin-bottom:5px">
+            TERMS &amp; CONDITIONS</div>
+          {% if editable %}
+            <textarea class="cell" name="terms" rows="5" style="font-size:11.5px">{{ order.terms }}</textarea>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:4px">
+              Copied from the company profile when this order was created. Editing here changes this
+              document only.</div>
+          {% else %}
+            <div style="font-size:11.5px;white-space:pre-line">{{ order.terms|default:"—" }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <table class="tot" style="width:48%;border-collapse:collapse">
+        <tr><td class="k">Gross value</td><td class="num">₹{{ totals.gross|rupees }}</td></tr>
+        <tr><td class="k">Less: line discounts</td>
+            <td class="num">{% if totals.discount %}− ₹{{ totals.discount|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr><td class="k"><b>Total basic value</b></td>
+            <td class="num"><b>₹{{ totals.taxable|rupees }}</b></td></tr>
+
+        {% comment %}
+        Gujarat vendor → CGST + SGST, anyone else → IGST. Derived from the two
+        GSTINs; there is no switch for it, and a Gujarat vendor never sees an
+        IGST row. The halves are computed in totals() so they add back exactly.
+        {% endcomment %}
+        {% if order.vendor.is_unregistered %}
+          <tr><td class="k">GST</td><td class="num">— unregistered supplier</td></tr>
+        {% elif interstate %}
+          <tr><td class="k">IGST</td><td class="num">₹{{ totals.gst|rupees }}</td></tr>
+        {% else %}
+          <tr><td class="k">CGST</td><td class="num">₹{{ totals.cgst|rupees }}</td></tr>
+          <tr><td class="k">SGST</td><td class="num">₹{{ totals.sgst|rupees }}</td></tr>
+        {% endif %}
+
+        <tr><td class="k">Amount</td><td class="num">₹{{ totals.invoice_value|rupees }}</td></tr>
+        <tr>
+          <td class="k">Less: agreed deduction (post-tax)
+            {% if editable %}
+              <input class="cell num" name="deduction" value="{{ order.deduction_pct|qty }}"
+                     style="width:56px;min-width:56px;display:inline-block"> %
+            {% else %}@ {{ order.deduction_pct|qty }}%{% endif %}</td>
+          <td class="num">{% if totals.deduction %}− ₹{{ totals.deduction|rupees }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr><td class="k">Round off</td><td class="num">₹{{ totals.round_off|rupees2 }}</td></tr>
+        <tr class="order"><td class="k"><b>ORDER VALUE</b></td>
+            <td class="num"><b>₹{{ totals.order_value|rupees }}</b></td></tr>
+        <tr class="sep"><td colspan="2">what we will actually pay</td></tr>
+        <tr>
+          <td class="k">Less: TDS
+            {% if editable %}
+              <input class="cell" name="tds_section" value="{{ order.tds_section }}"
+                     placeholder="194Q" style="width:64px;min-width:64px;display:inline-block">
+              <input class="cell num" name="tds" value="{{ order.tds_pct|qty }}"
+                     style="width:56px;min-width:56px;display:inline-block"> %
+            {% else %}{{ order.tds_section }} @ {{ order.tds_pct|qty }}%{% endif %}
+            on basic value</td>
+          <td class="num">{% if totals.tds %}− ₹{{ totals.tds|rupees }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr class="pay"><td class="k"><b>NET PAYABLE</b></td>
+            <td class="num"><b>₹{{ totals.net_payable|rupees }}</b></td></tr>
+      </table>
+    </div>
+
+    {% if editable %}
+      <div class="note tight" style="margin-bottom:0">
+        <b>Draft — editable, and committed to nobody.</b> Quantities here move <b>In Draft</b> on the
+        BOM straight away. <b>Approving locks the document permanently.</b>
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+{% comment %}
+Approving is the one irreversible step on this screen, so it asks twice — once
+in words that say what will happen, and again for the GSTIN when the vendor has
+none, because approval hard-blocks without it.
+{% endcomment %}
+function confirmApprove(){
+  if(!confirm("Approve {{ order.number|escapejs }} for {{ order.vendor.name|escapejs }}?\n\n" +
+              "Once approved the document is LOCKED — no changes, by anyone, ever.\n" +
+              "Its quantities move from In Draft to Approved on the BOM.")) return false;
+{% if not order.vendor.gst_number and not order.vendor.is_unregistered %}
+  var g = prompt("{{ order.vendor.name|escapejs }} has no GST number, and a purchase order is a tax " +
+                 "document.\n\nEnter their 15-character GSTIN — it is saved to the vendor master, so " +
+                 "no future order will ask again.");
+  if(!g) return false;
+  document.getElementById('gstin').value = g;
+{% endif %}
+  return true;
+}
+</script>
+
+{% endblock %}

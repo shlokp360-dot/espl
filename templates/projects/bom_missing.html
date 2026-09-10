@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% comment %}
+Shown when a project has no BOM. A blank grid would be misleading — there is
+nothing to fill in yet, because the BOM itself does not exist.
+{% endcomment %}
+
+{% block title %}{{ project.code }} — no BOM yet{% endblock %}
+{% block subtitle %}{{ project.code }} · {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3 style="margin-top:0;color:var(--navy)">{{ project.code }} has no bill of materials yet</h3>
+  {% if estimate %}
+    <p>Its estimate covers {{ estimate.lines.count }} activit{{ estimate.lines.count|pluralize:"y,ies" }}.
+       Generating the BOM creates an empty sheet under each of them, ready for materials.</p>
+    <form method="post" action="{% url 'bom_generate' project.id %}">
+      {% csrf_token %}
+      <button type="submit">Generate BOM</button>
+    </form>
+  {% else %}
+    {% comment %}
+    >>> ANCHOR: NO-DJANGO-ADMIN <<<
+    ⚠ THIS SENT PEOPLE TO DJANGO ADMIN and now sends them to the BOQ screen,
+      which is where an estimate is actually built. Admin is no longer mounted;
+      more to the point, the estimate was always meant to be built here.
+    {% endcomment %}
+    <p>It has no estimate either. The BOM is planned against the activities on the estimate, so the
+       estimate has to come first — add the construction activities this project covers.</p>
+    <a href="{% url 'boq_screen' project.id %}">Build {{ project.code }}'s estimate ▸</a>
+  {% endif %}
+</div>
+{% endblock %}

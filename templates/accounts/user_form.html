@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
+
+⚠ THE PASSWORD BOX BEHAVES DIFFERENTLY ON EACH.
+  New person  — required. You type it, you tell them, they must change it.
+  Existing    — blank and optional. Filling it in IS the reset; there is no
+                separate reset screen and no emailed link, because the login
+                path must not depend on a mail server nobody maintains.
+
+⚠ TWO BOXES ARE LOCKED WHEN YOU ARE EDITING YOURSELF — role and active. The
+  view refuses those changes anyway; greying them here means nobody finds out
+  by being bounced back with an error.
+{% endcomment %}
+
+{% block title %}{% if person %}{{ display_name }}{% else %}Add user{% endif %}{% endblock %}
+{% block subtitle %}{% if person %}Editing an account{% else %}Creating an account{% endif %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "user_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "user_form" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
+  <a href="{% url 'user_list' %}">Users</a> &nbsp;▸&nbsp;
+  <b>{% if person %}{{ display_name }}{% else %}New{% endif %}</b>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">{% if person %}{{ display_name }}{% else %}Add user{% endif %}</span>
+    <span class="sp"></span>
+    <a href="{% url 'user_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <button type="submit">{% if person %}Save{% else %}Create user{% endif %}</button>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line);max-width:760px">
+
+    <table style="width:100%">
+      <tr>
+        <td style="width:30%;border:0;padding:8px 10px 8px 0"><b>Name</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="name" style="max-width:380px" autofocus
+                 value="{% if typed.name %}{{ typed.name }}{% elif person %}{{ person.get_full_name }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>User ID</b>
+          <div style="font-size:11px;color:var(--muted)">
+            What they type to sign in — short, like SAP. Letters, digits, dot, dash or underscore.
+            Not case sensitive.</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="username" style="max-width:260px"
+                 autocapitalize="none" spellcheck="false" placeholder="ramesh"
+                 value="{% if typed.username %}{{ typed.username }}{% elif person %}{{ person.username }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Email</b>
+          <div style="font-size:11px;color:var(--muted)">
+            Optional, and not a login. For the day there is something to send them.</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" type="email" name="email" style="max-width:380px"
+                 value="{% if typed.email %}{{ typed.email }}{% elif person %}{{ person.email }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Role</b>
+          <div style="font-size:11px;color:var(--muted)">Decides which screens they see</div></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="role" style="max-width:260px" {% if editing_self %}disabled{% endif %}>
+            {% for value, label in roles %}
+              <option value="{{ value }}" {% if current_role == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          {% if editing_self %}
+            {# Disabled inputs post nothing, so the current role rides along. #}
+            <input type="hidden" name="role" value="{{ current_role }}">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+              You cannot change your own role — another Admin has to.</div>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>{% if person %}New password{% else %}First password{% endif %}</b>
+          <div style="font-size:11px;color:var(--muted)">
+            {% if person %}Leave blank to keep the current one{% else %}You will need to tell them what it is{% endif %}</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" type="password" name="password" style="max-width:280px;background:#fff"
+                 autocomplete="new-password">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">
+            They are asked to change it the first time they sign in.</div></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top"><b>Active</b></td>
+        <td style="border:0;padding:8px 0">
+          <label style="font-size:12.5px">
+            <input type="checkbox" name="is_active"
+                   {% if not person or person.is_active %}checked{% endif %}
+                   {% if editing_self %}disabled{% endif %}>
+            Can sign in
+          </label>
+          {% if editing_self %}
+            <input type="hidden" name="is_active" value="on">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+              You cannot switch your own account off.</div>
+          {% endif %}
+          {% if person and not person.is_active %}
+            <div style="font-size:11px;color:var(--red);margin-top:4px">
+              Deactivated — everything they did is still on record.</div>
+          {% endif %}
+        </td>
+      </tr>
+      {% if person %}
+        <tr>
+          <td style="border:0;padding:8px 10px 8px 0"><b>Last signed in</b></td>
+          <td style="border:0;padding:8px 0;color:var(--muted)">
+            {% if person.last_login %}{{ person.last_login|date:"j M Y, H:i" }}
+            {% else %}Never{% endif %}</td>
+        </tr>
+      {% endif %}
+    </table>
+
+    <div class="note tight" style="margin-bottom:0">
+      <b>There is no email reset.</b> Set a new password here, or press Reset password on the Users
+      list — signing in never depends on a mail server.
+    </div>
+  </div>
+</form>
+
+{% if person %}
+  {% comment %}
+  THE HISTORY OF THE ACCOUNT.
+
+  ⚠ EVENTS, NEVER THE PASSWORD. Saahil asked whether an admin could see a
+    changed password; they cannot, because it is a one-way hash, and if it were
+    readable by an admin it would be readable by whoever steals the database.
+    What this answers instead is the question people actually ask months later:
+    who gave this person access, and when.
+
+  ⚠ AN EMPTY HISTORY IS HONEST. Accounts that existed before this table have
+    nothing here, because nobody knows who created them. Inventing a row would
+    be worse than the blank.
+  {% endcomment %}
+  <div class="panel" style="border-top:1px solid var(--line);max-width:760px;margin-top:14px">
+    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">History</h3>
+    {% if history %}
+      <table>
+        <thead><tr class="hd"><th>When</th><th>What</th><th>Detail</th><th>By</th></tr></thead>
+        <tbody>
+          {% for event in history %}
+            <tr>
+              <td style="white-space:nowrap">{{ event.at|date:"j M Y, H:i" }}</td>
+              <td>{{ event.get_kind_display }}</td>
+              <td class="mut">{{ event.detail|default:"—" }}</td>
+              <td>{% if event.by %}{{ event.by.get_full_name|default:event.by.username }}
+                  {% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="color:var(--muted);font-size:12px;margin:0">
+        Nothing recorded. This account predates the history, or nothing has happened to it since.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

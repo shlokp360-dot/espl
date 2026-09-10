@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load inr %}
+{% comment %}
+COMPANY RATE DEFAULTS — the ₹/sqft each activity starts at on a new BOQ.
+
+From BOQ_Prototype.html's fourth view.
+
+⚠ RATES AND GST ONLY. The activity's NAME is shown but cannot be edited here,
+  and that is deliberate: an estimate copies the name onto each line, and the
+  reserve is found later by matching that name back. Renaming would orphan every
+  line that copied the old one and silently zero those reserves on live
+  projects. Renaming stays in Admin, where it is rare and deliberate.
+{% endcomment %}
+
+{% block title %}Company rates{% endblock %}
+{% block subtitle %}What a new project's BOQ starts from{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="{% url 'project_list' %}">All projects</a>
+  <a class="on" href="{% url 'rate_defaults' %}">Company rates</a>
+  <a href="{% url 'company_profile' %}">Company profile</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">Company rate defaults</span>
+    <span class="sp"></span>
+    <span class="hint">{{ activities|length }} activit{{ activities|length|pluralize:"y,ies" }} in the master</span>
+    <button type="submit">Save rates</button>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    {% comment %}
+    The single most important thing on this screen, and the thing somebody would
+    otherwise assume the opposite of.
+    {% endcomment %}
+    <div class="note tight">
+      <b>Changing a rate here does not touch any existing project</b>{% if quoted_count %} — all
+      {{ quoted_count }} keep{{ quoted_count|pluralize:"s," }} what {{ quoted_count|pluralize:"it,they" }}
+      copied{% endif %}. It sets what the <b>next</b> one starts from.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Construction activity / parameter</th>
+          <th class="num">Default ₹/sqft</th><th class="num">GST %</th>
+          <th>What it covers</th>
+          <th class="num">Materials</th><th>Active</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for activity in activities %}
+        <tr {% if not activity.is_active %}style="opacity:.55"{% endif %}>
+          <td>
+            <b>{{ activity.name }}</b>
+            <span class="code" style="margin-left:6px">{{ activity.abbreviation }}</span>
+            {% comment %}
+            Shown, not editable. The abbreviation is the first segment of every
+            material code under this activity — PLM in PLM-PL3-014 — and codes
+            are never regenerated, so it cannot change either.
+            {% endcomment %}
+          </td>
+          <td><input class="cell num" name="rate-{{ activity.id }}" value="{{ activity.rate|rupees2 }}"></td>
+          <td><input class="cell num" name="gst-{{ activity.id }}" value="{{ activity.gst_percent|qty }}"></td>
+          <td style="color:var(--muted);font-size:11px">{{ activity.basis|default:"—" }}</td>
+          <td class="num" style="color:var(--muted)">{{ activity.material_links.count }}</td>
+          <td>{% if activity.is_active %}<span class="pill p-won">yes</span>
+              {% else %}<span class="pill p-lost">no</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>COMPOSITE — every active construction activity</td>
+          <td class="num">₹{{ composite|rupees2 }}</td>
+          <td colspan="4"></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="note tight" style="margin-bottom:0">
+      <b>The name and abbreviation are not editable here, on purpose</b> — a rename would take every
+      existing reserve to zero, silently. Both change in Admin only.
+    </div>
+  </div>
+</form>
+
+{% endblock %}

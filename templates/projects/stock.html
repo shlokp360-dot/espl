@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+SITE STOCK — what the site engineer sees instead of the bill of materials.
+
+>>> ANCHOR: BOM-STOCK-ONLY <<<
+⚠⚠ THERE IS NO MONEY ON THIS PAGE, AND THAT IS THE WHOLE DESIGN. Not greyed,
+   not read-only — not fetched. No order quantities, no vendors, no rates, no
+   PO values, no variance. Six columns.
+
+   Saahil asked for the engineer to keep stock honest on the BOM. Doing that
+   literally meant handing them the entire buying grid read-only; put to him, he
+   chose this instead: "your suggestion of having only a BOM stock view is good."
+
+⚠ IT POSTS TO stock_save, WHICH CALLS THE SAME _apply_edits THE BOM USES. Two
+  save paths writing the same two columns would eventually disagree about what
+  a blank cell means.
+
+⚠ EVERY LINE IS LISTED, INCLUDING THE ONES HOLDING NOTHING. A screen showing
+  only what is already on site could not be used to record what has just
+  arrived, which is the entire job.
+{% endcomment %}
+
+{% block title %}Site stock{% endblock %}
+{% block subtitle %}{{ project.name }}{% endblock %}
+{% block nav %}{% include "projects/_nav.html" with here="stock" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "stock" %}{% endblock %}
+
+{% block content %}
+
+<form method="post" action="{% url 'stock_save' project.id %}">
+  {% csrf_token %}
+  <input type="hidden" name="activity" value="{{ activity.abbreviation }}">
+
+  <div class="toolbar">
+    <span class="ttl">Site stock</span>
+    <span class="sp"></span>
+    {% if low %}
+      <span class="hint"><b style="color:var(--red)">{{ low }} below threshold</b></span>
+    {% endif %}
+    <button class="sec" type="submit">Save stock</button>
+  </div>
+
+  <div class="tabs">
+    {% for tab in tabs %}
+      <a class="tab {% if tab.is_open %}on{% endif %}"
+         href="{% url 'stock_screen' project.id %}?activity={{ tab.activity.abbreviation }}">
+        {{ tab.activity.name }}<span class="n">{{ tab.count }}</span></a>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    {% if rows %}
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr class="hd">
+              <th>Code</th><th>Material</th><th>Remark</th><th>UOM</th>
+              <th class="num">Stock on site</th><th class="num">Min</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td class="code">{{ row.line.material.code }}</td>
+                <td>{{ row.line.material.name }}
+                  {% if row.line.material.specification %}
+                    <div style="font-size:10.5px;color:var(--muted)">{{ row.line.material.specification }}</div>
+                  {% endif %}</td>
+                <td style="color:var(--muted)">{{ row.line.remark|default:"—" }}</td>
+                <td>{{ row.line.material.uom }}</td>
+                <td class="gS"><div class="flagcell">
+                  {% comment %}
+                  The same red flag the BOM shows, and for the same reason: this
+                  is the person who can do something about it today.
+                  {% endcomment %}
+                  {% if row.below_threshold %}
+                    <span class="lowflag"
+                          title="Below the threshold of {{ row.line.min_qty|qty }} {{ row.line.material.uom }}">▲</span>
+                  {% endif %}
+                  <input class="cell num" name="stock-{{ row.line.id }}"
+                         value="{{ row.line.stock_qty|qty }}"
+                         {% if not row.stocked %}readonly
+                           title="{{ row.line.material.group.name }} is not stock-tracked"{% endif %}>
+                </div></td>
+                <td class="gS"><input class="cell num" name="min-{{ row.line.id }}"
+                       value="{{ row.line.min_qty|qty }}"
+                       {% if not row.stocked %}readonly
+                         title="{{ row.line.material.group.name }} is not stock-tracked"{% endif %}></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="legend">
+        <span><i class="sw" style="background:var(--edit)"></i> you type</span>
+        <span><span class="lowflag">▲</span> below its threshold — tell the purchase manager</span>
+      </div>
+    {% else %}
+      <div style="color:var(--muted);padding:16px 2px">
+        Nothing is planned under this construction activity yet.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "stock" %}{% endblock %}

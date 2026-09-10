@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+THE CHECKLIST MASTER — the template every project is measured against.
+
+⚠ THIS IS NOT A PROJECT, and the note at the top says so. Saahil asked the
+  question directly — "what is this meant for, because in the same one project I
+  can review everything based on project" — and the answer is that a line typed
+  here appears on every project of that type at once. Ten sites, one typing.
+
+⚠ THE DIALOG STATES THE BLAST RADIUS BEFORE SAVING. That is the deliberate
+  difference from the task master: a task belongs to one site, a checklist item
+  lands on all of them.
+{% endcomment %}
+
+{% block title %}Checklist master{% endblock %}
+{% block subtitle %}The template behind every project{% endblock %}
+{% block nav %}{% include "compliance/_nav.html" with here="master" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "compliance_master" %}{% endblock %}
+
+{% block content %}
+
+<style>
+.dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
+.dlgform label{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+               color:var(--muted);margin-bottom:3px}
+.dlgform input,.dlgform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
+                               border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
+.dlgform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dlgform .foot{display:flex;gap:8px;justify-content:flex-end}
+.dlgform p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5}
+.ttrow{background:#FAFBFD;border-bottom:1px solid var(--line);padding:8px 12px;display:flex;
+       gap:10px;align-items:center}
+.ttrow b{color:var(--navy);font-size:12.5px}
+.irow{display:flex;gap:10px;align-items:flex-start;padding:7px 12px;border-bottom:1px solid #EDEFF3}
+.irow:last-child{border-bottom:none}
+.irow .nm{flex:1;min-width:0;font-size:12.5px}
+.irow .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.blk{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:10px;overflow:hidden}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">Checklist master</span>
+  <form method="get" style="margin:0">
+    <select name="type" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      {% for option in types %}
+        <option value="{{ option.code }}" {% if option.pk == type.pk %}selected{% endif %}>
+          {{ option.code }} — {{ option.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <span class="sp"></span>
+  {% if type %}
+    <button type="button" onclick="document.getElementById('newtitle').showModal()">New title</button>
+    <button type="button" class="sec" onclick="askItem()">New line item</button>
+  {% endif %}
+  <button type="button" class="sec" onclick="document.getElementById('newtype').showModal()">New compliance type</button>
+</div>
+
+{% if type %}
+  <div class="note tight">
+    <b>This is the template, not a project.</b> What you write here appears on
+    <b>{{ reach }} project{{ reach|pluralize }}</b> at once. Documents are uploaded on
+    <b>By project</b>, never here.
+  </div>
+
+  {% for group in titles %}
+    <div class="blk">
+      <div class="ttrow">
+        <b>{{ group.title.name }}</b>
+        <span class="hint">{{ group.items|length }} item{{ group.items|length|pluralize }}</span>
+        <span class="sp" style="flex:1"></span>
+        <button type="button" class="sec sm" onclick="askItem(null, {{ group.title.pk }})">+ item</button>
+        <button type="button" class="sec sm"
+                onclick="askTitle({{ group.title.pk }}, '{{ group.title.name|escapejs }}')">Rename</button>
+      </div>
+      {% for item in group.items %}
+        <div class="irow">
+          <span class="nm">{{ item.name }}
+            <span class="pill p-draft">{{ item.get_kind_display }}</span>
+            {% if item.project %}<span class="pill p-paid">{{ item.project.code }} only</span>{% endif %}
+            {% if not item.is_compulsory %}<span class="pill p-draft">optional</span>{% endif %}
+            <div class="sub">
+              {% if item.validity_days %}typically {{ item.validity_days }} days ·
+                the upload form suggests an expiry from this{% endif %}
+              {% if item.note %} · {{ item.note }}{% endif %}
+            </div>
+          </span>
+          <span style="display:flex;gap:6px;white-space:nowrap">
+            <button type="button" class="sec sm"
+                    onclick="askItem({{ item.pk }}, {{ group.title.pk }},
+                             '{{ item.name|escapejs }}', '{{ item.kind }}',
+                             '{{ item.validity_days|default:'' }}',
+                             '{{ item.project_id|default:'' }}',
+                             {{ item.is_compulsory|yesno:'true,false' }})">Edit</button>
+            <form method="post" action="{% url 'compliance_master_off' item.pk %}" style="margin:0;display:inline"
+                  onsubmit="return confirm('Deactivate {{ item.name|escapejs }}? Documents already filed against it are kept and stay downloadable.');">
+              {% csrf_token %}
+              <button type="submit" class="sec sm">Deactivate</button>
+            </form>
+          </span>
+        </div>
+      {% empty %}
+        <div class="irow"><span class="nm" style="color:var(--muted)">
+          Nothing under this title yet — press <b>+ item</b>.</span></div>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <div class="card" style="color:var(--muted)">
+      <b style="color:var(--navy)">{{ type.code }} has no titles yet.</b><br>
+      A title is the sub-header documents sit under — Plan passing, Before work starts.
+    </div>
+  {% endfor %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>Nothing here is ever deleted.</b> Deactivating takes a line off future checklists and keeps
+    every document already filed against it.
+  </div>
+{% endif %}
+
+<dialog class="info" id="newtitle">
+  <div class="hd"><b id="titlehead">New title</b><span class="sp"></span>
+    <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+  <form method="post" action="{% url 'compliance_master_title' %}" class="dlgform">
+    {% csrf_token %}
+    <input type="hidden" name="type" value="{{ type.pk }}">
+    <input type="hidden" name="title" id="titleid">
+    <div><label>Title</label>
+      <input type="text" name="name" id="titlename" maxlength="120" required
+             placeholder="Environment and safety"></div>
+    <p>The sub-header a group of documents sits under, on <b>{{ type.code }}</b>. Every project under
+       {{ type.code }} gets it.</p>
+    <div class="foot">
+      <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="info" id="newitem">
+  <div class="hd"><b id="itemhead">New line item</b><span class="sp"></span>
+    <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+  <form method="post" action="{% url 'compliance_master_item' %}" class="dlgform">
+    {% csrf_token %}
+    <input type="hidden" name="item" id="itemid">
+    <div><label>Under which title</label>
+      <select name="title" id="itemtitle" required>
+        {% for group in titles %}<option value="{{ group.title.pk }}">{{ group.title.name }}</option>{% endfor %}
+      </select></div>
+    <div><label>Line item</label>
+      <input type="text" name="name" id="itemname" maxlength="160" required
+             placeholder="Consent to Establish (GPCB)"></div>
+    <div class="two">
+      <div><label>Kind</label>
+        <select name="kind" id="itemkind" onchange="paintBlast()">
+          {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select></div>
+      <div><label>Typical validity (days)</label>
+        <input type="number" name="validity_days" id="itemvalidity" min="1" placeholder="365"></div>
+    </div>
+    <div><label>Applies to</label>
+      <select name="project" id="itemproject" onchange="paintBlast()">
+        <option value="">Every project under {{ type.code }}</option>
+        {% for option in projects %}
+          <option value="{{ option.pk }}">{{ option.code }} — {{ option.name }} only</option>
+        {% endfor %}
+      </select></div>
+    {% comment %}
+    ⚠ THE BLAST RADIUS, RESTATED AS THE SCOPE CHANGES. A checklist item is not a
+      task: it lands on every project of this type the moment it is saved.
+    {% endcomment %}
+    <div class="note tight" id="blast" style="margin:0"></div>
+    <div><label>Compulsory</label>
+      <select name="compulsory" id="itemmust">
+        <option value="yes">Yes — counts towards "needs attention"</option>
+        <option value="no">No — good practice, never chased</option>
+      </select></div>
+    <p><b>Has a validity</b> asks for an expiry on every upload and can turn orange.
+       <b>Due again each quarter</b> goes stale after 92 days. <b>One time</b> is filed once and
+       never chased.</p>
+    <div class="foot">
+      <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="info" id="newtype">
+  <div class="hd"><b>New compliance type</b><span class="sp"></span>
+    <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+  <form method="post" action="{% url 'compliance_master_type' %}" class="dlgform">
+    {% csrf_token %}
+    <div class="two">
+      <div><label>Short code</label>
+        <input type="text" name="code" maxlength="10" required placeholder="FIRE"></div>
+      <div><label>Name</label>
+        <input type="text" name="name" maxlength="120" placeholder="Fire department"></div>
+    </div>
+    <div><label>Who does it apply to</label>
+      <select name="every">
+        <option value="yes">Every project — compulsory, like AMC</option>
+        <option value="no">Ticked per project — optional, like RERA</option>
+      </select></div>
+    <p>That one choice is the entire difference between AMC and RERA. A lender's covenant pack or a
+       fire-department regime needs nothing more.</p>
+    <div class="foot">
+      <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+function askTitle(id, name){
+  document.getElementById("titleid").value = id || "";
+  document.getElementById("titlename").value = name || "";
+  document.getElementById("titlehead").textContent = id ? "Rename title" : "New title";
+  document.getElementById("newtitle").showModal();
+}
+function askItem(id, titleId, name, kind, validity, project, must){
+  document.getElementById("itemid").value = id || "";
+  document.getElementById("itemname").value = name || "";
+  document.getElementById("itemkind").value = kind || "one";
+  document.getElementById("itemvalidity").value = validity || "";
+  document.getElementById("itemproject").value = project || "";
+  document.getElementById("itemmust").value = must === false ? "no" : "yes";
+  if (titleId) document.getElementById("itemtitle").value = titleId;
+  document.getElementById("itemhead").textContent = id ? "Edit line item" : "New line item";
+  paintBlast();
+  document.getElementById("newitem").showModal();
+}
+function paintBlast(){
+  var project = document.getElementById("itemproject");
+  var reach = {{ reach }};
+  var global = project.value === "";
+  document.getElementById("blast").innerHTML = global
+    ? "<b>This appears as Missing on " + reach + " project" + (reach === 1 ? "" : "s") +
+      " straight away.</b> Correct for a new requirement everybody must hold."
+    : "<b>This appears on " + project.options[project.selectedIndex].text.split(" —")[0] +
+      " only.</b> Nobody else's checklist changes.";
+}
+</script>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "compliance_master" %}{% endblock %}

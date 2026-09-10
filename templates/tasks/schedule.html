@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+THE SCHEDULE — milestones and their tasks as bars on a month scale.
+
+⚠ NOT ONE NUMBER ON THIS PAGE IS WORKED OUT HERE. Every left and width arrives
+  from tasks/schedule.py as a string. Geometry inside a div cannot be tested and
+  gets copied the second time somebody needs it.
+
+⚠ THE BAR CARRIES THE DIFFERENCE AND NOTHING ELSE. Saahil: "the delay messages
+  should not be visible on the chart, it should have a different log repository".
+  A row that ran over gets a second segment in another colour and no words.
+
+⚠ TWO OVERRUNS, TWO COLOURS, ON PURPOSE. Red on a task means LATE — it
+  finished after its date, or it is open and today has passed. Amber on a header
+  means the plan no longer fits inside the window that was committed to, which
+  is a warning that arrives before anything is late. Reading them as one number
+  is how a project convinces itself it is on time until the week it is not.
+
+⚠ NO JAVASCRIPT. Bars are divs at a percentage offset; the browser does the rest.
+{% endcomment %}
+
+{% block title %}Schedule{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="schedule" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "schedule" %}{% endblock %}
+
+{% block content %}
+
+<style>
+/* >>> ANCHOR: TASK-SCHEDULE-SCALE <<<
+   ⚠⚠ THE CHART SCROLLS SIDEWAYS INSTEAD OF SHRINKING. A month is the same width
+      on a three-week job and a three-year one, so a two-year project no longer
+      squeezes twenty-four months into the page. Saahil found the old behaviour
+      on a real project: "when we have at least a year in, the data is compressed
+      at the end."
+   ⚠ THE NAMES COLUMN IS STICKY, not scrolled away with it. A chart you can
+     scroll but whose rows you cannot identify is not an improvement. */
+.gantt{background:#fff;border:1px solid var(--line);border-radius:6px;overflow-x:auto;overflow-y:hidden}
+.gantt .gname,.gantt .pad{position:sticky;left:0;z-index:4}
+/* >>> ANCHOR: TASK-SCHEDULE-SCALE <<<
+   ⚠⚠ WIDTH:MAX-CONTENT, AND WITHOUT IT THE LAST MONTHS GO INVISIBLE. Saahil
+      found the month header blank from roughly the twelfth month onwards. The
+      labels were being rendered the whole time — the BACKGROUND was not.
+
+      A block-level element inside a horizontally scrolling parent takes its
+      width from the VISIBLE container, not from its own overflowing children.
+      So this strip was ~1435px wide while its month cells added up to 1547px,
+      and a background paints across an element's own box and no further. The
+      month labels are white on navy; past 1435px they became white on white.
+      The milestone strip below had the same fault in lavender, which is why
+      both went blank at the same point and why the point moved whenever the
+      project's span changed.
+
+   ⚠ THE ROWS NEED IT TOO, and their fault was invisible only by luck: their
+     background is white and so is the page behind them. A row whose colour
+     ever changes would have shown the same cut-off. Fixed here rather than
+     left as a trap. */
+/* ⚠ THE TRAILING SEMICOLON IS LOAD-BEARING — bug 4, again. A percent sign
+   immediately followed by a closing brace is the same two characters as a
+   closing Django tag, and the raw-template-syntax guard reads it as one that
+   leaked. The semicolon separates them. The test caught it twice: once in the
+   rule, once in the comment that explained the rule. Do not tidy it away. */
+.gantt .gscale,.gantt .mlab,.gantt .grow{width:max-content;min-width:100%;}
+.grow{display:flex;align-items:stretch;border-bottom:1px solid #EDEFF3;min-height:26px}
+.grow:last-child{border-bottom:none}
+.gname{flex:0 0 280px;padding:5px 10px;font-size:12px;border-right:1px solid var(--line);background:#fff;
+       display:flex;align-items:center;gap:6px;min-width:0}
+.gname.hdr{font-weight:600;color:var(--navy);background:#FAFBFD}
+.gname.sub{padding-left:24px;color:var(--text)}
+.gname .who{color:var(--muted);font-size:11px;margin-left:auto;white-space:nowrap}
+.gtrack{position:relative;flex:0 0 auto}
+/* ⚠ min-width, not a floor in the arithmetic. A single day inside a two-year
+   span is 0.14% of the track and would draw as nothing at all — and an
+   invisible bar reads as "there is no work here". Inflating the percentage
+   instead would put every bar after it in the wrong place. */
+.gbar{position:absolute;top:6px;height:13px;border-radius:3px;min-width:3px}
+.gbar.hdr{background:var(--blue);top:5px;height:15px}
+.gbar.hdrover{background:var(--amber);opacity:.55;top:5px;height:15px;border-radius:0 3px 3px 0}
+.gbar.open{background:#9BB4D8}
+.gbar.blocked{background:var(--amber)}
+.gbar.done{background:#7FA86A}
+.gbar.late{background:var(--red);border-radius:0 3px 3px 0}
+.gscale{display:flex;border-bottom:1px solid var(--line);background:var(--navy);color:#fff;position:sticky;top:0;z-index:5}
+.gscale .m{font-size:10.5px;padding:4px 0;text-align:center;border-right:1px solid #2E4A7D;
+           overflow:hidden;white-space:nowrap}
+.gscale .pad{flex:0 0 280px;border-right:1px solid #2E4A7D;padding:4px 10px;font-size:10.5px;background:var(--navy);
+             letter-spacing:.6px;text-transform:uppercase}
+.gmarks{position:absolute;inset:0;pointer-events:none}
+.gmark{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #7A5AA6}
+/* A phase whose work ran past the window it was given. Same line, warmer colour. */
+.gmark.over{border-left-color:#C55A11}
+.gtoday{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--red);opacity:.55}
+.mlab{display:flex;border-bottom:1px solid var(--line);background:#F6F3FB;position:relative;min-height:22px}
+.mlab .pad{flex:0 0 280px;border-right:1px solid var(--line);padding:3px 10px;font-size:10.5px;background:#F6F3FB;
+           color:#4A3B79;letter-spacing:.6px;text-transform:uppercase}
+.mlab .track{position:relative;flex:0 0 auto}
+.mlab .m{position:absolute;top:2px;font-size:10.5px;color:#4A3B79;white-space:nowrap;
+         transform:translateX(-50%);background:#F6F3FB;padding:0 4px}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">Schedule</span>
+  {% if projects %}
+    <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
+      <select name="project" onchange="this.form.submit()"
+              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        {% for option in projects %}
+          <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
+            {{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="sec sm">Show</button></noscript>
+    </form>
+  {% endif %}
+  <span class="sp"></span>
+  {% if chart %}
+    <span class="hint">{{ chart.span.start|date:"M Y" }} → {{ chart.span.end|date:"M Y" }}</span>
+  {% endif %}
+</div>
+
+{% if not projects %}
+  <div class="note tight"><b>No project is Won yet.</b> The schedule opens once there is a site to plan.</div>
+{% elif not chart %}
+  <div class="card" style="color:var(--muted)">
+    <b style="color:var(--navy)">Nothing to draw on {{ project.code }} yet.</b><br>
+    Add a milestone on the board and it appears here as a bar the same minute.
+  </div>
+{% else %}
+
+  <div class="gantt">
+
+    <div class="gscale">
+      <span class="pad">Work</span>
+      {% for month in chart.months %}
+        <span class="m" style="flex:0 0 {{ month.width }}px">{{ month.label }}</span>
+      {% endfor %}
+    </div>
+
+    {% if chart.milestones %}
+      {% comment %}
+      >>> ANCHOR: MILESTONE-LINE <<<
+      ⚠⚠ ONE LABEL STRIP PER LANE. Saahil asked what happens when two phases
+         finish days apart, and the answer was that their labels sat on top of
+         each other. A label that would collide drops to the next lane; the LINE
+         never moves, because moving a line to make a label fit would be drawing
+         a lie about the date.
+
+      ⚠ The lane is decided in schedule.py, as arithmetic, so it can be tested.
+        This only reads `entry.lane`.
+      {% endcomment %}
+      {% for lane in chart.milestone_lanes %}
+        <div class="mlab">
+          <span class="pad">{% if forloop.first %}Milestones{% endif %}</span>
+          <span class="track" style="width:{{ chart.track_px }}px">
+            {% for entry in chart.milestones %}
+              {% if entry.lane == lane %}
+                <span class="m" style="left:{{ entry.left }}px"
+                      title="{{ entry.header.name }} — {{ entry.date|date:'d/m/Y' }}{% if entry.over %}, {{ entry.header.name }} ran past its window{% endif %}">{{ entry.header.name }}</span>
+              {% endif %}
+            {% endfor %}
+          </span>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% for row in chart.rows %}
+      <div class="grow">
+        {% if row.kind == 'milestone' %}
+          <span class="gname hdr">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.header.name }}</span>
+            <span class="who">{{ row.done }}/{{ row.count }}</span>
+          </span>
+        {% else %}
+          <span class="gname sub">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.subtask.title }}</span>
+            <span class="who">
+              {% if row.subtask.assignee %}{{ row.subtask.assignee.get_full_name|default:row.subtask.assignee.username }}
+              {% else %}unassigned{% endif %}</span>
+          </span>
+        {% endif %}
+
+        <span class="gtrack" style="width:{{ chart.track_px }}px">
+          {% comment %}
+          The dashed milestone lines and the today marker are repeated on every
+          row rather than drawn once across the whole block: a single tall
+          element would have to sit above the bars and would then swallow every
+          hover and click on them.
+          {% endcomment %}
+          <span class="gmarks">
+            {% for entry in chart.milestones %}<span class="gmark{% if entry.over %} over{% endif %}" style="left:{{ entry.left }}px"></span>{% endfor %}
+            {% if chart.today %}<span class="gtoday" style="left:{{ chart.today }}px"></span>{% endif %}
+          </span>
+
+          {% comment %}
+          ⚠⚠ THE WINDOW BAND, BACK BY REQUEST. Saahil found a milestone with no
+            subtasks yet drew nothing at all — not even a hint of its own span —
+            on a project long enough that this is the ordinary case, not the
+            exception. The band is `header.start` → `header.planned_end`, what
+            was actually typed, present the moment a milestone exists. The
+            dotted line through every row (drawn by `gmarks` above) stays
+            exactly as it was: the JUDGED finish, which only moves once
+            subtasks under this phase prove the window wrong. Same two-colour
+            rule as everywhere else on this chart — the band is the promise,
+            the amber tail is "the plan no longer fits", and neither one is
+            the word "late", which belongs to a subtask alone.
+          {% endcomment %}
+          {% if row.kind == 'milestone' %}
+            <span class="gbar hdr" style="left:{{ row.bar.left }}px;width:{{ row.bar.width }}px"
+                  title="{{ row.header.start|date:'d/m/Y' }} → {{ row.header.planned_end|date:'d/m/Y' }}"></span>
+            {% if row.over_bar %}
+              <span class="gbar hdrover" style="left:{{ row.over_bar.left }}px;width:{{ row.over_bar.width }}px"
+                    title="{{ row.over }} day{{ row.over|pluralize }} past the window that was given"></span>
+            {% endif %}
+          {% else %}
+            <span class="gbar {% if row.subtask.status == 'done' %}done{% elif row.subtask.status == 'blocked' %}blocked{% else %}open{% endif %}"
+                  style="left:{{ row.bar.left }}px;width:{{ row.bar.width }}px"
+                  title="{{ row.subtask.start|date:'d/m/Y' }} → {{ row.subtask.planned_end|date:'d/m/Y' }}"></span>
+            {% if row.late_bar %}
+              <span class="gbar late" style="left:{{ row.late_bar.left }}px;width:{{ row.late_bar.width }}px"
+                    title="{{ row.late }} day{{ row.late|pluralize }} past its date"></span>
+            {% endif %}
+          {% endif %}
+        </span>
+      </div>
+    {% endfor %}
+
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--blue)"></i> the window a milestone was given</span>
+    <span><i class="sw" style="background:var(--amber);opacity:.55"></i> its tasks run past that window</span>
+    <span><i class="sw" style="background:#9BB4D8"></i> planned</span>
+    <span><i class="sw" style="background:var(--amber)"></i> blocked</span>
+    <span><i class="sw" style="background:#7FA86A"></i> done</span>
+    <span><i class="sw" style="background:var(--red)"></i> past its date</span>
+    <span><i class="sw" style="border-left:2px dashed #7A5AA6;background:none"></i> milestone</span>
+    {% if chart.today %}<span><i class="sw" style="border-left:2px solid var(--red);background:none"></i> today</span>{% endif %}
+  </div>
+
+  {% comment %}
+  ⚠ ONE LINE, AND IT SURVIVES BECAUSE THE CHART CANNOT BE READ WITHOUT IT. Amber
+    and red look like the same warning and are not. Everything else about this
+    screen went behind the ⓘ.
+  {% endcomment %}
+  <div class="note tight" style="margin-bottom:0">
+    <b>Red is late. Amber is not.</b> Amber means the plan no longer fits the window — a warning that
+    arrives before anything has slipped.
+  </div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "schedule" %}{% endblock %}

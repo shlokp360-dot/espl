@@ -1,0 +1,15 @@
+{% load perms %}
+{% comment %}
+The compliance tab strip. Home lives in the header, beside the ⓘ.
+
+⚠ THE MASTER IS A TAB SOME PEOPLE DO NOT HAVE. Editing the checklist changes what
+  every project is measured against; reading it is everybody's.
+{% endcomment %}
+<nav>
+  <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'compliance_home' %}">Overview</a>
+  <a class="{% if here == 'project' %}on{% endif %}" href="{% url 'compliance_project_default' %}">By project</a>
+  <a class="{% if here == 'timeline' %}on{% endif %}" href="{% url 'compliance_timeline' %}">Expiry timeline</a>
+  {% if user|can:"compliance.master" %}
+    <a class="{% if here == 'master' %}on{% endif %}" href="{% url 'compliance_master' %}">Checklist master</a>
+  {% endif %}
+</nav>

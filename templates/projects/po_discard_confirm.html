@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load inr %}
+{% comment %}
+The warning before a draft purchase order is thrown away.
+
+Saahil asked that discarding a PO say WHICH figure changes, not just "are you
+sure?". So this shows, per activity: exactly which quantities come back under
+To Order, and what the PO-value-now KPI moves from and to. Every number comes
+from bom_calc.discard_effect.
+{% endcomment %}
+
+{% block title %}Discard {{ order.number }}?{% endblock %}
+{% block subtitle %}{{ project.code }} · {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3 style="margin-top:0;color:var(--navy)">Discard {{ order.number }}?</h3>
+
+  {% if not order.is_editable %}
+    <p><b>{{ order.number }} is {{ order.get_status_display }}, so it cannot be discarded.</b>
+       Only a draft can be thrown away — once an order is approved it has been sent to the vendor
+       and the document has to keep meaning what it said.</p>
+    <a href="{% url 'bom_screen' project.id %}?activity={{ activity }}">← back to the BOM</a>
+  {% else %}
+    <p style="margin-top:0">
+      {{ order.vendor.code }} · <b>{{ order.vendor.name }}</b> ·
+      {{ order.lines.count }} line{{ order.lines.count|pluralize }} ·
+      ₹{{ basic|rupees }} ex-GST. It has not been sent to anyone.
+    </p>
+
+    <table>
+      <thead>
+        <tr><th>Construction activity</th><th>Comes off the order</th>
+          <th class="num">Still to buy</th><th class="num">becomes</th>
+          <th class="num">Value cancelled</th></tr>
+      </thead>
+      <tbody>
+      {% for effect in effects %}
+        <tr>
+          <td><b>{{ effect.activity.name }}</b></td>
+          <td>
+            {% for item in effect.lines %}
+              <div><span class="code">{{ item.line.material.code }}</span>
+                {{ item.line.material.name }} —
+                <b>{{ item.returning|qty }}</b> {{ item.line.material.uom }}</div>
+            {% endfor %}
+          </td>
+          <td class="num">
+            {% for item in effect.lines %}<div>{{ item.still_to_buy_before|qty }}</div>{% endfor %}</td>
+          <td class="num">
+            {% for item in effect.lines %}<div><b>{{ item.still_to_buy_after|qty }}</b></div>{% endfor %}</td>
+          <td class="num">₹{{ effect.value_cancelled|rupees }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    {% comment %}
+    ⚠ ONE OF THE THREE NOTES IN THE APP KEPT AT FULL SIZE. This screen exists to
+      warn; shrinking the warning would leave a confirmation page with nothing on
+      it. It is still two sentences shorter than it was — both consequences, and
+      no explaining.
+    {% endcomment %}
+    <div class="note">
+      <b>Nothing will be on order for these materials afterwards.</b> They go back to "still to buy",
+      and <b>you will have to type a quantity again</b> to re-order them.
+      <b>{{ order.number }} will not be reused</b> — a gap in the sequence means an order was thrown
+      away, which is exactly what it should mean.
+    </div>
+
+    <div style="display:flex;gap:9px;align-items:center;margin-top:14px">
+      <form method="post" action="{% url 'po_discard' project.id order.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="activity" value="{{ activity }}">
+        <button type="submit">Yes, discard {{ order.number }}</button>
+      </form>
+      <a href="{% url 'bom_screen' project.id %}?activity={{ activity }}">Cancel — keep it</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

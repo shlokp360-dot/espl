@@ -1,0 +1,69 @@
+{% comment %}
+The filter bar, identical on every analytics page.
+
+⚠ ONE INCLUDE, NOT FIVE COPIES. A filter that behaves differently on one page
+  is how two people end up quoting different numbers at each other.
+
+⚠ THE FILTERS ARE IN THE ADDRESS. A page can be bookmarked and sent to the CA
+  and shows both people the same money. Held in the session instead, "the same
+  screen" would mean different figures for different people.
+{% endcomment %}
+<form method="get" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
+  <select name="month" onchange="this.form.submit()"
+          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+    <option value="">Year to date</option>
+    {% for key, label in view.months %}
+      <option value="{{ key }}" {% if view.month == key %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="project" onchange="this.form.submit()"
+          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+    <option value="">All projects</option>
+    {% for option in view.projects %}
+      <option value="{{ option.pk }}" {% if view.project.pk == option.pk %}selected{% endif %}>
+        {{ option.code }} — {{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="type" onchange="this.form.submit()"
+          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+    <option value="">PO and WO</option>
+    <option value="PO" {% if view.doc_type == 'PO' %}selected{% endif %}>Purchase orders</option>
+    <option value="WO" {% if view.doc_type == 'WO' %}selected{% endif %}>Work orders</option>
+  </select>
+
+  {% comment %}
+  >>> ANCHOR: ANALYTICS-WORK-FILTERS <<<
+  ⚠⚠ THE WORK TAB'S TWO EXTRA CONTROLS, AND THEY MUST BE IN THIS FORM. A second
+     form beside it would submit milestone WITHOUT month, project and type, so
+     choosing a phase would silently drop back to every project — which is worse
+     than having no filter at all.
+
+  ⚠ THEY APPEAR ONLY WHERE THE VIEW PROVIDES THE CHOICES, which is `tasks_page`
+    and nowhere else. "Which milestone" means nothing on Payments or Gross to
+    net. This keeps the promise at the top of this file — one include, not five
+    copies — while letting one page carry what only it can answer.
+
+  ⚠ THE CHOICES ARE THIS PROJECT'S, NOT THE MASTER'S. Offering eighteen
+    activities on a site that uses four is bug 14 wearing a different hat.
+  {% endcomment %}
+  {% if milestone_choices %}
+    <select name="milestone" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <option value="">All milestones</option>
+      {% for pk, name in milestone_choices %}
+        <option value="{{ pk }}" {% if milestone_id == pk %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  {% if activity_choices %}
+    <select name="activity" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <option value="">All construction activities</option>
+      {% for pk, name in activity_choices %}
+        <option value="{{ pk }}" {% if activity_id == pk %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+
+  <noscript><button type="submit" class="sec sm">Apply</button></noscript>
+</form>

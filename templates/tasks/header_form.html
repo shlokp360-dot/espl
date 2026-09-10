@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% comment %}
+EDITING A HEADER TASK.
+
+⚠ THE REASON BOX ONLY APPEARS WHEN THE FINISH MOVES OUTWARD, and the view checks
+  the same thing again. Pulling work forward is not a delay and is never asked to
+  justify itself.
+
+⚠ WHAT WAS FIRST PROMISED IS SHOWN, NOT HIDDEN. Once this has been rescheduled
+  the original window sits under the dates, so nobody has to wonder whether the
+  plan on screen is the plan that was agreed.
+{% endcomment %}
+
+{% block title %}{{ header.name }}{% endblock %}
+{% block subtitle %}{{ project.code }} — {{ project.name }}{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="board" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{{ header.name }}</span>
+  <span class="pill p-approved">{{ header.activity.abbreviation }}</span>
+  {% if header.was_rescheduled %}
+    <span class="pill p-onsheet">rescheduled</span>
+  {% endif %}
+</div>
+
+<form method="post" class="card" style="max-width:640px">
+  {% csrf_token %}
+
+  <div style="display:grid;gap:12px">
+    <div>
+      <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Name</label>
+      <input type="text" name="name" maxlength="120" required value="{{ header.name }}"
+             style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Construction activity</label>
+        <select name="activity" required style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+          {% for activity in activities %}
+            <option value="{{ activity.pk }}" {% if activity.pk == header.activity_id %}selected{% endif %}>
+              {{ activity.abbreviation }} — {{ activity.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Owner</label>
+        <select name="owner" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+          <option value="">Nobody</option>
+          {% for person in people %}
+            <option value="{{ person.pk }}" {% if person.pk == header.owner_id %}selected{% endif %}>
+              {{ person.get_full_name|default:person.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Starts</label>
+        <input type="date" name="start" required value="{{ header.start|date:'Y-m-d' }}"
+               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Days</label>
+        <input type="number" name="days" min="1" required value="{{ header.days }}"
+               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+      </div>
+    </div>
+
+    <div style="font-size:11.5px;color:var(--muted)">
+      Finishes {{ header.planned_end|date:"d/m/Y" }}.
+      {% if header.was_rescheduled %}
+        First promised {{ header.original_start|date:"d/m/Y" }} → {{ header.promised_end|date:"d/m/Y" }}
+        ({{ header.days_shifted }} day{{ header.days_shifted|pluralize }} later){% if header.shift_reason %},
+        {{ header.get_shift_reason_display|lower }}{% endif %}.
+      {% endif %}
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:12px">
+      <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">
+        If this pushes the finish out — why?</label>
+      <select name="shift_reason" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        <option value="">—</option>
+        {% for value, label in reasons %}
+          <option value="{{ value }}" {% if value == header.shift_reason %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="shift_note" maxlength="200" value="{{ header.shift_note }}"
+             placeholder="Anything to add (optional)"
+             style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <a href="{% url 'task_board' %}?project={{ project.pk }}"><button type="button" class="sec">Cancel</button></a>
+      <button type="submit">Save</button>
+    </div>
+  </div>
+</form>
+
+<div class="note tight" style="max-width:640px">
+  <b>Moving the finish out needs a reason.</b> Pulling it forward does not.
+</div>
+
+{% endblock %}

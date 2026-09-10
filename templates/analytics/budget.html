@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+BUDGET — quoted against planned against committed.
+
+⚠ THE COLUMNS ARE THREE AND NOT TWO. Budget minus plan is an estimating gap;
+  plan minus committed is a buying gap. One "variance" column would hide which
+  of the two happened, and they are not the same person's problem.
+
+⚠ SHORT LABELS. The explanation lives behind the ⓘ — Saahil's instruction after
+  reviewing slice 1: "keep them concise and use business terms".
+{% endcomment %}
+
+{% block title %}Budget{% endblock %}
+{% block subtitle %}Quoted, planned, committed{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="budget" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_budget" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Budget</span>
+  <span class="hint">by {{ grain }}</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi">
+    <div class="l">Budget</div><div class="v">{{ total.budget|rupees }}</div>
+    <div class="s">quoted</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Plan</div><div class="v">{{ total.plan|rupees }}</div>
+    <div class="s">{{ total.plan_pct }}% of budget</div>
+  </div>
+  <div class="kpi {% if total.over %}bad{% endif %}">
+    <div class="l">Committed</div><div class="v">{{ total.committed|rupees }}</div>
+    <div class="s">{{ total.used_pct }}% of budget</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Received</div><div class="v">{{ total.received|rupees }}</div>
+    <div class="s">delivered to site</div>
+  </div>
+  <div class="kpi {% if total.left < 0 %}bad{% else %}good{% endif %}">
+    <div class="l">Left</div><div class="v">{{ total.left|rupees }}</div>
+    <div class="s">budget less committed</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">Budget, plan and committed</div>
+  {{ chart }}
+  <div class="legend">
+    {% for entry in series %}
+      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>{% if grain == 'construction activity' %}Construction activity{% else %}Project{% endif %}</th>
+      <th class="num" style="width:130px">Budget</th>
+      <th class="num" style="width:130px">Plan</th>
+      <th class="num" style="width:130px">Committed</th>
+      <th class="num" style="width:130px">Received</th>
+      <th class="num" style="width:120px">Left</th>
+      <th class="num" style="width:80px">Used</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            {% if grain == 'project' and row.project %}
+              <a href="?project={{ row.project.pk }}&month={{ view.month }}&type={{ view.doc_type }}">{{ row.label }}</a>
+            {% else %}{{ row.label }}{% endif %}
+            {% if not row.lines and row.budget %}
+              <span class="pill p-onsheet">not planned yet</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.budget|rupees }}</td>
+          <td class="num">{{ row.plan|rupees }}</td>
+          {% comment %}
+          ⚠ OVERSPEND IS A RED NUMBER, NEVER A RED BANNER. The standing rule for
+            this system since the BOM screen.
+          {% endcomment %}
+          <td class="num">{% if row.over %}<span class="up">{{ row.committed|rupees }}</span>
+                          {% else %}{{ row.committed|rupees }}{% endif %}</td>
+          <td class="num">{{ row.received|rupees }}</td>
+          <td class="num">{% if row.left < 0 %}<span class="up">{{ row.left|rupees }}</span>
+                          {% else %}{{ row.left|rupees }}{% endif %}</td>
+          <td class="num">{{ row.used_pct }}%</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="color:var(--muted);padding:14px">
+          No Won project has an estimate yet.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+      <tfoot><tr>
+        <td>All</td>
+        <td class="num">{{ total.budget|rupees }}</td>
+        <td class="num">{{ total.plan|rupees }}</td>
+        <td class="num">{{ total.committed|rupees }}</td>
+        <td class="num">{{ total.received|rupees }}</td>
+        <td class="num">{{ total.left|rupees }}</td>
+        <td class="num">{{ total.used_pct }}%</td>
+      </tr></tfoot>
+    {% endif %}
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_budget" %}{% endblock %}

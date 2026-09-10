@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+VENDOR RATES — what each supplier last quoted for a material.
+
+⚠ READ AND SEARCH, NOT BULK EDIT, and that is deliberate. A rate is set on the
+  BOM at the moment of buying, by the person who has just been told it on the
+  telephone. A screen that let somebody retype four hundred of them would be a
+  screen for inventing prices.
+{% endcomment %}
+
+{% block title %}Vendor rates{% endblock %}
+{% block subtitle %}Master data{% endblock %}
+
+{% block headerinfo %}{% infobutton "vendor_rates" %}{% endblock %}
+{% block infopanel %}{% infopanel "vendor_rates" %}{% endblock %}
+
+{% block content %}
+
+{% include "projects/_mastertabs.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Vendor rates</span>
+  <span class="sp"></span>
+  <span class="hint">{{ rows|length }} shown of {{ total }}</span>
+</div>
+
+<div class="panel">
+  <form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+    <div class="srow">
+      <input type="search" name="q" value="{{ applied.q|default:'' }}"
+             placeholder="Material code, material name or vendor">
+      <select name="vendor">
+        <option value="">Every vendor</option>
+        {% for v in vendors %}
+          <option value="{{ v.id }}" {% if applied.vendor == v.id %}selected{% endif %}>{{ v.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="sec sm" type="submit">Search</button>
+      {% if applied %}<a href="{% url 'vendor_rate_list' %}" style="font-size:11.5px">clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if rows %}
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="hd">
+            <th>Material</th><th>Vendor</th><th class="num">Rate</th>
+            <th>From</th>
+            <th class="num">Lead days</th><th>Preferred</th><th>Last updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td><span class="code">{{ r.material.code }}</span> {{ r.material.name }}</td>
+              <td>{{ r.vendor.name }}</td>
+              <td class="num">₹{{ r.rate|rupees2 }}</td>
+              {% comment %}
+              >>> ANCHOR: VENDOR-RATE-CAPTURE <<<
+              ⚠ WHICH ORDER PROVED THIS NUMBER. Saahil asked for it by name when
+                he chose the SAP-style replace: one row per combination means the
+                previous rate is gone from here, so the row has to be able to
+                say where the current one came from. Without it a replaced rate
+                is a figure that changed on its own.
+              ⚠ A NULL SOURCE IS HONEST, NOT BROKEN. Rows that predate the
+                capture — seeded ones, or anything typed in Admin — never had a
+                document behind them and say so.
+              ⚠ `?from=register` — ANCHOR: PO-DOORWAY. Master data is not a
+                project doorway, so the document must not offer project tabs
+                when it is opened from here.
+              {% endcomment %}
+              <td style="font-size:11.5px">
+                {% if r.source_po_line %}
+                  <a href="{% url 'po_detail' r.source_po_line.purchase_order.project_id r.source_po_line.purchase_order_id %}?from=register"
+                     title="{{ r.source_po_line.purchase_order.project.code }} — {{ r.source_po_line.purchase_order.project.name }}">{{ r.source_po_line.purchase_order.number }}</a>
+                {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+              </td>
+              <td class="num" style="color:var(--muted)">{{ r.lead_time_days|default:"—" }}</td>
+              <td>{% if r.is_preferred %}<span class="pill p-won">yes</span>{% endif %}</td>
+              <td style="color:var(--muted)">{{ r.last_updated|date:"d/m/Y" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="note tight" style="margin-bottom:0">
+      <b>Rates are captured when an order is approved</b>, not typed here. A new order for the
+      same vendor and material replaces the rate.
+    </div>
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      {% if applied %}Nothing matches that.
+      {% else %}No vendor rates yet. A rate is captured when a purchase order is
+      <b>approved</b> — a draft records nothing.{% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

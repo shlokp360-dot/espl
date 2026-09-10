@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+THE PEOPLE WHO CAN OPEN THIS SYSTEM. Under Master data, beside Materials and
+Vendors, because it is set up once and touched when somebody joins or leaves.
+
+⚠ DORMANT AND DEACTIVATED ACCOUNTS ARE VISIBLE, NOT HIDDEN. An account created
+  for a site engineer who never signed in is the one most likely to be sharing
+  a password with three other people; hiding it would be tidier and worse.
+
+⚠ THERE IS NO DELETE BUTTON ANYWHERE ON THIS SCREEN. A person who has left
+  still approved purchase orders last year. Deactivate stops the login and keeps
+  every trace of what they did.
+{% endcomment %}
+
+{% block title %}Users{% endblock %}
+{% block subtitle %}Who can sign in, and as what{% endblock %}
+
+{% block headerinfo %}{% infobutton "user_list" %}{% endblock %}
+{% block infopanel %}{% infopanel "user_list" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp; <b>Users</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">Users</span>
+  <span class="hint">{{ active_count }} active{% if inactive_count %}, {{ inactive_count }} inactive{% endif %}</span>
+  <span class="sp"></span>
+  <a href="{% url 'user_new' %}"><button type="button">Add user</button></a>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+
+  <form method="get" class="srow" style="margin-bottom:12px">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search a name, a user ID or an email">
+    <select name="role">
+      <option value="">Every role</option>
+      {% for value, label in roles %}
+        <option value="{{ value }}" {% if role == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="show">
+      <option value="active" {% if show == 'active' %}selected{% endif %}>Active only</option>
+      <option value="inactive" {% if show == 'inactive' %}selected{% endif %}>Deactivated only</option>
+      <option value="all" {% if show == 'all' %}selected{% endif %}>Everybody</option>
+    </select>
+    <button type="submit" class="sec sm">Search</button>
+  </form>
+
+  <div class="scroll" style="max-height:none">
+    <table>
+      <thead>
+        <tr class="hd">
+          <th>Name</th><th>User ID — this is the login</th><th>Email</th><th>Role</th>
+          <th>Last signed in</th><th style="width:150px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for person in page %}
+          <tr>
+            <td>
+              <a href="{% url 'user_edit' person.pk %}">{{ person.get_full_name|default:person.username }}</a>
+              {% if not person.is_active %}<span class="pill p-lost">deactivated</span>{% endif %}
+              {% if person.pk == user.pk %}<span class="pill p-quoted">you</span>{% endif %}
+            </td>
+            <td class="code">{{ person.username }}</td>
+            <td class="mut">{{ person.email|default:"—" }}</td>
+            <td>
+              {% if person.profile %}
+                <span class="pill p-approved">{{ person.profile.get_role_display }}</span>
+              {% else %}
+                <span class="pill p-lost">no role</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if person.last_login %}{{ person.last_login|date:"j M Y, H:i" }}
+              {% else %}<span class="pill p-onsheet">never signed in</span>{% endif %}
+            </td>
+            <td style="text-align:right;white-space:nowrap">
+              <a href="{% url 'user_edit' person.pk %}"><button type="button" class="sec sm">Edit</button></a>
+              {% comment %}
+              ⚠ RESET IS ON THE LIST, not buried in the form, because it is the
+                thing an admin does most often and always in a hurry — somebody
+                is on the phone, locked out, standing on a site. It generates a
+                password that can be READ ALOUD and shows it once.
+              {% endcomment %}
+              {% if person.pk != user.pk %}
+                <form method="post" action="{% url 'user_reset_password' person.pk %}"
+                      style="display:inline"
+                      onsubmit="return confirm('Set a new password for {{ person.get_full_name|default:person.username|escapejs }}? Their current one stops working immediately.');">
+                  {% csrf_token %}
+                  <button type="submit" class="sec sm">Reset password</button>
+                </form>
+                <form method="post" action="{% url 'user_toggle_active' person.pk %}"
+                      style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit" class="sec sm">
+                    {% if person.is_active %}Deactivate{% else %}Reactivate{% endif %}</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" style="color:var(--muted);padding:14px">
+            Nobody matches that. <a href="{% url 'user_list' %}">Clear the search</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page.paginator.num_pages > 1 %}
+    <div style="margin-top:10px;font-size:12px">
+      Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ total }} people
+      {% if page.has_previous %}
+        <a href="?q={{ q }}&role={{ role }}&show={{ show }}&page={{ page.previous_page_number }}">Previous</a>
+      {% endif %}
+      {% if page.has_next %}
+        <a href="?q={{ q }}&role={{ role }}&show={{ show }}&page={{ page.next_page_number }}">Next</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>Nobody is ever deleted.</b> Deactivating stops the sign-in and keeps their name on everything
+    they approved.
+  </div>
+</div>
+
+{% endblock %}

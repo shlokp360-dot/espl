@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+THE CHECK BEFORE ANYTHING IS CREATED — the equivalent of SAP's Check button.
+
+Every calculation and every validation has run. Not one row has been written.
+Tick the vendors you want, press Create, and only those orders come into
+existence.
+
+⚠ Nothing on this page is remembered between loads. It is worked out fresh
+every time, so it cannot show you a plan that has since gone stale.
+{% endcomment %}
+
+{% block title %}Purchase orders to create — {{ project.code }}{% endblock %}
+{% block subtitle %}{{ project.code }} · {{ project.name }}{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="{% url 'bom_screen' project.id %}?activity={{ activity.abbreviation }}">Bill of materials</a>
+  <a class="on" href="#">Purchase orders to create</a>
+</nav>
+{% endblock %}
+
+{% block headerinfo %}{% infobutton "po_preview" %}{% endblock %}
+{% block infopanel %}{% infopanel "po_preview" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">About to create {{ groups|length }} purchase order{{ groups|length|pluralize }}</span>
+  <span class="sp"></span>
+  {% comment %}
+  ⚠ ONE CANCEL, NOT TWO. There was a Cancel here and another beside the Create
+    button. Saahil read the whole screen as bureaucracy — "why do we need an
+    extra authentication" — and he was reacting to repetition, not to the
+    safeguard. The step itself stays: posting consumes the typed quantity, so an
+    accidental create costs you every quantity on the tab, and discarding the
+    draft does not give them back.
+  {% endcomment %}
+  <span class="hint">{{ line_count }} line{{ line_count|pluralize }} ·
+    ₹{{ grand_total|rupees }} including GST</span>
+</div>
+
+{% if not groups %}
+  <div class="card">
+    <h3 style="margin-top:0;color:var(--navy)">Nothing to create</h3>
+    <p>No line has both a vendor and a quantity typed into Order Qty.
+       {% if skipped %}
+         {{ skipped|length }} line{{ skipped|length|pluralize }} ha{{ skipped|length|pluralize:"s,ve" }}
+         a quantity but no vendor — see below.
+       {% else %}
+         Nothing is ever ordered automatically: type how much you want on the BOM first.
+       {% endif %}</p>
+    <a href="{% url 'bom_screen' project.id %}?activity={{ activity.abbreviation }}">← back to the BOM</a>
+  </div>
+{% else %}
+
+<form method="post" action="{% url 'po_create' project.id %}">
+  {% csrf_token %}
+  <input type="hidden" name="activity" value="{{ activity.abbreviation }}">
+
+  {% for group in groups %}
+    <div class="card" style="margin-bottom:12px">
+      <div class="pohead" style="margin-bottom:10px">
+        <label class="toggle" style="color:var(--navy)">
+          {# Blocked vendors cannot be ticked — the order would be refused anyway. #}
+          <input type="checkbox" name="vendor" value="{{ group.vendor.id }}"
+                 {% if not group.blocked %}checked{% endif %}
+                 {% if group.blocked %}disabled{% endif %}>
+          <span class="vn">{{ group.vendor.code }} · {{ group.vendor.name }}</span>
+        </label>
+        <span class="meta">{{ group.lines|length }} line{{ group.lines|pluralize }} ·
+          {{ group.quantity|qty }} total quantity</span>
+        {% if group.vendor.is_unregistered %}
+          <span class="pill p-common">unregistered — no GST</span>
+        {% elif not group.vendor.gst_number %}
+          <span class="pill p-nogst">no GSTIN — cannot be approved</span>
+        {% endif %}
+        <span class="sp"></span>
+        <span class="meta">₹{{ group.basic|rupees }} + GST ₹{{ group.gst|rupees }}</span>
+        <span class="vn">₹{{ group.total|rupees }}</span>
+      </div>
+
+      {% if group.blocked %}
+        <div class="open-q" style="margin-top:0">
+          <b>This order cannot be created.</b>
+          {% for line, reason in group.blocked %}
+            <div>{{ line.activity.name }} → {{ line.material.code }} {{ line.material.name }} —
+              {{ reason }}</div>
+          {% endfor %}
+          Fix those lines on the BOM, or set their order quantity to zero.
+        </div>
+      {% endif %}
+
+      <table>
+        <thead>
+          <tr><th>Construction activity</th><th>Code</th><th>Material</th><th>UOM</th>
+            <th class="num">Qty</th><th class="num">Rate</th><th class="num">Basic</th>
+            <th class="num">GST%</th><th class="num">Total</th></tr>
+        </thead>
+        <tbody>
+        {% for item in group.lines %}
+          <tr>
+            <td>{{ item.line.activity.abbreviation }}</td>
+            <td class="code">{{ item.line.material.code }}</td>
+            <td>{{ item.line.material.name }}
+              {% if item.line.remark %}<div style="font-size:10.5px;color:var(--muted)">{{ item.line.remark }}</div>{% endif %}</td>
+            <td>{{ item.line.material.uom }}</td>
+            <td class="num">{{ item.order_qty|qty }}</td>
+            <td class="num">{{ item.vendor_rate|rupees2 }}</td>
+            <td class="num">₹{{ item.basic|rupees }}</td>
+            <td class="num">{{ item.gst_percent|qty }}%</td>
+            <td class="num">₹{{ item.total|rupees }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="6">TOTAL</td>
+            <td class="num">₹{{ group.basic|rupees }}</td>
+            <td class="num">₹{{ group.gst|rupees }}</td>
+            <td class="num">₹{{ group.total|rupees }}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  {% endfor %}
+
+  <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <button type="submit">Create the ticked purchase orders</button>
+    <a href="{% url 'bom_screen' project.id %}?activity={{ activity.abbreviation }}">Cancel — change nothing</a>
+    <span class="sp" style="flex:1"></span>
+    <span style="color:var(--muted);font-size:12px">
+      They are created as drafts. Nothing is sent to a vendor until you approve it.</span>
+  </div>
+</form>
+{% endif %}
+
+{% if skipped %}
+  <div class="note">
+    <b>{{ skipped|length }} line{{ skipped|length|pluralize }} ha{{ skipped|length|pluralize:"s,ve" }}
+    a quantity typed but no vendor, so no purchase order will be raised for
+    {{ skipped|length|pluralize:"it,them" }}.</b>
+    Set a vendor on the BOM and post again — the system never picks one for you.
+    <div style="margin-top:6px">
+      {% for item in skipped %}
+        <div>{{ item.line.activity.name }} → <span class="code">{{ item.line.material.code }}</span>
+          {{ item.line.material.name }} — {{ item.order_qty|qty }} {{ item.line.material.uom }}</div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{% comment %}
+⚠ THE "NOTHING HAS BEEN CREATED YET" BOX WAS REMOVED, NOT LOST.
+
+  It said the page had written nothing to the database — which is true, and is
+  still true, and is still worth knowing. But the line beside the Create button
+  already reads "They are created as drafts. Nothing is sent to a vendor until
+  you approve it", so the screen was reassuring the reader twice about the same
+  thing and then a third time telling them it was only a check.
+
+  Saahil read the accumulation as "extra authentication". The safeguard was
+  never the problem; saying it three times was. The fact itself lives in the
+  view's docstring and in PO-INVARIANT, where it governs the code rather than
+  decorating the screen.
+{% endcomment %}
+{% endblock %}

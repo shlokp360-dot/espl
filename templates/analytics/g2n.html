@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+GROSS TO NET — the ladder that was in the model, on every PDF, and on no screen.
+
+⚠ TWO DRAWINGS OF ONE LADDER, SIDE BY SIDE. The waterfall is for reading at a
+  glance; the table is in the printed order, so a figure here can be checked
+  against a document in somebody's hand without translating anything.
+
+⚠ EVERY STEP CLICKS THROUGH. A figure nobody can open is a figure nobody trusts.
+{% endcomment %}
+
+{% block title %}Gross to net{% endblock %}
+{% block subtitle %}{{ view.label }}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="g2n" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_g2n" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Gross to net</span>
+  <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
+    <input type="hidden" name="month" value="{{ view.month }}">
+    <input type="hidden" name="project" value="{{ view.project.pk|default:'' }}">
+    <input type="hidden" name="type" value="{{ view.doc_type }}">
+    <select name="stage" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      {% for key, label in stages %}
+        <option value="{{ key }}" {% if stage == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <span class="hint">{{ count }} document{{ count|pluralize }}</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Gross</div><div class="v">{{ ladder.gross|rupees }}</div>
+    <div class="s">before anything</div></div>
+  <div class="kpi"><div class="l">Basic</div><div class="v">{{ ladder.taxable|rupees }}</div>
+    <div class="s">what GST is charged on</div></div>
+  <div class="kpi"><div class="l">GST</div><div class="v">{{ ladder.gst|rupees }}</div>
+    <div class="s">CGST {{ ladder.cgst|rupees }} · SGST {{ ladder.sgst|rupees }}</div></div>
+  <div class="kpi"><div class="l">Amount</div><div class="v">{{ ladder.invoice_value|rupees }}</div>
+    <div class="s">basic plus GST</div></div>
+  <div class="kpi"><div class="l">Order value</div><div class="v">{{ ladder.order_value|rupees }}</div>
+    <div class="s">after deduction and rounding</div></div>
+  <div class="kpi good"><div class="l">Net payable</div><div class="v">{{ ladder.net_payable|rupees }}</div>
+    <div class="s">what leaves the bank</div></div>
+</div>
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">The ladder</div>
+  {{ chart }}
+</div>
+
+<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px">
+  <div>
+    <div class="scroll" style="max-height:none">
+      <table class="tot" style="width:100%">
+        <tbody>
+          {% for row in rows %}
+            <tr {% if row.kind == 'total' %}class="{% if row.key == 'order_value' %}order{% elif row.key == 'net_payable' %}pay{% endif %}"{% endif %}>
+              <td class="k">
+                {% comment %}
+                ⚠ THE DRILL. Every step opens the documents it was summed from,
+                  with the same period, project and stage already applied.
+                {% endcomment %}
+                <a href="{% url 'analytics_documents' %}?stage={{ stage }}&month={{ view.month }}&project={{ view.project.pk|default:'' }}&type={{ view.doc_type }}"
+                   style="{% if row.kind == 'total' and row.key == 'order_value' %}color:#fff{% endif %}">{{ row.label }}</a>
+                <div style="font-size:10.5px;color:{% if row.kind == 'total' and row.key == 'order_value' %}#C3CEE0{% else %}var(--muted){% endif %}">{{ row.note }}</div>
+              </td>
+              <td class="num">{{ row.raw|rupees }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="note tight" style="margin-bottom:0">
+      <b>Deduction is post-tax and is not a discount. TDS is withheld from the payment.</b>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grph">Top vendors in this figure</div>
+    <div class="scroll" style="max-height:none;border:none">
+      <table>
+        <thead><tr class="hd"><th>Vendor</th><th class="num" style="width:90px">Docs</th>
+          <th class="num" style="width:140px">Net payable</th></tr></thead>
+        <tbody>
+          {% for row in by_vendor %}
+            <tr>
+              <td><a href="{% url 'analytics_documents' %}?stage={{ stage }}&vendor={{ row.vendor.pk }}&month={{ view.month }}&project={{ view.project.pk|default:'' }}">{{ row.vendor.name }}</a></td>
+              <td class="num">{{ row.count }}</td>
+              <td class="num">{{ row.net|rupees }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" style="color:var(--muted);padding:14px">
+              Nothing at this stage in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_g2n" %}{% endblock %}

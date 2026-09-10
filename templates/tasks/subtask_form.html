@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% comment %}
+EDITING A SUBTASK — including handing it to somebody else.
+
+⚠ REASSIGNING IS DONE HERE AND NOT BY THE PERSON HOLDING IT. Somebody who could
+  pass their own work on could empty their own list, and the tick that matters
+  would belong to nobody.
+
+⚠ THE ORIGINAL WINDOW IS SHOWN ONCE THIS HAS BEEN RESCHEDULED, so nobody has to
+  wonder whether the dates on screen are the dates that were agreed.
+{% endcomment %}
+
+{% block title %}{{ subtask.title }}{% endblock %}
+{% block subtitle %}{{ project.code }} · {{ subtask.header.name }}{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="board" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{{ subtask.title }}</span>
+  {% if subtask.status == 'done' %}<span class="pill p-delivered">Done</span>
+  {% elif subtask.status == 'blocked' %}<span class="pill p-lost">Blocked</span>
+  {% else %}<span class="pill p-draft">Not started</span>{% endif %}
+  {% if subtask.was_rescheduled %}<span class="pill p-onsheet">rescheduled</span>{% endif %}
+</div>
+
+<form method="post" class="card" style="max-width:640px">
+  {% csrf_token %}
+
+  <div style="display:grid;gap:12px">
+    <div>
+      <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">What needs doing</label>
+      <input type="text" name="title" maxlength="200" required value="{{ subtask.title }}"
+             style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Assigned to</label>
+        <select name="assignee" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+          <option value="">Nobody</option>
+          {% for person in people %}
+            <option value="{{ person.pk }}" {% if person.pk == subtask.assignee_id %}selected{% endif %}>
+              {{ person.get_full_name|default:person.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Priority</label>
+        <select name="priority" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+          {% for value, label in priorities %}
+            <option value="{{ value }}" {% if value == subtask.priority %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Starts</label>
+        <input type="date" name="start" required value="{{ subtask.start|date:'Y-m-d' }}"
+               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Days</label>
+        <input type="number" name="days" min="1" required value="{{ subtask.days }}"
+               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+      </div>
+    </div>
+
+    <div style="font-size:11.5px;color:var(--muted)">
+      Due {{ subtask.planned_end|date:"d/m/Y" }}.
+      {% if subtask.was_rescheduled %}
+        First promised {{ subtask.original_start|date:"d/m/Y" }} → {{ subtask.promised_end|date:"d/m/Y" }}
+        ({{ subtask.days_shifted }} day{{ subtask.days_shifted|pluralize }} later){% if subtask.shift_reason %},
+        {{ subtask.get_shift_reason_display|lower }}{% endif %}.
+      {% endif %}
+      {% if subtask.finished_on %}Finished {{ subtask.finished_on|date:"d/m/Y" }}.{% endif %}
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:12px">
+      <label style="display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">
+        If this pushes the finish out — why?</label>
+      <select name="shift_reason" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        <option value="">—</option>
+        {% for value, label in reasons %}
+          <option value="{{ value }}" {% if value == subtask.shift_reason %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="shift_note" maxlength="200" value="{{ subtask.shift_note }}"
+             placeholder="Anything to add (optional)"
+             style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <a href="{% url 'task_board' %}?project={{ project.pk }}"><button type="button" class="sec">Cancel</button></a>
+      <button type="submit">Save</button>
+    </div>
+  </div>
+</form>
+
+<div class="note tight" style="max-width:640px">
+  <b>Moving the finish out needs a reason.</b> Only the person it is assigned to can mark it done.
+</div>
+
+{% endblock %}

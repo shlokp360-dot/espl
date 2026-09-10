@@ -1,0 +1,50 @@
+{% comment %}
+The filter bar, shared by both levels of the purchase-order screen.
+
+Kept in one file because the filters must survive the drill-down: narrow to Work
+Orders on the vendor list, open a vendor, and you should still be looking at work
+orders. Two copies of this markup would drift the first time one changed.
+
+A plain GET form — no JavaScript. The current selections come back in the URL, so
+a filtered view can be bookmarked or sent to somebody.
+{% endcomment %}
+<form method="get" class="srow" style="margin-bottom:12px">
+  <input type="search" name="q" value="{{ applied.q }}"
+         placeholder="Search vendor code, name, category or document number">
+
+  <select name="type" title="Purchase orders, work orders, or both">
+    <option value="">PO &amp; WO — all</option>
+    <option value="PO" {% if applied.type == 'PO' %}selected{% endif %}>Purchase orders</option>
+    <option value="WO" {% if applied.type == 'WO' %}selected{% endif %}>Work orders</option>
+  </select>
+
+  {% comment %}
+  ⚠ ONLY THE STATUSES THIS PROJECT'S DOCUMENTS ARE ACTUALLY IN — same rule as
+    the activities below. "Not paid yet" is approved-or-delivered rolled into
+    one, and it is the question people actually ask; it appears only when there
+    is something for it to find.
+  {% endcomment %}
+  <select name="status" title="Where the document has got to">
+    <option value="">Any status</option>
+    {% for value, label in statuses %}
+      <option value="{{ value }}" {% if applied.status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  {% comment %}
+  Only the activities that actually appear on this project's orders. An empty
+  filter option is a promise the screen cannot keep.
+  {% endcomment %}
+  <select name="activity" title="Only orders containing a line from this activity">
+    <option value="">Every construction activity</option>
+    {% for a in activities %}
+      <option value="{{ a.abbreviation }}" {% if applied.activity == a.abbreviation %}selected{% endif %}>
+        {{ a.name }}</option>
+    {% endfor %}
+  </select>
+
+  <button class="sec sm" type="submit">Apply</button>
+  {% if applied.q or applied.type or applied.activity or applied.status %}
+    <a href="{{ clear_url }}" style="font-size:11.5px">clear filters</a>
+  {% endif %}
+</form>

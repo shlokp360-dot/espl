@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+ONE SITE'S COMPLIANCE FILE.
+
+⚠ WHAT IS WRONG COMES FIRST. Missing, expired and expiring are the reason to
+  open this screen; everything held is confirmation, and confirmation can wait
+  until after the problem.
+
+⚠ UPLOAD IS HIDDEN FROM ANYONE WHO CANNOT UPLOAD, and download is not. A site
+  engineer in front of an inspector needs the labour licence on their phone.
+{% endcomment %}
+
+{% block title %}Compliance{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "compliance/_nav.html" with here="project" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "compliance_project" %}{% endblock %}
+
+{% block content %}
+
+<style>
+.citem{display:flex;align-items:flex-start;gap:10px;padding:7px 11px;border-bottom:1px solid #EDEFF3}
+.citem:last-child{border-bottom:none}
+.citem .nm{flex:1;min-width:0;font-size:12.5px}
+.citem .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.citem .act{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
+        font-size:12px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
+.cblock{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px;overflow:hidden}
+.dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
+.dlgform label{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+               color:var(--muted);margin-bottom:3px}
+.dlgform input,.dlgform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
+                               border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
+.dlgform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dlgform .foot{display:flex;gap:8px;justify-content:flex-end}
+.dlgform p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5;white-space:normal}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">Compliance</span>
+  {% if projects %}
+    <form method="get" style="margin:0" id="pickproject">
+      <select onchange="location.href='/compliance/project/'+this.value+'/'"
+              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        {% for option in projects %}
+          <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
+            {{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  {% endif %}
+</div>
+
+{% if not project %}
+  <div class="note tight"><b>No project is Won yet.</b> Compliance opens with the site.</div>
+{% else %}
+
+  {% for regime in regimes %}
+    <div class="kpis">
+      <div class="kpi {% if regime.summary.attention %}bad{% else %}good{% endif %}">
+        <div class="l">{{ regime.type.code }} — needs attention</div>
+        <div class="v">{{ regime.summary.attention }}</div>
+        <div class="s">missing, expired or expiring</div>
+      </div>
+      <div class="kpi"><div class="l">Held</div>
+        <div class="v">{{ regime.summary.held }} / {{ regime.summary.total }}</div>
+        <div class="s">{{ regime.summary.percent }}% of the checklist</div></div>
+      <div class="kpi"><div class="l">Expiring</div>
+        <div class="v">{{ regime.summary.counts.expiring }}</div>
+        <div class="s">inside 60 days</div></div>
+      <div class="kpi {% if regime.summary.counts.expired %}bad{% endif %}">
+        <div class="l">Expired</div>
+        <div class="v">{{ regime.summary.counts.expired }}</div>
+        <div class="s">the one that hurts</div></div>
+    </div>
+
+    {% regroup regime.rows by item.title as titles %}
+    {% for group in titles %}
+      <div class="cblock">
+        <div class="ctitle">{{ group.grouper.name }}
+          <span style="font-weight:400;color:var(--muted)">{{ regime.type.code }}</span></div>
+        {% for row in group.list %}
+          <div class="citem">
+            <span class="pill {{ row.pill }}">{{ row.label }}</span>
+            <span class="nm">
+              {{ row.item.name }}
+              {% if not row.item.is_compulsory %}<span class="mut" style="color:var(--muted)">· optional</span>{% endif %}
+              <div class="sub">
+                {% if row.latest %}
+                  {{ row.latest.original_name }}
+                  {% if row.latest.reference %}· {{ row.latest.reference }}{% endif %}
+                  {% if row.latest.expires_on %}· valid to {{ row.latest.expires_on|date:"d/m/Y" }}
+                    {% if row.days != None and row.state != 'valid' %}({{ row.days }} days){% endif %}
+                  {% endif %}
+                  {% if row.count > 1 %}· {{ row.count }} versions{% endif %}
+                {% else %}
+                  {{ row.item.get_kind_display|lower }}{% if row.item.note %} · {{ row.item.note }}{% endif %}
+                {% endif %}
+              </div>
+            </span>
+            <span class="act">
+              {% if row.latest %}
+                <a href="{% url 'compliance_download' row.latest.pk %}">
+                  <button type="button" class="sec sm">Download</button></a>
+                {% if user|can:"compliance.upload" %}
+                  {% comment %}
+                  ⚠ TWO DIFFERENT ACTS, AND THIS IS THE ONE PEOPLE ASK FOR.
+                    Replace = the paper is superseded. Correct details = the
+                    paper is right and the typing beside it was wrong.
+                  {% endcomment %}
+                  <button type="button" class="sec sm"
+                          data-doc="{{ row.latest.pk }}"
+                          data-name="{{ row.item.name }}"
+                          data-ref="{{ row.latest.reference }}"
+                          data-issued="{{ row.latest.issued_on|date:'Y-m-d' }}"
+                          data-expires="{{ row.latest.expires_on|date:'Y-m-d' }}"
+                          data-kind="{{ row.item.kind }}"
+                          onclick="askCorrect(this)">Correct details</button>
+                {% endif %}
+              {% endif %}
+              {% if user|can:"compliance.upload" %}
+                <button type="button" class="sec sm"
+                        data-item="{{ row.item.pk }}"
+                        data-name="{{ row.item.name }}"
+                        data-kind="{{ row.item.kind }}"
+                        data-validity="{{ row.item.validity_days|default:'' }}"
+                        onclick="askUpload(this)">{% if row.latest %}Replace{% else %}Upload{% endif %}</button>
+              {% endif %}
+              {% comment %}
+              >>> ANCHOR: COMPLIANCE-PRUNING <<<
+              ⚠ ONLY WHEN THE LINE HOLDS NOTHING. The server refuses either way
+                and says how many documents are in the way, but offering a button
+                that always refuses is not a button. `row.count` is the number of
+                versions filed against this line on this project.
+              ⚠ `compliance.master`, not `compliance.upload` — pruning changes
+                what the project is judged against, which is a different act from
+                filing a certificate against it.
+              {% endcomment %}
+              {% if user|can:"compliance.master" and not row.count %}
+                <form method="post"
+                      action="{% url 'compliance_remove_item' project.pk row.item.pk %}"
+                      style="display:inline;margin:0"
+                      onsubmit="return confirm('Remove “{{ row.item.name|escapejs }}” from {{ project.code|escapejs }}?\n\nIt stays on the master and on every other project, and can be put back at any time.')">
+                  {% csrf_token %}
+                  <button type="submit" class="sec sm"
+                          title="Not applicable to this site. The master and every other project are untouched.">Not needed here</button>
+                </form>
+              {% endif %}
+            </span>
+          </div>
+          {% comment %}
+          ⚠ EVERY EARLIER VERSION STAYS DOWNLOADABLE — "the superseded one is
+            often the one an inspector asks about".
+          {% endcomment %}
+          {% for old in row.history %}
+            <div class="citem" style="padding-left:34px;background:#FCFCFD">
+              <span class="nm" style="color:var(--muted);font-size:11.5px">
+                {{ old.original_name }} · uploaded {{ old.uploaded_at|date:"d/m/Y" }}
+                {% if old.uploaded_by %}by {{ old.uploaded_by.get_full_name|default:old.uploaded_by.username }}{% endif %}
+              </span>
+              <span class="act">
+                <a href="{% url 'compliance_download' old.pk %}">
+                  <button type="button" class="sec sm">Download</button></a>
+              </span>
+            </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% empty %}
+    <div class="note tight"><b>No compliance regime applies to this project.</b></div>
+  {% endfor %}
+
+  {% if optional and user|can:"compliance.upload" %}
+    <div class="card" style="margin-bottom:11px">
+      <div class="grph">Optional regimes</div>
+      {% for row in optional %}
+        <form method="post" action="{% url 'compliance_applies' project.pk %}"
+              style="display:flex;gap:9px;align-items:center;margin:0 0 7px;font-size:12.5px">
+          {% csrf_token %}
+          <input type="hidden" name="type" value="{{ row.type.pk }}">
+          <b style="min-width:60px">{{ row.type.code }}</b>
+          <span style="flex:1;color:var(--muted)">{{ row.type.note }}</span>
+          {% if row.applicable %}
+            <span class="pill p-won">applies</span>
+            <button type="submit" name="applicable" value="no" class="sec sm">Turn off</button>
+          {% else %}
+            <span class="pill p-draft">does not apply</span>
+            <button type="submit" name="applicable" value="yes" class="sec sm">Turn on</button>
+          {% endif %}
+        </form>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% comment %}
+  >>> ANCHOR: COMPLIANCE-PRUNING <<<
+  ⚠ REMOVED LINES ARE NOT SHOWN IN THE CHECKLIST, greyed or otherwise. Saahil
+    rejected that: "if we just make it not applicable, then it may fill up a lot
+    of space as well". A project showing 21 AMC lines of which 8 are noise is
+    worse than one showing the 13 that matter. They live here instead — out of
+    the way, and one press from coming back.
+  ⚠ THE BLOCK ONLY EXISTS WHEN SOMETHING HAS BEEN REMOVED. An empty "nothing has
+    been removed" panel on every project is the space he was objecting to.
+  {% endcomment %}
+  {% if put_back and user|can:"compliance.master" %}
+    <div class="card" style="margin-bottom:11px">
+      <div class="grph">Removed from this project</div>
+      {% for row in put_back %}
+        <form method="post"
+              action="{% url 'compliance_restore_item' project.pk row.item.pk %}"
+              style="display:flex;gap:9px;align-items:center;margin:0 0 7px;font-size:12.5px">
+          {% csrf_token %}
+          <b style="min-width:60px">{{ row.item.title.type.code }}</b>
+          <span style="flex:1">{{ row.item.name }}
+            <span style="color:var(--muted)">· {{ row.item.title.name }}</span></span>
+          <span style="color:var(--muted);font-size:11.5px;white-space:nowrap">
+            {{ row.removed_at|date:"d/m/Y" }}{% if row.removed_by %} ·
+            {{ row.removed_by.get_full_name|default:row.removed_by.username }}{% endif %}</span>
+          <button type="submit" class="sec sm">Put back</button>
+        </form>
+      {% endfor %}
+      <div style="color:var(--muted);font-size:11.5px;margin-top:2px">
+        Removed here only. These lines are untouched on the master and on every other project.
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="note tight" style="margin-bottom:0">
+    <b>This checklist is a first draft.</b> It must be confirmed by whoever does the liaison work.
+  </div>
+
+  {% if user|can:"compliance.upload" %}
+    <dialog class="info" id="dlgupload">
+      <div class="hd"><b>Upload a document</b><span class="sp"></span>
+        <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+      <form method="post" enctype="multipart/form-data" class="dlgform" id="uploadform">
+        {% csrf_token %}
+        <p id="uploadwhat"></p>
+        <div><label>File</label>
+          <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required></div>
+        <div class="two">
+          <div><label>Reference on the document</label>
+            <input type="text" name="reference" maxlength="120"></div>
+          <div><label>Issued on</label>
+            <input type="date" name="issued_on" id="issued_on" onchange="suggestExpiry()"></div>
+        </div>
+        <div id="expiryrow" style="display:none">
+          <label>Valid to <span style="text-transform:none;color:#8A6D3B" id="suggestlabel"></span></label>
+          <input type="date" name="expires_on" id="expires_on" onchange="ownExpiry()">
+          <p style="margin-top:6px" id="suggestnote">
+            Typed from the document. Nothing here reads it for you — a silently wrong expiry is
+            worse than a blank one.</p>
+        </div>
+        <div><label>Note (optional)</label><input type="text" name="note" maxlength="300"></div>
+        <p><b>Uploading again keeps the old version.</b> Nothing here is ever overwritten.</p>
+        <div class="foot">
+          <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit">Upload</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="info" id="dlgcorrect">
+      <div class="hd"><b>Correct the details</b><span class="sp"></span>
+        <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+      <form method="post" class="dlgform" id="correctform">
+        {% csrf_token %}
+        <p id="correctwhat"></p>
+        <p><b>The file is not touched.</b> This is for a reference or a date that was typed wrongly —
+           the paper is right. If the paper itself has been superseded, use <b>Replace</b> instead,
+           which keeps both.</p>
+        <div><label>Reference</label><input type="text" name="reference" id="c_ref" maxlength="120"></div>
+        <div><label>Issued on</label><input type="date" name="issued_on" id="c_issued"></div>
+        <div id="c_expiryrow" style="display:none">
+          <label>Valid to</label><input type="date" name="expires_on" id="c_expires">
+        </div>
+        <div><label>Note (optional)</label><input type="text" name="note" maxlength="300"></div>
+        <div class="foot">
+          <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit">Save the correction</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+    // One dialog for every row; the button says which item it is about, and the
+    // address is built from the project and that item.
+    /* ⚠ THE SUGGESTION, AND WHY IT IS VISIBLY A SUGGESTION.
+         Nothing on their server can read a PDF — there is no model on that
+         machine and no internet. So the expiry is typed. What the system CAN do
+         is arithmetic: issue date + the master\'s typical validity, shown in
+         yellow with "check it against the document". Touch the field and the
+         yellow goes, because it is now the person\'s answer rather than ours.
+         A guess that looks like a fact is the failure to avoid. */
+    var typicalDays = 0, expiryTouched = false;
+
+    function askUpload(button) {
+      var form = document.getElementById("uploadform");
+      form.action = "/compliance/project/{{ project.pk }}/upload/" + button.dataset.item + "/";
+      document.getElementById("uploadwhat").textContent = button.dataset.name;
+      var needsExpiry = button.dataset.kind === "valid";
+      document.getElementById("expiryrow").style.display = needsExpiry ? "block" : "none";
+      var box = document.getElementById("expires_on");
+      box.required = needsExpiry;
+      box.value = "";
+      typicalDays = parseInt(button.dataset.validity || "0", 10) || 0;
+      expiryTouched = false;
+      box.style.background = "";
+      document.getElementById("suggestlabel").textContent =
+        typicalDays ? "— suggested, check it" : "";
+      suggestExpiry();
+      document.getElementById("dlgupload").showModal();
+    }
+
+    function suggestExpiry() {
+      if (expiryTouched || !typicalDays) return;
+      var issued = document.getElementById("issued_on").value;
+      var box = document.getElementById("expires_on");
+      if (!issued) { box.value = ""; return; }
+      var on = new Date(issued);
+      on.setDate(on.getDate() + typicalDays);
+      box.value = on.toISOString().slice(0, 10);
+      box.style.background = "var(--edit)";
+      document.getElementById("suggestnote").innerHTML =
+        "<b>Suggested from the checklist master</b> — issued plus " + typicalDays +
+        " days. Check it against the document and change it if it says otherwise.";
+    }
+
+    function ownExpiry() {
+      expiryTouched = true;
+      document.getElementById("expires_on").style.background = "";
+      document.getElementById("suggestlabel").textContent = "";
+      document.getElementById("suggestnote").textContent =
+        "Typed by you. The master\'s suggestion is ignored.";
+    }
+
+    function askCorrect(button) {
+      var form = document.getElementById("correctform");
+      form.action = "/compliance/document/" + button.dataset.doc + "/correct/";
+      document.getElementById("correctwhat").textContent = button.dataset.name;
+      document.getElementById("c_ref").value = button.dataset.ref || "";
+      document.getElementById("c_issued").value = button.dataset.issued || "";
+      document.getElementById("c_expires").value = button.dataset.expires || "";
+      document.getElementById("c_expiryrow").style.display =
+        button.dataset.kind === "valid" ? "block" : "none";
+      document.getElementById("c_expires").required = button.dataset.kind === "valid";
+      document.getElementById("dlgcorrect").showModal();
+    }
+    </script>
+  {% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "compliance_project" %}{% endblock %}

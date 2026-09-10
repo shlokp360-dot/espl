@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+LEVEL 1 OF THE PURCHASE-ORDER SCREEN — the vendors this project has ordered from.
+
+From BOM_Prototype.html, which is the agreed design. Vendor-first was Saahil's
+call over a flat list of orders, and the reason is how the work actually happens:
+you deal with a vendor, not with a document number.
+
+⚠ NOT ONE FIGURE IS WORKED OUT HERE. Every rupee comes from
+  PurchaseOrder.totals() by way of the view. The same function draws the vendor
+  row, the document row on the next screen and the PDF — so they cannot disagree.
+{% endcomment %}
+
+{% block title %}Purchase orders — {{ project.code }}{% endblock %}
+{% block subtitle %}
+  {{ project.name }} &nbsp;|&nbsp; BUA {{ project.bua_sqft|qty }} sqft
+  &nbsp;|&nbsp; Status: <b>{{ project.get_status_display|upper }}</b>
+{% endblock %}
+
+{% block nav %}{% include "projects/_nav.html" with here="orders" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "po_vendors" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Purchase orders</span>
+  <span class="sp"></span>
+  <span class="hint">
+    {{ order_count }} document{{ order_count|pluralize }}
+    {% if draft_count %} · <b>{{ draft_count }} still draft</b>{% endif %}
+    {% if order_count %} · ₹{{ total_value|rupees }} total{% endif %}
+  </span>
+</div>
+
+<div class="panel" style="border-top:1px solid var(--line)">
+  {% include "projects/_pofilters.html" with clear_url=request.path %}
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Vendor</th><th>Name</th><th>Category</th><th>GSTIN</th>
+        <th class="num">Documents</th><th class="num">Draft</th><th class="num">Awaiting delivery</th>
+        <th class="num">Total value</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="click"
+            onclick="window.location='{% url 'po_vendor' project.id row.vendor.id %}?{{ request.GET.urlencode }}'">
+          <td class="code">{{ row.vendor.code }}</td>
+          <td>{{ row.vendor.name }}
+            {% if row.vendor.is_unregistered %}
+              <span class="pill p-nogst" title="No GST registration — orders raised at 0% GST">unregistered</span>
+            {% endif %}</td>
+          <td style="color:var(--muted)">
+            {% for c in row.vendor.categories.all %}{{ c.category }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td>
+            {% comment %}
+            Shown here rather than left to be discovered at approval. A missing
+            GSTIN hard-blocks approving the order, and finding that out while
+            holding a finished order is worse than knowing now.
+            {% endcomment %}
+            {% if row.vendor.gst_number %}
+              <span class="code">{{ row.vendor.gst_number }}</span>
+            {% elif row.vendor.is_unregistered %}
+              <span style="color:var(--muted)">not required</span>
+            {% else %}
+              <span class="pill p-nogst" title="Approval will ask for this">not captured</span>
+            {% endif %}</td>
+          <td class="num">{{ row.orders }}</td>
+          <td class="num">{% if row.drafts %}<b>{{ row.drafts }}</b>{% endif %}</td>
+          <td class="num">{% if row.awaiting %}{{ row.awaiting }}{% endif %}</td>
+          <td class="num"><b>₹{{ row.value|rupees }}</b></td>
+          <td style="color:var(--blue)">view ▸</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div style="color:var(--muted);padding:16px 2px">
+      {% if applied.q or applied.type or applied.activity %}
+        Nothing matches those filters. <a href="{{ request.path }}">Clear them</a> to see everything.
+      {% else %}
+        No purchase orders on this project yet. Open the
+        <a href="{% url 'bom_screen' project.id %}">bill of materials</a>, set order quantities and
+        vendors, then press <b>Post POs</b>.
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "po_vendors" %}{% endblock %}

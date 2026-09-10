@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
+
+⚠ THE CODE IS NEVER TYPED. On a new material there is no code box at all — it is
+  built from the home activity and the group when you press Create. On an
+  existing one it is shown and cannot be changed, because purchase orders,
+  BOM lines and receipts all point at it.
+{% endcomment %}
+
+{% block title %}{% if material.pk %}{{ material.code }}{% else %}New material{% endif %}{% endblock %}
+{% block subtitle %}
+  {% if material.pk %}{{ material.name }}{% else %}Creating a material{% endif %}
+{% endblock %}
+
+{% block headerinfo %}{% infobutton "material_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "material_form" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
+  <a href="{% url 'material_list' %}">Materials</a> &nbsp;▸&nbsp;
+  <b>{% if material.pk %}{{ material.code }}{% else %}New{% endif %}</b>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">
+      {% if material.pk %}{{ material.code }} — {{ material.name }}{% else %}New material{% endif %}</span>
+    <span class="sp"></span>
+    <a href="{% url 'material_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <button type="submit">{% if material.pk %}Save{% else %}Create material{% endif %}</button>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">What it is</h3>
+    <table style="width:100%;max-width:860px">
+      {% if material.pk %}
+        <tr>
+          <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
+            <b>Code</b>
+            <div style="font-size:11px;color:var(--muted)">Assigned once. Never regenerated, so it
+              may name the construction activity this material was born under rather than its current one</div></td>
+          <td style="border:0;padding:8px 0">
+            <span class="code" style="font-size:13px">{{ material.code }}</span></td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Name</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="name" value="{{ material.name|default:'' }}"
+                 style="max-width:420px" autofocus></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Specification</b>
+          <div style="font-size:11px;color:var(--muted)">Brand or grade — ULTRATECH, ASTRAL</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="specification" value="{{ material.specification|default:'' }}"
+                 style="max-width:420px"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Group</b>
+          <div style="font-size:11px;color:var(--muted)">Part of the code on a new material</div></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="group" style="max-width:320px">
+            <option value="">— pick a group —</option>
+            {% for g in groups %}
+              <option value="{{ g.id }}" {% if material.group_id == g.id %}selected{% endif %}>
+                {{ g.code }} — {{ g.name }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Unit</b></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="uom" style="max-width:220px">
+            {% for value, label in uoms %}
+              <option value="{{ value }}" {% if material.uom == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+    </table>
+
+    {% comment %}
+    ⚠ THE CONSTRUCTION ACTIVITY LIVES HERE, ON THE MATERIAL. It used to be a separate link table
+      with its own Admin page. Saahil's instruction: "Material is to be linked to
+      activity in the same material master screen, not as a separate tile."
+    {% endcomment %}
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Which construction activity buys it</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+      The home activity is required — it decides which BOM tab offers this material, and it is the
+      first part of the code on a new one. The second is for the rare material genuinely bought
+      under two construction activities; <b>leave it blank for almost everything</b>.
+    </div>
+    <table style="width:100%;max-width:860px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Home activity</b></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="home_activity" style="max-width:340px">
+            <option value="">— pick a construction activity —</option>
+            {% for a in activities %}
+              <option value="{{ a.id }}" {% if material.home_activity_id == a.id %}selected{% endif %}>
+                {{ a.abbreviation }} — {{ a.name }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Also used in</b>
+          <div style="font-size:11px;color:var(--muted)">Optional. There is no third</div></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="also_used_in" style="max-width:340px">
+            <option value="">— none —</option>
+            {% for a in activities %}
+              <option value="{{ a.id }}" {% if material.also_used_in_id == a.id %}selected{% endif %}>
+                {{ a.abbreviation }} — {{ a.name }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Used by every construction activity</b>
+          <div style="font-size:11px;color:var(--muted)">Wall plugs, fevicol, hacksaw blades. Shows
+            in every activity's list whatever its home</div></td>
+        <td style="border:0;padding:8px 0">
+          <label style="font-size:12.5px"><input type="checkbox" name="is_common"
+            {% if material.is_common %}checked{% endif %}> Common material</label></td>
+      </tr>
+    </table>
+
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Money and tax</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+      <b>The estimation rate is what the BOM plans at, not what a vendor charges.</b> A vendor's
+      price lives on the BOM line and on their rate list; this is the company's own planning figure.
+      The BOQ is built from construction activity rates, per sqft, and not from this.
+    </div>
+    <table style="width:100%;max-width:860px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Estimation rate</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell num" name="estimation_rate" style="max-width:180px"
+                 value="{% if material.estimation_rate %}{{ material.estimation_rate|rupees }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>GST %</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell num" name="gst_percent" style="max-width:120px"
+                 {% comment %}
+                 ⚠ |qty, NOT |pct — see the note on the list screen. This box was
+                   pre-filling "1800.0%", which does not parse, so GST could not
+                   be edited on this screen at all. It failed quietly: the save
+                   reported the value as unreadable and kept the old one.
+                 {% endcomment %}
+                 value="{% if material.gst_percent %}{{ material.gst_percent|qty }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>HSN code</b>
+          <div style="font-size:11px;color:var(--muted)">Required on a GST invoice. Filled on first
+            use</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="hsn_code" value="{{ material.hsn_code|default:'' }}"
+                 style="max-width:180px"></td>
+      </tr>
+    </table>
+
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Stock and searching</h3>
+    <table style="width:100%;max-width:860px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Current stock</b>
+          <div style="font-size:11px;color:var(--muted)">Subtracted from what the BOM suggests
+            ordering</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell num" name="current_stock" style="max-width:180px"
+                 value="{% if material.current_stock %}{{ material.current_stock|qty }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Reorder level</b>
+          <div style="font-size:11px;color:var(--muted)">Below this the BOM flags it</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell num" name="reorder_level" style="max-width:180px"
+                 value="{% if material.reorder_level %}{{ material.reorder_level|qty }}{% endif %}"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Search aliases</b>
+          <div style="font-size:11px;color:var(--muted)">Site vocabulary — “saria” finds TMT bar,
+            “chips” finds aggregate</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="search_aliases" value="{{ material.search_aliases|default:'' }}"
+                 style="max-width:420px"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Active</b>
+          <div style="font-size:11px;color:var(--muted)">Turn off instead of deleting. Every
+            historical record still resolves</div></td>
+        <td style="border:0;padding:8px 0">
+          <label style="font-size:12.5px"><input type="checkbox" name="is_active"
+            {% if material.is_active or not material.pk %}checked{% endif %}> In use</label></td>
+      </tr>
+    </table>
+
+    {% if not material.pk %}
+      <div class="note tight" style="margin-bottom:0">
+        <b>The code is assigned when you press Create</b> — abbreviation, group, serial. Never typed,
+        never regenerated.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

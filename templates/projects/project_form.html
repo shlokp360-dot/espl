@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+CREATE OR CHANGE A PROJECT. One screen does both.
+
+Until slice 6 this was Django Admin only — every job started in generic
+scaffolding and moved to real screens at step 3. Saahil found it himself by
+looking for a Create Project button and not finding one.
+
+⚠ THE CODE IS NEVER TYPED. On a new project there is no code box at all; on an
+  existing one it is shown and cannot be edited. A purchase order, a BOM and a
+  receipt all point at it, so a code that changed underneath them would stop
+  being an identity.
+{% endcomment %}
+
+{% block title %}{% if project.pk %}{{ project.code }}{% else %}New project{% endif %}{% endblock %}
+{% block subtitle %}
+  {% if project.pk %}{{ project.name }}{% else %}Creating a project{% endif %}
+{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="{% url 'project_list' %}">All projects</a>
+  {% if project.pk %}
+    <a href="{% url 'bom_screen' project.id %}">Bill of materials</a>
+    <a href="{% url 'po_screen' project.id %}">Purchase orders</a>
+  {% endif %}
+</nav>
+{% endblock %}
+
+{% block headerinfo %}{% infobutton "project_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "project_form" %}{% endblock %}
+
+{% block content %}
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">
+      {% if project.pk %}{{ project.code }} — {{ project.name }}{% else %}New project{% endif %}</span>
+    <span class="sp"></span>
+    <a href="{% url 'project_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <button type="submit">{% if project.pk %}Save{% else %}Create project{% endif %}</button>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">Project basics</h3>
+
+    <table style="width:100%;max-width:840px">
+      {% if project.pk %}
+        <tr>
+          <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
+            <b>Code</b>
+            <div style="font-size:11px;color:var(--muted)">Assigned once, never changes</div></td>
+          <td style="border:0;padding:8px 0">
+            <span class="code" style="font-size:13px">{{ project.code }}</span></td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top"><b>Name</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="name" value="{{ project.name|default:'' }}"
+                 style="max-width:420px" autofocus></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Location</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="location" value="{{ project.location|default:'' }}"
+                 style="max-width:420px" placeholder="e.g. Ahmedabad"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Built-up area (sqft)</b>
+          {% comment %}
+          ⚠ THE ONE FIGURE THE WHOLE ESTIMATE MULTIPLIES BY. Every construction activity's amount
+            is rate × BUA, so this number decides the quote. It includes common
+            areas, staircase, lift lobby and mumty — stated here rather than
+            assumed, because two people measuring it differently produce two
+            different projects.
+          {% endcomment %}
+          <div style="font-size:11px;color:var(--muted)">Including common areas, staircase,
+            lift lobby and mumty. Every construction activity's amount is rate × this.</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell num" name="bua_sqft"
+                 value="{% if project.bua_sqft %}{{ project.bua_sqft|qty }}{% endif %}"
+                 style="max-width:180px" placeholder="26545"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Floors</b>
+          <div style="font-size:11px;color:var(--muted)">Recorded, but does not affect the rate
+            today — a G+3 quotes the same as a G+7</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="floors" value="{{ project.floors|default:'' }}"
+                 style="max-width:140px" placeholder="G+7"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Status</b>
+          {% comment %}
+          ⚠ Won ≠ Completed. A project is Won for the whole time it is being
+            built, which is exactly when it is busiest. Completed means the
+            building is finished and the job leaves the default list.
+          {% endcomment %}
+          <div style="font-size:11px;color:var(--muted)">Won means sold. Completed means the
+            building is finished and it leaves the default list.</div></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="status" style="max-width:200px">
+            {% for value, label in statuses %}
+              <option value="{{ value }}"
+                {% if project.status == value %}selected{% elif not project.pk and value == 'draft' %}selected{% endif %}>
+                {{ label }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+    </table>
+
+    {% comment %}
+    The two addresses added in slice 5a. They print on every purchase order —
+    BILL TO inside the FROM block, SHIP TO as its own block — and the site
+    address is copied onto each order when it is created, then frozen at
+    approval so editing this later cannot rewrite an order already sent.
+    {% endcomment %}
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Addresses</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:840px">
+      Both print on this project's purchase orders. The site address also pre-fills the delivery
+      address on every order, and is <b>frozen onto a document when it is approved</b> — so changing
+      it here never rewrites an order already sent to a vendor.
+    </div>
+
+    <table style="width:100%;max-width:840px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Billing address</b>
+          <div style="font-size:11px;color:var(--muted)">Where the vendor's invoice goes. Leave
+            blank to use the company's registered address</div></td>
+        <td style="border:0;padding:8px 0">
+          <textarea class="cell" name="billing_address" rows="3"
+                    style="max-width:420px">{{ project.billing_address|default:'' }}</textarea></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Site address</b>
+          <div style="font-size:11px;color:var(--muted)">Where material is delivered</div></td>
+        <td style="border:0;padding:8px 0">
+          <textarea class="cell" name="site_address" rows="3"
+                    style="max-width:420px">{{ project.site_address|default:'' }}</textarea></td>
+      </tr>
+    </table>
+
+    {% if not project.pk %}
+      <div class="note tight" style="margin-bottom:0">
+        <b>The code is assigned when you press Create</b> — PRJ-000001 upward. Never typed, never
+        changed afterwards.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

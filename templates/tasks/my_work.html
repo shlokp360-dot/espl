@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+MY WORK — everything waiting on one person, across every project.
+
+⚠ THIS IS THE SCREEN A SITE ENGINEER OPENS ON A PHONE AT SEVEN IN THE MORNING.
+  Blocked first, then the most overdue, then the rest. Two buttons per row and
+  nothing else to read.
+
+⚠ DONE AND BLOCKED ARE THE ONLY TWO ACTIONS, and neither of them can move a
+  date. What was planned stays planned; what happened is recorded beside it.
+
+⚠ THE REASON BOX APPEARS ONLY WHEN THE ROW IS ALREADY PAST ITS DATE. Nobody
+  justifies being early, and a form that asks anyway teaches people to pick the
+  first option in the list. The view works the same thing out again — a hidden
+  field the browser sends is a hidden field somebody can change.
+{% endcomment %}
+
+{% block title %}My work{% endblock %}
+{% block subtitle %}What is waiting on you{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="mine" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "my_work" %}{% endblock %}
+
+{% block content %}
+
+<style>
+.wrow{background:#fff;border:1px solid var(--line);border-radius:6px;padding:11px 13px;margin-bottom:8px;
+      display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.wrow.late{border-left:4px solid var(--red)}
+.wrow.stuck{border-left:4px solid var(--amber);background:#FFFCF5}
+.wrow .main{flex:1 1 260px;min-width:0}
+.wrow .ttl{font-size:13.5px;font-weight:600;color:var(--navy)}
+.wrow .where{font-size:11.5px;color:var(--muted);margin-top:2px}
+.wrow .acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.wrow .when{font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right}
+.dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
+.dlgform label{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+               color:var(--muted);margin-bottom:3px}
+.dlgform select,.dlgform input{width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;
+                               font:inherit;font-size:12.5px;background:#fff}
+.dlgform p{margin:0;color:var(--muted);font-size:11.5px;white-space:normal;line-height:1.5}
+.dlgform .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.done td{color:var(--muted)}
+</style>
+
+<div class="toolbar">
+  <span class="ttl">My work</span>
+  {% if overdue_count %}
+    <span class="pill p-lost">{{ overdue_count }} overdue</span>
+  {% endif %}
+  {% if blocked_count %}
+    <span class="pill p-onsheet">{{ blocked_count }} blocked</span>
+  {% endif %}
+  <span class="hint">{{ today|date:"l, j F Y" }}</span>
+</div>
+
+{% for row in live %}
+  <div class="wrow {% if row.subtask.status == 'blocked' %}stuck{% elif row.overdue %}late{% endif %}">
+    <div class="main">
+      <div class="ttl">{{ row.subtask.title }}</div>
+      <div class="where">
+        {{ row.subtask.header.project.code }} · {{ row.subtask.header.name }}
+        {% if row.subtask.priority == 'H' %}<span class="pill p-nogst">High</span>{% endif %}
+        {% if row.subtask.status == 'blocked' %}
+          <br><b style="color:var(--amber)">Blocked — {{ row.subtask.get_blocked_reason_display }}</b>
+          {% if row.subtask.blocked_note %}<span style="color:var(--muted)"> · {{ row.subtask.blocked_note }}</span>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="when">
+      {{ row.subtask.start|date:"d/m/Y" }} → {{ row.subtask.planned_end|date:"d/m/Y" }}
+      {% if row.overdue %}
+        <br><span class="up">{{ row.overdue }} day{{ row.overdue|pluralize }} overdue</span>
+      {% endif %}
+    </div>
+
+    <div class="acts">
+      {% comment %}
+      ⚠ ONE DIALOG, NOT ONE PER ROW. The buttons hand it the row it is about.
+        Forty rows would otherwise mean forty copies of the same form.
+      {% endcomment %}
+      {% comment %}
+      ⚠ data-reason CARRIES WHAT THEY ALREADY TOLD US. A row that was blocked
+        "waiting on another construction activity" and then finished late was almost certainly
+        held up by that same thing, so the dialog opens with it chosen. It is a
+        starting point and not an answer — the select is still theirs to change.
+      {% endcomment %}
+      <button type="button"
+              data-action="{% url 'task_subtask_done' row.subtask.pk %}"
+              data-title="{{ row.subtask.title }}"
+              data-late="{% if row.will_be_late %}1{% else %}0{% endif %}"
+              data-reason="{{ row.subtask.blocked_reason }}"
+              onclick="askDone(this)">Done</button>
+
+      {% if row.subtask.status == 'blocked' %}
+        <form method="post" action="{% url 'task_subtask_unblock' row.subtask.pk %}" style="margin:0">
+          {% csrf_token %}
+          <button type="submit" class="sec">Unblocked</button>
+        </form>
+      {% else %}
+        <button type="button" class="sec"
+                data-action="{% url 'task_subtask_blocked' row.subtask.pk %}"
+                data-title="{{ row.subtask.title }}"
+                onclick="askBlocked(this)">Blocked</button>
+      {% endif %}
+    </div>
+  </div>
+{% empty %}
+  <div class="card" style="color:var(--muted)">
+    <b style="color:var(--navy)">Nothing is waiting on you.</b><br>
+    Work appears here the moment a Project manager assigns you a task.
+  </div>
+{% endfor %}
+
+{% if finished %}
+  <div class="toolbar" style="margin-top:20px">
+    <span class="ttl" style="font-size:13px">Recently finished</span>
+    <span class="hint">the last {{ finished|length }} — so a wrong tick is easy to spot</span>
+  </div>
+  <div class="scroll" style="max-height:none">
+    <table>
+      <thead><tr class="hd">
+        <th>Task</th><th>Where</th><th style="width:95px">Due</th>
+        <th style="width:95px">Finished</th><th style="width:190px">Delay</th>
+      </tr></thead>
+      <tbody>
+        {% for row in finished %}
+          <tr class="done">
+            <td>{{ row.subtask.title }}</td>
+            <td>{{ row.subtask.header.project.code }} · {{ row.subtask.header.name }}</td>
+            <td>{{ row.subtask.planned_end|date:"d/m/Y" }}</td>
+            <td>{{ row.subtask.finished_on|date:"d/m/Y" }}</td>
+            <td>
+              {% if row.subtask.days_late %}
+                <span class="up">{{ row.subtask.days_late }} day{{ row.subtask.days_late|pluralize }} late</span>
+                — {{ row.subtask.get_delay_reason_display }}
+                {% if row.subtask.delay_note %}<br><span style="font-size:11px">{{ row.subtask.delay_note }}</span>{% endif %}
+              {% else %}
+                <span class="down">on time</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="note tight" style="margin-bottom:0">
+    <b>Ticked by mistake?</b> A Project manager can reopen it from the board.
+  </div>
+{% endif %}
+
+<dialog class="info" id="dlgdone">
+  <div class="hd"><b>Mark it done</b><span class="sp"></span>
+    <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+  <form method="post" class="dlgform" id="doneform">
+    {% csrf_token %}
+    <p id="donewhat"></p>
+    <p><b>Today's date is recorded as the finish.</b></p>
+    <div id="donelate" style="display:none">
+      <label>This is past its date. What held it up?</label>
+      <select name="delay_reason" id="donereason">
+        <option value="">Choose one</option>
+        {% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+      <label style="margin-top:10px">Anything to add (optional)</label>
+      <input type="text" name="delay_note" maxlength="200" placeholder="Cement arrived on the 6th">
+    </div>
+    <div class="foot">
+      <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Mark done</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="info" id="dlgblocked">
+  <div class="hd"><b>Flag it as blocked</b><span class="sp"></span>
+    <button type="button" class="x" onclick="this.closest('dialog').close()">✕</button></div>
+  <form method="post" class="dlgform" id="blockedform">
+    {% csrf_token %}
+    <p id="blockedwhat"></p>
+    <p><b>The date does not move</b> — it keeps counting while you are stuck.</p>
+    <div>
+      <label>What is holding it up?</label>
+      <select name="blocked_reason" required>
+        <option value="">Choose one</option>
+        {% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Anything to add (optional)</label>
+      <input type="text" name="blocked_note" maxlength="200" placeholder="Waiting on the electrician">
+    </div>
+    <div class="foot">
+      <button type="button" class="sec" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Flag as blocked</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// The two dialogs are shared by every row; the button hands over which row it is
+// about. Its address is resolved by NAME in the markup above and arrives here as
+// data-action — never spelled out as a path in this script. Same rule the
+// launchpad tiles follow: a renamed address then fails the suite instead of
+// failing on somebody's phone.
+function askDone(button) {
+  var late = button.dataset.late === "1";
+  var form = document.getElementById("doneform");
+  form.action = button.dataset.action;
+  document.getElementById("donewhat").textContent = button.dataset.title;
+  document.getElementById("donelate").style.display = late ? "block" : "none";
+  // Required only when it is actually late, so an on-time tick is one click.
+  var reason = document.getElementById("donereason");
+  reason.required = late;
+  // What they said was blocking it, if anything — pre-chosen, not decided.
+  reason.value = button.dataset.reason || "";
+  document.getElementById("dlgdone").showModal();
+}
+function askBlocked(button) {
+  var form = document.getElementById("blockedform");
+  form.action = button.dataset.action;
+  document.getElementById("blockedwhat").textContent = button.dataset.title;
+  document.getElementById("dlgblocked").showModal();
+}
+</script>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "my_work" %}{% endblock %}

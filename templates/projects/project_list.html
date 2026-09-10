@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+Every project on one page — and, since slice 6, the way in to create one.
+
+It is still a list rather than an editor: the row links to the project screen,
+which is where anything gets changed.
+{% endcomment %}
+
+{% block title %}Projects — Elegance Skyz{% endblock %}
+{% block subtitle %}{{ rows|length }} of {{ counts.all }} project{{ counts.all|pluralize }} shown{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <span class="ttl">Projects</span>
+  <span class="sp"></span>
+  <a class="tab" style="padding:7px 15px;border-radius:5px;border:1px solid var(--navy);
+                        background:var(--navy);color:#fff;font-weight:600"
+     href="{% url 'project_new' %}">+ New project</a>
+</div>
+
+{% comment %}
+The filter, not a delete button.
+
+A project can never be deleted once anything has been delivered — the database
+protects it, all the way up from the goods receipt. So finished jobs are marked
+Completed and drop out of the default view instead. Every filter shows its own
+count, so a project that is not on screen is visibly somewhere else rather than
+mysteriously gone.
+{% endcomment %}
+<div class="tabs" style="margin-bottom:14px">
+  {% for key, label, count, why in filters %}
+    <a class="tab {% if key == show %}on{% endif %}" href="?show={{ key }}" title="{{ why }}">
+      {{ label }}<span class="n">{{ count }}</span></a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th><th>Name</th><th>Location</th><th class="num">BUA (sqft)</th>
+        <th>Status</th><th>Estimate</th><th class="num">BOM lines</th><th class="num">POs</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="code">{{ row.project.code }}</td>
+          <td>{{ row.project.name }}</td>
+          <td style="color:var(--muted)">{{ row.project.location|default:"—" }}</td>
+          <td class="num">{{ row.project.bua_sqft|qty }}</td>
+          <td><span class="pill p-{{ row.project.status }}">{{ row.project.get_status_display }}</span></td>
+          <td>
+            {% if row.estimate %}
+              {% comment %}
+              ⚠ activity_count, not row.estimate.lines.count. Printing it here
+                asked the database twice per row — once for the number, once for
+                the pluralisation — on top of a select for each estimate's lines.
+                39 of this screen's 43 queries were that. It is counted in one
+                grouped query in the view now.
+              {% endcomment %}
+              ₹{{ row.estimate.composite_rate|rupees2 }}/sqft · {{ row.activity_count }} activit{{ row.activity_count|pluralize:"y,ies" }}
+            {% else %}
+              <span style="color:var(--muted)">none</span>
+            {% endif %}
+          </td>
+          <td class="num">{% if row.bom %}{{ row.line_count }}{% else %}—{% endif %}</td>
+          <td class="num">{{ row.po_count|default:"" }}</td>
+          {% comment %}
+          The three steps in order, so the row itself shows how far a project has
+          got: edit its basics, quote it, then plan and buy against it.
+          Generating the BOM lives on the BOQ screen now, where the estimate you
+          are generating from is on the same page.
+          {% endcomment %}
+          <td>
+            <a href="{% url 'project_edit' row.project.id %}">edit</a>
+            &nbsp;·&nbsp; <a href="{% url 'boq_screen' row.project.id %}">BOQ</a>
+            {% if row.bom %}
+              &nbsp;·&nbsp; <a href="{% url 'bom_screen' row.project.id %}">open BOM ▸</a>
+            {% elif not row.estimate %}
+              &nbsp;·&nbsp; <span style="color:var(--muted)">quote it first</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9" style="color:var(--muted)">
+          {% if counts.all %}
+            No {{ show }} projects. There {{ counts.all|pluralize:"is,are" }} {{ counts.all }}
+            project{{ counts.all|pluralize }} altogether — try <a href="?show=all">All projects</a>.
+          {% else %}
+            No projects yet. <a href="{% url 'project_new' %}">Create one</a>, give it an estimate,
+            then generate its BOM.
+          {% endif %}
+        </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% comment %}
+Both standing notes that used to sit here have moved:
+
+  "Nothing here is ever deleted"  -> the ⓘ panel below. It is an explanation, and
+                                     an explanation stops being read after the
+                                     third visit.
+  "No login is required"          -> base.html, still ON the page for every
+                                     screen. ⚠ That one must NOT move behind the
+                                     ⓘ button: a risk you have to click to
+                                     discover is a risk nobody discovers.
+{% endcomment %}
+{% endblock %}
+
+{% block headerinfo %}{% infobutton "project_list" %}{% endblock %}
+
+{% block infopanel %}{% infopanel "project_list" %}{% endblock %}

@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+CREATE OR CHANGE A VENDOR.
+
+⚠ THE PHONE NUMBER IS THE IDENTITY. Not the name — two vendors may legitimately
+  share a name, and 173 of these came out of a spreadsheet where several did.
+  Nothing about the same number appearing twice is legitimate.
+
+⚠ WHATSAPP FILLS ITSELF ONLY WHEN LEFT BLANK. Deriving it on every save quietly
+  threw away numbers typed by hand, which is wrong for the vendors whose main
+  line is an 1800 number — Schindler and TKE are both in this master.
+{% endcomment %}
+
+{% block title %}{% if vendor.pk %}{{ vendor.code }}{% else %}New vendor{% endif %}{% endblock %}
+{% block subtitle %}{% if vendor.pk %}{{ vendor.name }}{% else %}Creating a vendor{% endif %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "vendor_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "vendor_form" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
+  <a href="{% url 'vendor_list' %}">Vendors</a> &nbsp;▸&nbsp;
+  <b>{% if vendor.pk %}{{ vendor.code }}{% else %}New{% endif %}</b>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">
+      {% if vendor.pk %}{{ vendor.code }} — {{ vendor.name }}{% else %}New vendor{% endif %}</span>
+    <span class="sp"></span>
+    <a href="{% url 'vendor_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <button type="submit">{% if vendor.pk %}Save{% else %}Create vendor{% endif %}</button>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+
+    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">Who they are</h3>
+    <table style="width:100%;max-width:860px">
+      {% if vendor.pk %}
+        <tr>
+          <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Code</b></td>
+          <td style="border:0;padding:8px 0">
+            <span class="code" style="font-size:13px">{{ vendor.code }}</span></td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Name</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="name" value="{{ vendor.name|default:'' }}"
+                 style="max-width:420px" autofocus></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Contact person</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="contact_person" value="{{ vendor.contact_person|default:'' }}"
+                 style="max-width:320px"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Phone</b>
+          <div style="font-size:11px;color:var(--muted)">This is the identity. Never two vendors
+            with the same number</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="phone" value="{{ vendor.phone|default:'' }}"
+                 style="max-width:220px"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>WhatsApp</b>
+          <div style="font-size:11px;color:var(--muted)">Leave blank and it fills itself from the
+            phone number. Type one and yours is kept</div></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="whatsapp_number" value="{{ vendor.whatsapp_number|default:'' }}"
+                 style="max-width:220px"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Second contact</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="secondary_contact" style="max-width:220px;margin-right:8px"
+                 value="{{ vendor.secondary_contact|default:'' }}" placeholder="Name">
+          <input class="cell" name="secondary_phone" style="max-width:200px"
+                 value="{{ vendor.secondary_phone|default:'' }}" placeholder="Phone"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Email</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="email" value="{{ vendor.email|default:'' }}"
+                 style="max-width:320px"></td>
+      </tr>
+    </table>
+
+    {% comment %}
+    ⚠ TWO FIELDS, TWO QUESTIONS, AND THEY WERE NEARLY MERGED. Saahil: "lets use
+      vendor category as an identifier to search vendor … lets not mix vendor
+      category and link them to Vendor Activities."
+    {% endcomment %}
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">What they are, and what they do</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+      <b>Group</b> is what this vendor is, and it is how somebody searches for them.
+      <b>Serves</b> is which construction activity they work in, and it is what decides whether they are offered on
+      a BOM line. A hardware merchant is one group and may serve two construction activities. Both optional.
+    </div>
+    <table style="width:100%;max-width:860px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Group</b></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="group" style="max-width:340px">
+            <option value="">— none —</option>
+            {% for g in groups %}
+              <option value="{{ g.id }}" {% if vendor.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Serves</b></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="activity_1" style="max-width:300px;margin-right:8px">
+            <option value="">— none —</option>
+            {% for a in activities %}
+              <option value="{{ a.id }}" {% if vendor.activity_1_id == a.id %}selected{% endif %}>
+                {{ a.abbreviation }} — {{ a.name }}</option>
+            {% endfor %}
+          </select>
+          <select class="cell" name="activity_2" style="max-width:300px">
+            <option value="">— and optionally —</option>
+            {% for a in activities %}
+              <option value="{{ a.id }}" {% if vendor.activity_2_id == a.id %}selected{% endif %}>
+                {{ a.abbreviation }} — {{ a.name }}</option>
+            {% endfor %}
+          </select></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Document type</b>
+          <div style="font-size:11px;color:var(--muted)">Which a new draft starts as. Switchable on
+            the preview before anything is written</div></td>
+        <td style="border:0;padding:8px 0">
+          <select class="cell" name="default_document_type" style="max-width:260px">
+            <option value="PO" {% if vendor.default_document_type == 'PO' %}selected{% endif %}>
+              Purchase Order — a supplier</option>
+            <option value="WO" {% if vendor.default_document_type == 'WO' %}selected{% endif %}>
+              Work Order — a contractor</option>
+          </select></td>
+      </tr>
+    </table>
+
+    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Tax and terms</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+      <b>A purchase order cannot be approved without a GSTIN</b>, unless the vendor is marked
+      unregistered — in which case no GST is charged at all. The first two digits also decide
+      whether a document prints CGST and SGST or IGST.
+    </div>
+    <table style="width:100%;max-width:860px">
+      <tr>
+        <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>GSTIN</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="gst_number" value="{{ vendor.gst_number|default:'' }}"
+                 style="max-width:260px" placeholder="24ABCDE1234F1Z5"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Unregistered</b>
+          <div style="font-size:11px;color:var(--muted)">No GSTIN and none expected — 0% GST on
+            their documents</div></td>
+        <td style="border:0;padding:8px 0">
+          <label style="font-size:12.5px"><input type="checkbox" name="is_unregistered"
+            {% if vendor.is_unregistered %}checked{% endif %}> Not registered for GST</label></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0"><b>Payment terms</b></td>
+        <td style="border:0;padding:8px 0">
+          <input class="cell" name="payment_terms" value="{{ vendor.payment_terms|default:'' }}"
+                 style="max-width:320px" placeholder="30 days from invoice"></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top"><b>Address</b></td>
+        <td style="border:0;padding:8px 0">
+          <textarea class="cell" name="address" rows="3"
+                    style="max-width:420px">{{ vendor.address|default:'' }}</textarea></td>
+      </tr>
+      <tr>
+        <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
+          <b>Active</b>
+          <div style="font-size:11px;color:var(--muted)">Turn off instead of deleting. Every
+            historical order still resolves</div></td>
+        <td style="border:0;padding:8px 0">
+          <label style="font-size:12.5px"><input type="checkbox" name="is_active"
+            {% if vendor.is_active or not vendor.pk %}checked{% endif %}> In use</label></td>
+      </tr>
+    </table>
+  </div>
+</form>
+
+{% endblock %}

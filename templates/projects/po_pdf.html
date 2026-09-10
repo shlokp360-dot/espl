@@ -1,0 +1,314 @@
+{% load inr %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% comment %}
+THE PRINTED PURCHASE / WORK ORDER — rendered by WeasyPrint into the PDF.
+
+⚠ THE STYLE BLOCK BELOW IS THE FORMAT SAAHIL SIGNED OFF ON 10 Aug, copied from
+  po_print_template.html in Outputs after he reviewed three generated PDFs.
+  Every rule in it has a comment saying why it is that way, and each one came
+  from a fault visible only on a real PDF. DO NOT REDESIGN IT.
+
+⚠ NOT ONE FIGURE IS WORKED OUT HERE. Every line figure is a property on
+  PurchaseOrderLine; every total comes from PurchaseOrder.totals() — the same
+  function that draws the vendor list and the document screen, so the paper and
+  the screen cannot disagree.
+{% endcomment %}
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   THE PRINTED PURCHASE ORDER — the layout WeasyPrint turns into a PDF.
+
+   ⚠ BUILT ON TABLES, NOT FLEXBOX, AND DELIBERATELY SO.
+     The on-screen prototype uses flexbox, which the browser handles perfectly.
+     WeasyPrint's CSS support is narrower and varies by version — the laptop has
+     64.1, other machines will have something else. Tables render identically in
+     every version, and a purchase order that lays out differently depending on
+     which machine printed it is not a document anybody can rely on.
+
+   ⚠ NO ₹ SIGN. The rupee glyph is missing from many of the fonts available on a
+     server, and a missing glyph prints as a hollow box on a document sent to a
+     vendor. "Rs" is written out instead — ugly for about a second, and correct
+     everywhere.
+   ───────────────────────────────────────────────────────────────────────── */
+/* ⚠ THE FOOTER IS A RUNNING ELEMENT, NOT THE LAST THING ON THE PAGE.
+
+   Written as ordinary flow content it pushed a four-line order onto a second
+   page all by itself — everything else fitted, and one line of small grey text
+   spilled over. Worse, on a forty-line order it would have appeared only on the
+   last page, so a page that got separated from the rest carried nothing saying
+   which order it belonged to.
+
+   As a running element it lives in the page margin: it never affects the layout,
+   and it prints on EVERY page with a page number. */
+@page {
+  size: A4; margin: 12mm 11mm 16mm 11mm;
+  @bottom-center {
+    content: element(sysline);
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: "DejaVu Sans", sans-serif; font-size: 6.8pt; color: #6B7280;
+  }
+}
+
+body { font-family: "DejaVu Sans", sans-serif; font-size: 8.2pt; color: #1a1a1a; margin: 0; }
+table { border-collapse: collapse; width: 100%; }
+.n { text-align: right; white-space: nowrap; }
+.c { text-align: center; }
+.b { font-weight: bold; }
+.mono { font-family: "DejaVu Sans Mono", monospace; font-size: 7.4pt; }
+
+/* ---- the watermark. A draft that reaches paper must never look like an order.
+        It stays even though drafts cannot be downloaded, because nobody can be
+        stopped from pressing Ctrl+P on the screen. ------------------------- */
+.wm { position: fixed; top: 44%; left: 0; width: 100%; text-align: center;
+      font-size: 92pt; font-weight: bold; color: rgba(179,38,30,0.10);
+      letter-spacing: 12pt; transform: rotate(-22deg); }
+
+/* ---- header ---------------------------------------------------------- */
+.head td { vertical-align: top; padding: 0; }
+.co { border: 1.2pt solid #1a1a1a; padding: 5pt 7pt; }
+.co .nm { font-size: 11pt; font-weight: bold; }
+.doctitle { border: 1.2pt solid #9AA3AF; color: #6B7280; font-size: 15pt;
+            letter-spacing: 3pt; padding: 6pt 10pt; text-align: center; }
+.meta { border: 1.2pt solid #1a1a1a; margin-top: 7pt; }
+.meta td { border: 0.6pt solid #1a1a1a; padding: 3pt 7pt; font-size: 8pt; }
+.meta td.k { text-align: right; width: 46%; }
+.meta td.v { text-align: center; font-weight: bold; }
+
+/* ---- the three party blocks ------------------------------------------
+   ⚠ ONE BORDERED STRIP DIVIDED IN THREE, not three separate boxes.
+
+   They were three <div>s sitting inside table cells, and a div does not
+   stretch to the height of its cell — so the shortest block ended up visibly
+   shorter than the others and the whole header looked ragged. Saahil spotted
+   it straight away.
+
+   Putting the border on the TD instead makes the row do the work: table cells
+   in one row are always the same height, in every renderer, with no height
+   rules to get wrong. It also lines the outer edges up with the tables above
+   and below, which the old 4pt gaps did not. -------------------------------- */
+.parties { margin-top: 6pt; }
+.parties td { width: 33.33%; padding: 0; vertical-align: top;
+              border: 0.8pt solid #1a1a1a; }
+.parties .hd { background: #F2F6FC; font-weight: bold; font-size: 7pt; letter-spacing: 0.8pt;
+               padding: 3pt 6pt; border-bottom: 0.8pt solid #1a1a1a; }
+.parties .bd { padding: 5pt 6pt; line-height: 1.45; }
+.parties .src { color: #6B7280; font-size: 6.8pt; font-style: italic; }
+
+/* ---- dates ------------------------------------------------------------ */
+.dates { margin-top: 6pt; }
+.dates td { border: 0.6pt solid #D6DCE4; padding: 3pt 6pt; width: 25%; }
+.dates .l { color: #6B7280; font-size: 6.8pt; letter-spacing: 0.6pt; text-transform: uppercase; }
+.dates .v { font-weight: bold; font-size: 8.4pt; }
+
+/* ---- lines ------------------------------------------------------------ */
+.lines { margin-top: 6pt; }
+.lines th { background: #1F3864; color: #fff; padding: 4pt 3pt; font-size: 7pt;
+            text-align: left; border: 0.5pt solid #1F3864; }
+.lines td { border: 0.5pt solid #D6DCE4; padding: 3pt; vertical-align: top; }
+.lines .spec { color: #6B7280; font-size: 6.8pt; }
+.lines .ref  { font-style: italic; font-size: 6.9pt; margin-top: 1.5pt; }
+/* Repeat the header if the order ever runs past one page. */
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+
+/* ---- totals ----------------------------------------------------------- */
+.foot { margin-top: 6pt; }
+.foot > tbody > tr > td { vertical-align: top; padding: 0; }
+.foot > tbody > tr > td.left { width: 54%; padding-right: 8pt; }
+.words { border: 0.8pt solid #1a1a1a; padding: 5pt 7pt; }
+.words .k { color: #6B7280; font-size: 6.8pt; letter-spacing: 0.7pt; text-transform: uppercase; }
+.terms { border: 0.6pt solid #D6DCE4; padding: 5pt 7pt; margin-top: 6pt; font-size: 7.4pt; line-height: 1.5; }
+.terms h4 { margin: 0 0 3pt; font-size: 7.4pt; color: #1F3864; letter-spacing: 0.5pt; }
+.tot td { border: 0.6pt solid #D6DCE4; padding: 3.5pt 7pt; }
+.tot td.k { text-align: right; }
+.tot tr.order td { background: #1F3864; color: #fff; font-weight: bold; font-size: 9.5pt; }
+.tot tr.sep td { background: #F3F5F8; text-align: center; font-size: 6.6pt;
+                 letter-spacing: 0.8pt; text-transform: uppercase; color: #6B7280; padding: 2pt; }
+.tot tr.pay td { background: #E2EFDA; font-weight: bold; }
+
+/* ⚠ THE GAP ABOVE THE SIGNATURE LINE IS THE SIGNING SPACE, not decoration.
+   People sign ABOVE the rule, so a tight margin here leaves nowhere to put a
+   pen. 48pt is about 17mm — enough for a real signature and a stamp.
+
+   Measured before choosing it: a four-line order still fits on one page at
+   72pt, so there is room to spare. A long order paginates properly and this
+   block simply lands on the last sheet, kept whole by page-break-inside. */
+.sign { margin-top: 48pt; page-break-inside: avoid; }
+.sign td { border-top: 0.8pt solid #1a1a1a; padding-top: 4pt; text-align: center;
+           width: 30%; font-size: 7.6pt; }
+.sign td.gap { border: 0; width: 5%; }
+.sysline { position: running(sysline); text-align: center; color: #6B7280; font-size: 6.8pt; }
+</style>
+</head>
+<body>
+{% if watermark %}<div class="wm">{{ watermark }}</div>{% endif %}
+
+<table class="head">
+  <tr>
+    <td style="width:52%">
+      <div class="co">
+        <div class="nm">{{ company.name|upper }}</div>
+        {% if company.address %}<div>{{ company.address|linebreaksbr }}</div>{% endif %}
+        {% if company.email %}<div>{{ company.email }}</div>{% endif %}
+        {% if company.gst_number %}
+          <div>GSTIN <span class="mono">{{ company.gst_number }}</span>
+            {% if company.state %}&middot; {{ company.state }}{% endif %}</div>
+        {% endif %}
+      </div>
+    </td>
+    <td style="width:4%"></td>
+    <td style="width:44%">
+      <div class="doctitle">{{ order.type_label|upper }}</div>
+      <table class="meta">
+        <tr><td class="k">Order No.</td><td class="v mono">{{ order.number }}</td></tr>
+        <tr><td class="k">Order Date</td><td class="v">{{ order.raised_on|date:"d/m/Y" }}</td></tr>
+        <tr><td class="k">Project</td><td class="v">{{ project.code }} &middot; {{ project.name }}</td></tr>
+        {% comment %}
+        ⚠ ONLY THE APPROVAL DATE PRINTS. The screen carries all four; the vendor
+        needs the one that says when this became a real order. It is always
+        filled, because a draft cannot be downloaded at all.
+        {% endcomment %}
+        <tr><td class="k">Approved On</td><td class="v">{{ order.approved_at|date:"d/m/Y H:i"|default:"&mdash;" }}</td></tr>
+        <tr><td class="k">Status</td><td class="v">{{ order.status_word|upper }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="parties">
+  <tr>
+    <td><div class="hd">FROM &mdash; BILL TO</div>
+        <div class="bd">
+          <b>{{ company.name }}</b><br>
+          {% if project.billing_address %}{{ project.billing_address|linebreaksbr }}
+          {% elif company.address %}{{ company.address|linebreaksbr }}{% endif %}
+          {% if company.gst_number %}<br>GSTIN <span class="mono">{{ company.gst_number }}</span>{% endif %}
+          {% if project.billing_address %}<div class="src">billing address from {{ project.code }}</div>{% endif %}
+        </div></td>
+    <td><div class="hd">TO &mdash; {% if order.document_type == 'WO' %}CONTRACTOR{% else %}VENDOR{% endif %}</div>
+        <div class="bd">
+          <b>{{ order.vendor.name }}</b> <span class="mono">{{ order.vendor.code }}</span><br>
+          {% if order.vendor.contact_person %}Kind attn: {{ order.vendor.contact_person }}<br>{% endif %}
+          {% if order.vendor.address %}{{ order.vendor.address|linebreaksbr }}<br>{% endif %}
+          Phone {{ order.vendor.phone }}
+          {% comment %}
+          The GSTIN frozen onto the document at approval, not today's from the
+          master — a later correction must not rewrite what was actually sent.
+          {% endcomment %}
+          {% if order.vendor_gstin %}<br>GSTIN <span class="mono">{{ order.vendor_gstin }}</span>
+          {% elif order.vendor.is_unregistered %}<br><b>UNREGISTERED &mdash; no GST charged</b>{% endif %}
+        </div></td>
+    <td><div class="hd">SHIP TO &mdash; SITE</div>
+        <div class="bd">
+          {{ ship_to|linebreaksbr|default:"&mdash;" }}
+          {% if order.required_by %}<br>Required by <b>{{ order.required_by|date:"d/m/Y" }}</b>{% endif %}
+          {% if order.vendor.payment_terms %}<br>Payment: <b>{{ order.vendor.payment_terms }}</b>{% endif %}
+        </div></td>
+  </tr>
+</table>
+
+{% comment %}
+⚠ NO ACTIVITY COLUMN AND NO SEPARATE UOM COLUMN — Saahil's call, 10 Aug.
+The activity is ours, not the vendor's; it stays on the SCREEN, where it is
+load-bearing because one order spans activities. UOM sits inside Qty as one
+figure, and the two recovered columns went to the description.
+
+⚠ Disc shows the PERCENTAGE agreed, not the rupees: Value minus Basic already
+IS the deduction, so the amount would say the same thing a third time while
+hiding the only figure that was negotiated.
+{% endcomment %}
+<table class="lines">
+  <thead>
+    <tr>
+      <th style="width:9%">Code</th>
+      <th style="width:31%">Material / scope</th>
+      <th style="width:9%" class="n">Qty</th><th style="width:8%" class="n">Rate</th>
+      <th style="width:9%" class="n">Value</th><th style="width:5%" class="n">Disc %</th>
+      <th style="width:9%" class="n">Basic</th><th style="width:4%" class="n">GST</th>
+      <th style="width:8%" class="n">GST Amt</th><th style="width:8%" class="n">Line total</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for line in lines %}
+    <tr>
+      <td class="mono">{{ line.bom_line.material.code }}</td>
+      <td>{{ line.bom_line.material.name }}
+        {% if line.bom_line.material.specification %}
+          <div class="spec">{{ line.bom_line.material.specification }}</div>{% endif %}
+        {% if line.reference %}<div class="ref">&#8627; {{ line.reference }}</div>{% endif %}</td>
+      <td class="n">{{ line.quantity|qty }} {{ line.bom_line.material.uom }}</td>
+      <td class="n">{{ line.rate|rupees2 }}</td>
+      <td class="n">{{ line.basic|rupees2 }}</td>
+      <td class="n">{% if line.discount_pct %}{{ line.discount_pct|qty }}%{% else %}&mdash;{% endif %}</td>
+      <td class="n">{{ line.taxable|rupees2 }}</td>
+      <td class="n">{{ line.gst_percent|qty }}%</td>
+      <td class="n">{% if line.gst_amount %}{{ line.gst_amount|rupees2 }}{% else %}&mdash;{% endif %}</td>
+      <td class="n b">{{ line.total|rupees2 }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<table class="foot">
+  <tr>
+    <td class="left">
+      <div class="words">
+        <div class="k">Order value in words</div>
+        <div class="b" style="margin-top:2pt">{{ totals.order_value|rupees_words }}</div>
+      </div>
+      {% if order.terms %}
+        <div class="terms">
+          <h4>TERMS &amp; CONDITIONS</h4>
+          {{ order.terms|linebreaksbr }}
+        </div>
+      {% endif %}
+    </td>
+    <td>
+      <table class="tot">
+        <tr><td class="k">Gross value</td><td class="n">{{ totals.gross|rupees2 }}</td></tr>
+        <tr><td class="k">Less: line discounts</td>
+            <td class="n">{% if totals.discount %}- {{ totals.discount|rupees2 }}{% else %}&mdash;{% endif %}</td></tr>
+        <tr><td class="k b">Total basic value</td><td class="n b">{{ totals.taxable|rupees2 }}</td></tr>
+        {% if order.vendor.is_unregistered %}
+          <tr><td class="k">GST</td><td class="n">&mdash; unregistered supplier</td></tr>
+        {% elif interstate %}
+          <tr><td class="k">IGST</td><td class="n">{{ totals.gst|rupees2 }}</td></tr>
+        {% else %}
+          <tr><td class="k">CGST</td><td class="n">{{ totals.cgst|rupees2 }}</td></tr>
+          <tr><td class="k">SGST</td><td class="n">{{ totals.sgst|rupees2 }}</td></tr>
+        {% endif %}
+        <tr><td class="k">Amount</td><td class="n">{{ totals.invoice_value|rupees2 }}</td></tr>
+        {% if order.deduction_pct %}
+          <tr><td class="k">Less: agreed deduction (post-tax) @ {{ order.deduction_pct|qty }}%</td>
+              <td class="n">- {{ totals.deduction|rupees2 }}</td></tr>
+        {% endif %}
+        <tr><td class="k">Round off</td><td class="n">{{ totals.round_off|rupees2 }}</td></tr>
+        <tr class="order"><td class="k">ORDER VALUE</td><td class="n">Rs {{ totals.order_value|rupees }}</td></tr>
+        {% if order.tds_pct %}
+          <tr class="sep"><td colspan="2">what we will actually pay</td></tr>
+          <tr><td class="k">Less: TDS {{ order.tds_section }} @ {{ order.tds_pct|qty }}% on basic value</td>
+              <td class="n">- {{ totals.tds|rupees2 }}</td></tr>
+          <tr class="pay"><td class="k">NET PAYABLE</td><td class="n">Rs {{ totals.net_payable|rupees }}</td></tr>
+        {% endif %}
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="sign">
+  <tr>
+    <td>Prepared by</td>
+    <td class="gap"></td>
+    <td>Checked by</td>
+    <td class="gap"></td>
+    <td>For {{ company.name }}<br><span style="font-size:6.8pt;color:#777">Authorised signatory</span></td>
+  </tr>
+</table>
+
+<div class="sysline">System-generated {{ order.type_label|lower }} &middot; {{ company.name }} &middot; {{ order.number }}</div>
+
+</body>
+</html>

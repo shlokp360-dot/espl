@@ -1,0 +1,26 @@
+{% comment %}
+The tab strip on the master-data screens.
+
+⚠ EACH TAB CARRIES THE KEY THAT OPENS IT, the same rule as the launchpad's tiles
+  and the project nav: a tab can never lead to a 403.
+
+`strip` is "materials" or "vendors"; `here` is the url name of the open tab.
+{% endcomment %}
+{% load perms %}
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
+  <b>{% if strip == 'vendors' %}Vendors{% else %}Materials{% endif %}</b>
+</div>
+
+<div class="tabs">
+  {% if strip == 'vendors' %}
+    <a class="tab {% if here == 'vendor_list' %}on{% endif %}" href="{% url 'vendor_list' %}">Vendor master</a>
+    <a class="tab {% if here == 'vendor_group_list' %}on{% endif %}" href="{% url 'vendor_group_list' %}">Vendor groups</a>
+    <a class="tab {% if here == 'vendor_rate_list' %}on{% endif %}" href="{% url 'vendor_rate_list' %}">Vendor rates</a>
+  {% else %}
+    <a class="tab {% if here == 'material_list' %}on{% endif %}" href="{% url 'material_list' %}">Material master</a>
+    <a class="tab {% if here == 'material_group_list' %}on{% endif %}" href="{% url 'material_group_list' %}">Material groups</a>
+    <a class="tab {% if here == 'uom_list' %}on{% endif %}" href="{% url 'uom_list' %}">Units of measure</a>
+  {% endif %}
+</div>

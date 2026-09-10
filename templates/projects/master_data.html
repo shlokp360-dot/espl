@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+The second level behind the Master data tile.
+
+>>> ANCHOR: HUB-MASTERS <<<
+⚠⚠ FIVE ENTRIES, NOT NINE, AND NOTHING OPENS DJANGO ADMIN. Saahil, after the
+   Units of measure tile dropped him into generic scaffolding: "Can we not just
+   make it one tile and then have different sections to navigate it? So the
+   master data when we go inside, we do not see sixty eight tiles."
+
+   Materials and Vendors each open a screen with tabs. Construction activities
+   is one screen — his call, because a construction activity has no groups of
+   its own — and it carries the company ₹/sqft that used to be a screen called
+   "Company rates".
+{% endcomment %}
+
+{% block title %}Master data{% endblock %}
+{% block subtitle %}Materials, vendors, construction activities and the company's own details{% endblock %}
+
+{# ⚠ ANCHOR: INFO-PANELS — point 5. This screen had no ⓘ at all, and 27 others #}
+{# were in the same position. The button and the panel are one key apart.      #}
+{% block headerinfo %}{% infobutton "master_data" %}{% endblock %}
+{% block infopanel %}{% infopanel "master_data" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp; <b>Master data</b>
+</div>
+
+<div class="tiles">
+  {% for entry in entries %}
+    <a class="tile" href="{{ entry.url }}">
+      <span class="t">{{ entry.title }}</span>
+      <span class="s">{{ entry.blurb }}</span>
+    </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

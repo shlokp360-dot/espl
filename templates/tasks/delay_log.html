@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+THE DELAY LOG — a repository of its own, not marks on a chart.
+
+Saahil overruled the first design in one sentence: "the delay messages should not
+be visible on the chart, it should have a different log repository". The schedule
+will carry the DIFFERENCE as a band; the words live here.
+
+⚠ IT IS A COUNTING SCREEN BEFORE IT IS A READING SCREEN. The reason is a fixed
+  list precisely so that "which of these actually holds our sites up" has an
+  answer — and that answer is the summary at the top, not the rows below it.
+
+⚠ NOBODY IS NAMED IN THE SUMMARY, ONLY IN THE ROWS. A screen that opens with a
+  league table of people is a screen that stops being filled in honestly.
+{% endcomment %}
+
+{% block title %}Delay log{% endblock %}
+{% block subtitle %}What held the work up, and how often{% endblock %}
+{% block nav %}{% include "tasks/_nav.html" with here="delays" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "delay_log" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Delay log</span>
+  <span class="hint">{{ total_days }} day{{ total_days|pluralize }} lost ·
+    {{ late|length }} finished late · {{ shifted|length }} replanned · {{ blocked|length }} blocked now</span>
+</div>
+
+<form method="get" class="srow">
+  <select name="project">
+    <option value="">Every project</option>
+    {% for option in projects %}
+      <option value="{{ option.pk }}" {% if project_id == option.pk|stringformat:"s" %}selected{% endif %}>
+        {{ option.code }} — {{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="person">
+    <option value="">Everybody</option>
+    {% for option in people %}
+      <option value="{{ option.pk }}" {% if person_id == option.pk|stringformat:"s" %}selected{% endif %}>
+        {{ option.get_full_name|default:option.username }}</option>
+    {% endfor %}
+  </select>
+  <select name="reason">
+    <option value="">Every reason</option>
+    {% for value, label in reasons %}
+      <option value="{{ value }}" {% if reason == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="sec sm">Show</button>
+  <a href="{% url 'task_delay_log' %}"><button type="button" class="sec sm">Clear</button></a>
+</form>
+
+{% if summary %}
+  <div class="kpis" style="margin-top:12px">
+    {% for entry in summary %}
+      <div class="kpi {% if forloop.first %}bad{% endif %}">
+        <div class="l">{{ entry.label }}</div>
+        <div class="v">{{ entry.days }}</div>
+        <div class="s">day{{ entry.days|pluralize }} across {{ entry.count }} subtask{{ entry.count|pluralize }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% if blocked %}
+  <div class="toolbar" style="margin-top:16px">
+    <span class="ttl" style="font-size:13px">Stuck right now</span>
+    <span class="hint">these are not late yet — they are waiting on somebody</span>
+  </div>
+  <div class="scroll" style="max-height:none">
+    <table>
+      <thead><tr class="hd">
+        <th>Task</th><th>Where</th><th>Who</th><th style="width:95px">Due</th>
+        <th style="width:170px">Reason</th><th>Note</th>
+      </tr></thead>
+      <tbody>
+        {% for row in blocked %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.header.project.code }} · {{ row.header.name }}</td>
+            <td>{% if row.assignee %}{{ row.assignee.get_full_name|default:row.assignee.username }}
+                {% else %}<span style="color:var(--muted)">unassigned</span>{% endif %}</td>
+            <td>{{ row.planned_end|date:"d/m/Y" }}
+              {% if row.days_overdue %}<br><span class="up">{{ row.days_overdue }} over</span>{% endif %}</td>
+            <td><span class="pill p-onsheet">{{ row.get_blocked_reason_display }}</span></td>
+            <td class="mut">{{ row.blocked_note|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+{% if shifted %}
+  <div class="toolbar" style="margin-top:16px">
+    <span class="ttl" style="font-size:13px">Replanned</span>
+    <span class="hint">the date itself moved — not late, and not free either</span>
+  </div>
+  <div class="scroll" style="max-height:none">
+    <table>
+      <thead><tr class="hd">
+        <th>Task</th><th>Where</th><th>Who</th>
+        <th style="width:95px">First promised</th><th style="width:95px">Now due</th>
+        <th style="width:70px" class="num">Days</th><th style="width:170px">Reason</th><th>Note</th>
+      </tr></thead>
+      <tbody>
+        {% for row in shifted %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.header.project.code }} · {{ row.header.name }}</td>
+            <td>{% if row.assignee %}{{ row.assignee.get_full_name|default:row.assignee.username }}
+                {% else %}<span style="color:var(--muted)">unassigned</span>{% endif %}</td>
+            <td>{{ row.promised_end|date:"d/m/Y" }}</td>
+            <td>{{ row.planned_end|date:"d/m/Y" }}</td>
+            <td class="num"><span class="up">{{ row.days_shifted }}</span></td>
+            <td>{{ row.get_shift_reason_display|default:"—" }}</td>
+            <td class="mut">{{ row.shift_note|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+<div class="toolbar" style="margin-top:16px">
+  <span class="ttl" style="font-size:13px">Finished late</span>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>Task</th><th>Where</th><th>Who</th>
+      <th style="width:95px">Due</th><th style="width:95px">Finished</th>
+      <th style="width:70px" class="num">Days</th><th style="width:170px">Reason</th><th>Note</th>
+    </tr></thead>
+    <tbody>
+      {% for row in late %}
+        <tr>
+          <td>{{ row.title }}</td>
+          <td>{{ row.header.project.code }} · {{ row.header.name }}</td>
+          <td>{% if row.assignee %}{{ row.assignee.get_full_name|default:row.assignee.username }}
+              {% else %}<span style="color:var(--muted)">unassigned</span>{% endif %}</td>
+          <td>{{ row.planned_end|date:"d/m/Y" }}</td>
+          <td>{{ row.finished_on|date:"d/m/Y" }}</td>
+          <td class="num"><span class="up">{{ row.days_late }}</span></td>
+          <td>{{ row.get_delay_reason_display }}</td>
+          <td class="mut">{{ row.delay_note|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" style="color:var(--muted);padding:14px">
+          Nothing has finished late{% if project_id or person_id or reason %} under this filter{% endif %}.
+        </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "delay_log" %}{% endblock %}

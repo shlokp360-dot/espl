@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE CONSTRUCTION ACTIVITY MASTER.
+
+>>> ANCHOR: ACTIVITY-MASTER <<<
+⚠⚠ THIS ABSORBED THE "COMPANY RATES" SCREEN. The company's default rupees per
+   sqft was never company data — it is a column on the activity. Saahil:
+   "Those rates are related to concerned activity. Are they not? So already we
+   are maintaining the rates in construction activity, then why is it coming in
+   company profile?"
+
+⚠ THE NAME IS EDITABLE AND THE MODEL REFUSES A RENAME once an estimate has
+  copied it. Hiding the field was the OLD protection and it protected nothing —
+  Django Admin renamed activities happily. A field that refuses and says why
+  teaches the rule; an absent field teaches nothing.
+
+⚠ THE ABBREVIATION IS SHOWN AND NEVER EDITABLE. It is the first segment of every
+  material code created under this activity, and codes are never regenerated.
+{% endcomment %}
+
+{% block title %}Construction activities{% endblock %}
+{% block subtitle %}Master data{% endblock %}
+
+{% block headerinfo %}{% infobutton "activity_master" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp; <b>Construction activities</b>
+</div>
+
+<form method="post" action="{% url 'activity_master_save' %}">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">Construction activities</span>
+    <span class="sp"></span>
+    <span class="hint">{{ rows|length }} in the master</span>
+    {% if user|can:"masters.edit" %}<button type="submit">Save</button>{% endif %}
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+    <div class="note tight">
+      <b>Changing a rate here does not touch any existing project</b> — it sets what the next
+      estimate starts from.
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="hd">
+            <th style="width:70px">Code</th>
+            <th>Construction activity</th>
+            <th class="num" style="width:130px">Default ₹/sqft</th>
+            <th class="num" style="width:80px">GST %</th>
+            <th>What it covers</th>
+            <th class="num" style="width:90px">Materials</th>
+            <th style="width:80px">Active</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in rows %}{% with a=entry.activity %}
+            <tr {% if not a.is_active %}style="opacity:.6"{% endif %}>
+              <td class="code">{{ a.abbreviation }}</td>
+              <td>
+                {% if user|can:"masters.edit" %}
+                  <input class="cell" name="name-{{ a.id }}" value="{{ a.name }}">
+                  {% if entry.locked %}
+                    <div class="sugg" style="text-align:left;color:#8A6D3B">
+                      🔒 on {{ entry.locked }} estimate line{{ entry.locked|pluralize }} — the name
+                      cannot change</div>
+                  {% endif %}
+                {% else %}<b>{{ a.name }}</b>{% endif %}
+              </td>
+              <td><input class="cell num" name="rate-{{ a.id }}" value="{{ a.rate|rupees2 }}"
+                         {% if not user|can:"masters.edit" %}readonly{% endif %}></td>
+              <td><input class="cell num" name="gst-{{ a.id }}" value="{{ a.gst_percent|qty }}"
+                         {% if not user|can:"masters.edit" %}readonly{% endif %}></td>
+              <td><input class="cell" name="basis-{{ a.id }}" value="{{ a.basis }}"
+                         {% if not user|can:"masters.edit" %}readonly{% endif %}></td>
+              <td class="num" style="color:var(--muted)">{{ entry.links }}</td>
+              <td>
+                <label style="font-size:12px"><input type="checkbox" name="active-{{ a.id }}"
+                  {% if a.is_active %}checked{% endif %}
+                  {% if not user|can:"masters.edit" %}disabled{% endif %}> in use</label>
+              </td>
+            </tr>
+            {% endwith %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "activity_master" %}{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
+
+>>> ANCHOR: INFO-PANELS <<<
+⚠⚠ THE ENGLISH IS SHOWN AND CANNOT BE EDITED. It lives in code, ships with the
+   app and is what the tests check. This screen writes the other language beside
+   it. Saahil's idea, and better than the plan it replaced — their own people
+   correct the translation here rather than checking a document somebody then
+   has to paste back.
+
+⚠⚠ STRUCTURE IS NOT EDITABLE. No adding a step, no deleting one, no reordering.
+   His words: "Structure should never be editable in reality, especially by a
+   user." A panel whose steps can be rearranged drifts from the screen it
+   describes, and nothing would notice.
+
+⚠ ONE PANEL AT A TIME. A hundred and fifty-seven boxes on one page is a screen
+  nobody finishes and a POST nobody can review.
+{% endcomment %}
+
+{% block title %}Screen instructions{% endblock %}
+{% block subtitle %}The ⓘ panels, in Gujarati{% endblock %}
+
+{% block headerinfo %}{% infobutton "panel_text" %}{% endblock %}
+{% block infopanel %}{% infopanel "panel_text" %}{% endblock %}
+
+{% block content %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
+  <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
+  <b>Screen instructions</b>
+</div>
+
+<form method="post" action="{% url 'panel_text_save' key %}">
+  {% csrf_token %}
+
+  <div class="toolbar">
+    <span class="ttl">Screen instructions</span>
+    <select onchange="location.href='{% url 'panel_text' %}?panel='+this.value"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      {% for k, title in panels %}
+        <option value="{{ k }}" {% if k == key %}selected{% endif %}>{{ title }}</option>
+      {% endfor %}
+    </select>
+    <span class="sp"></span>
+    <span class="hint">{{ written }} of {{ rows|length }} translated{% if drafts %} ·
+      {{ drafts }} not checked yet{% endif %}</span>
+    <button type="submit">Save</button>
+  </div>
+
+  <div class="panel">
+    {% if stale %}
+      {% comment %}
+      ⚠⚠ THE ONE WARNING THIS SCREEN EARNS. A translation is written against a
+        particular English instruction. When the English later changes, the
+        Gujarati describes something that no longer exists — and nobody reading
+        only Gujarati could ever find out. The row keeps what it was written
+        from, so this can be said rather than hoped for.
+      {% endcomment %}
+      <div class="note tight" style="border-left-color:var(--red);background:var(--redbg);color:#7A2222">
+        <b>{{ stale }} step{{ stale|pluralize }} changed in English after being translated.</b>
+        The Gujarati below still describes the older wording. Re-check and save it.
+      </div>
+    {% else %}
+      <div class="note tight">Only the Gujarati can be edited. The English and the order of
+        the steps come from the application itself.</div>
+    {% endif %}
+
+    <table>
+      <thead>
+        <tr class="hd">
+          <th style="width:120px">Step</th>
+          <th>English — cannot be edited here</th>
+          {% comment %}
+          >>> ANCHOR: INFO-PANELS <<<
+          ⚠⚠ C3 — THE `[[...]]` MARKERS SHOW RAW ON PURPOSE, and until now nothing
+            said so. Whoever translates has to reproduce them EXACTLY, which they
+            cannot do if the brackets are hidden — so they stay visible. But a
+            liaison person meeting `[[Order Qty]]` for the first time may
+            reasonably translate it, drop the brackets, or decide the screen is
+            broken. Any of those quietly breaks the panel: the marker is what
+            keeps a button's name in English for a reader who is looking at an
+            English button.
+
+          ⚠ IT LIVES IN THE COLUMN HEADING, NOT IN A NOTE AT THE TOP. It is
+            needed at the moment of typing, beside the box being typed into, and
+            the page already opens with one yellow box that a second would dilute.
+          {% endcomment %}
+          <th style="width:40%">ગુજરાતી<br>
+            <span style="font-weight:400;font-size:10.5px;color:var(--muted)">
+              keep <b>[[...]]</b> exactly as it is — those are button and field
+              names and stay in English</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr {% if row.stale %}style="background:#FFF6F6"{% endif %}>
+            <td style="vertical-align:top">
+              <b style="color:var(--navy)">{{ forloop.counter }} · {{ row.step.label }}</b>
+              {% if row.updated_by %}
+                <div style="font-size:10.5px;color:var(--muted);margin-top:3px">
+                  {{ row.updated_by.get_full_name|default:row.updated_by.username }}<br>
+                  {{ row.updated_at|date:"d/m/Y" }}</div>
+              {% elif row.draft %}
+                {% comment %}
+                ⚠⚠ WRITTEN, BUT BY NOBODY. A seeded first draft carries no author.
+                  Saying so on the row is the same rule as the compliance checklist
+                  saying on screen that its content is not yet confirmed — and it is
+                  said here, beside the box somebody is about to correct, rather than
+                  in a warning at the top that a page full of work would swallow.
+                {% endcomment %}
+                <div style="font-size:10.5px;color:#8A6100;margin-top:3px">
+                  first draft<br>not checked yet</div>
+              {% endif %}
+            </td>
+            <td style="vertical-align:top">
+              <div style="font-weight:600;color:var(--navy);margin-bottom:3px">{{ row.step.head }}</div>
+              <div>{{ row.step.text }}</div>
+              {% if row.stale %}
+                <div style="margin-top:6px;font-size:11px;color:#7A2222">
+                  <b>It said this when the Gujarati was written:</b><br>{{ row.was }}</div>
+              {% endif %}
+            </td>
+            <td style="vertical-align:top">
+              <textarea class="cell" name="gu-{{ row.step.label }}" rows="3"
+                        placeholder="not translated yet">{{ row.gujarati }}</textarea>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="note tight" style="margin-bottom:0">
+      A panel offers the <b>English | ગુજરાતી</b> toggle only when every step a reader can see
+      has been translated. Leave a box empty and that panel stays English.
+    </div>
+  </div>
+</form>
+
+{% endblock %}
