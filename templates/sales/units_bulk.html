@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load help %}
+{% block title %}Add units{% endblock %}
+{% block subtitle %}{{ project.code }} — {{ project.name }}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="units" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_units_bulk" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_units_bulk" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+<div class="toolbar"><span class="ttl">Add units in bulk</span></div>
+
+<form method="post" class="card sform">
+  {% csrf_token %}
+  <input type="hidden" name="project" value="{{ project.pk }}">
+  <div class="two">
+    <div><label>Block</label><input type="text" name="block" maxlength="20" value="{{ form.block }}" placeholder="A"></div>
+    <div><label>Units per floor</label><input type="number" name="per_floor" min="1" max="50" required value="{{ form.per_floor }}"></div>
+  </div>
+  <div class="two">
+    <div><label>First floor</label><input type="number" name="floor_from" min="0" required value="{{ form.floor_from }}"></div>
+    <div><label>Last floor</label><input type="number" name="floor_to" min="0" required value="{{ form.floor_to }}"></div>
+  </div>
+  <div class="three">
+    <div><label>Type</label>
+      <select name="kind">{% for value, label in kinds %}<option value="{{ value }}" {% if form.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div><label>Carpet sqft</label><input type="number" step="0.01" min="0" name="carpet_sqft" value="{{ form.carpet_sqft }}"></div>
+    <div><label>Saleable sqft</label><input type="number" step="0.01" min="0" name="saleable_sqft" value="{{ form.saleable_sqft }}"></div>
+  </div>
+  <div class="two">
+    <div><label>Base price (ex-GST, per unit)</label><input type="number" step="0.01" min="0" name="base_price" value="{{ form.base_price }}"></div>
+  </div>
+  <div class="note tight">Numbers are block-floor-position, e.g. A-101 … A-704. A number that already exists is left alone, not overwritten.</div>
+  <div class="foot">
+    <button type="submit">Add units</button>
+    <a href="{% url 'sales_units' %}?project={{ project.pk }}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

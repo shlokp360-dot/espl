@@ -89,7 +89,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
             the page already opens with one yellow box that a second would dilute.
           {% endcomment %}
           <th style="width:40%">ગુજરાતી<br>
-            <span style="font-weight:400;font-size:10.5px;color:var(--muted)">
+            <span style="font-weight:400;font-size:13px;color:var(--muted)">
               keep <b>[[...]]</b> exactly as it is — those are button and field
               names and stay in English</span></th>
         </tr>
@@ -100,7 +100,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
             <td style="vertical-align:top">
               <b style="color:var(--navy)">{{ forloop.counter }} · {{ row.step.label }}</b>
               {% if row.updated_by %}
-                <div style="font-size:10.5px;color:var(--muted);margin-top:3px">
+                <div style="font-size:13px;color:var(--muted);margin-top:3px">
                   {{ row.updated_by.get_full_name|default:row.updated_by.username }}<br>
                   {{ row.updated_at|date:"d/m/Y" }}</div>
               {% elif row.draft %}
@@ -111,7 +111,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
                   said here, beside the box somebody is about to correct, rather than
                   in a warning at the top that a page full of work would swallow.
                 {% endcomment %}
-                <div style="font-size:10.5px;color:#8A6100;margin-top:3px">
+                <div style="font-size:13px;color:#8A6100;margin-top:3px">
                   first draft<br>not checked yet</div>
               {% endif %}
             </td>
@@ -119,7 +119,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
               <div style="font-weight:600;color:var(--navy);margin-bottom:3px">{{ row.step.head }}</div>
               <div>{{ row.step.text }}</div>
               {% if row.stale %}
-                <div style="margin-top:6px;font-size:11px;color:#7A2222">
+                <div style="margin-top:6px;font-size:13px;color:#7A2222">
                   <b>It said this when the Gujarati was written:</b><br>{{ row.was }}</div>
               {% endif %}
             </td>

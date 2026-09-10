@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+ONE PURCHASE ORDER, SETTLED: the order's own ladder against what the vendor
+invoiced and what has been paid. The three-way flag is at amount level — an
+invoice carries no quantities to match.
+{% endcomment %}
+{% block title %}{{ po.number }} — invoices &amp; payments{% endblock %}
+{% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="invoices" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_po" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_po" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  <a href="{% url 'finance_invoices' %}">Vendor invoices</a> &nbsp;▸&nbsp;
+  <a href="{% url 'po_detail' po.project.id po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>Settlement</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">{{ po.number }}</span>
+  <span class="pill p-{{ po.status }}">{{ po.status_word|upper }}</span>
+  {% if s.over_invoiced %}<span class="pill p-lost">INVOICED MORE THAN ORDERED</span>{% endif %}
+  {% if s.settled %}<span class="pill p-paid">SETTLED</span>{% endif %}
+  <span class="sp"></span>
+  {% if user|can:"finance.pay" and po.status != 'draft' %}
+    <a href="{% url 'finance_invoice_new' po.id %}"><button type="button" class="sec">Record invoice</button></a>
+    <a href="{% url 'finance_po_pay' po.id %}?kind=advance"><button type="button" class="sec">Record advance</button></a>
+    <a href="{% url 'finance_po_pay' po.id %}"><button type="button">Record payment</button></a>
+  {% endif %}
+</div>
+
+<div class="facts">
+  <div class="card"><div class="k">Order value</div><div class="v">₹{{ s.order_value|rupees }}</div></div>
+  <div class="card"><div class="k">Order TDS @ {{ po.tds_pct|qty }}%</div><div class="v">₹{{ s.order_tds|rupees }}</div></div>
+  <div class="card"><div class="k">Order net payable</div><div class="v">₹{{ s.net_payable|rupees }}</div></div>
+  <div class="card"><div class="k">Invoiced ({{ s.invoice_count }})</div><div class="v">₹{{ s.invoiced_total|rupees }}</div></div>
+  <div class="card"><div class="k">Paid · TDS withheld</div><div class="v">₹{{ s.paid_total|rupees }} · ₹{{ s.tds_withheld|rupees }}</div></div>
+  <div class="card"><div class="k">Balance to pay</div><div class="v">₹{{ s.balance|rupees }}</div></div>
+</div>
+
+<h3 class="sec">Invoices</h3>
+<table>
+  <thead><tr><th>Our ref</th><th>Vendor invoice</th><th>Date</th><th>Status</th>
+    <th class="num">Taxable</th><th class="num">GST</th><th class="num">Total</th><th class="num">Settled</th><th class="num">Balance</th><th></th></tr></thead>
+  <tbody>
+  {% for row in invoices %}
+    <tr>
+      <td class="code">{{ row.invoice.number }}</td><td>{{ row.invoice.vendor_invoice_no }}</td>
+      <td>{{ row.invoice.invoice_date|date:"d/m/Y" }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.word }}</span></td>
+      <td class="num">₹{{ row.invoice.taxable|rupees }}</td><td class="num">₹{{ row.invoice.gst|rupees }}</td>
+      <td class="num"><b>₹{{ row.invoice.total|rupees }}</b></td>
+      <td class="num">₹{{ row.f.settled|rupees }}</td>
+      <td class="num">{% if row.f.balance %}₹{{ row.f.balance|rupees }}{% else %}—{% endif %}</td>
+      <td>{% if row.f.balance and user|can:"finance.pay" %}<a href="{% url 'finance_po_pay' po.id %}?invoice={{ row.invoice.id }}">pay</a>{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="10">No invoice recorded on this order yet.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td colspan="4">Invoiced vs order value ₹{{ s.order_value|rupees }}</td>
+    <td class="num">₹{{ s.invoiced_taxable|rupees }}</td><td class="num">₹{{ s.invoiced_gst|rupees }}</td>
+    <td class="num">₹{{ s.invoiced_total|rupees }}</td><td></td><td class="num">₹{{ s.invoice_balance|rupees }}</td><td></td></tr></tfoot>
+</table>
+
+<h3 class="sec">Payments</h3>
+<table>
+  <thead><tr><th>Date</th><th>PV</th><th>Kind</th><th>Invoice</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">TDS</th></tr></thead>
+  <tbody>
+  {% for p in payments %}
+    <tr><td>{{ p.paid_on|date:"d/m/Y" }}</td><td class="code">{{ p.number }}</td><td>{{ p.get_kind_display }}</td>
+        <td>{% if p.vendor_invoice %}{{ p.vendor_invoice.number }}{% else %}—{% endif %}</td>
+        <td>{{ p.get_mode_display }}</td><td>{{ p.reference|default:"—" }}</td>
+        <td class="num">₹{{ p.amount|rupees }}</td><td class="num">{% if p.tds_amount %}₹{{ p.tds_amount|rupees }}{% else %}—{% endif %}</td></tr>
+  {% empty %}
+    <tr><td colspan="8">No payment on this order yet.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td colspan="6"><b>Paid to date</b></td><td class="num"><b>₹{{ s.paid_total|rupees }}</b></td><td class="num">₹{{ s.tds_withheld|rupees }}</td></tr></tfoot>
+</table>
+{% endblock %}

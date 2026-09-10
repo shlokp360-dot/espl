@@ -27,6 +27,7 @@ matches the workflow is the cheapest possible reminder of what comes next.
 {% endcomment %}
 {% load perms %}
 {% if not standalone %}
+  <div class="who">{{ project.name }}<div style="font-size:13px;font-weight:400;color:var(--muted);margin-top:2px">{{ project.code }} · {{ project.bua_sqft|floatformat:0 }} sqft · {{ project.get_status_display }}</div></div>
   <nav>
     {% if user|can:"boq.view" %}
       <a class="{% if here == 'boq' %}on{% endif %}" href="{% url 'boq_screen' project.id %}">BOQ estimate</a>

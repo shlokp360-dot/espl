@@ -63,8 +63,7 @@ Points 4, 5 and 6 of Saahil's review, and the last of it.
 #   nobody sees 1, 2, 5 and wonders what they are missing.
 
 
-def step(label, head, text, gu="", perm=None):
-    return {"label": label, "head": head, "text": text, "gu": gu, "perm": perm}
+from projects.panel_format import step  # noqa: E402,F401
 
 
 PANELS = {
@@ -798,3 +797,12 @@ PANELS = {
         ],
     },
 }
+
+# The three later modules keep their panels beside their own code and merge
+# them here, so this file stays the single place a panel is looked up from.
+from sales.panels import PANELS as _SALES        # noqa: E402
+from finance.panels import PANELS as _FINANCE    # noqa: E402
+from drawings.panels import PANELS as _DRAWINGS  # noqa: E402
+PANELS.update(_SALES)
+PANELS.update(_FINANCE)
+PANELS.update(_DRAWINGS)

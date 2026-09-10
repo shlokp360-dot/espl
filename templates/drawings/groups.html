@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+THE REGISTER'S SECTIONS, edited in place — the same shape as the master tabs.
+
+>>> ANCHOR: MASTER-TABS <<<
+⚠ THE HIDDEN row-<id> MARKER says "this row was on the form", so an unticked
+  Active box can be told apart from a row a stale form never showed.
+⚠ NO DELETE. Active is the route out, and the count column says what depends on it.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}Drawing groups{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="groups" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_groups" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_groups" %}{% endblock %}
+
+{% block content %}
+
+<form method="post" action="{% url 'drawings_groups_save' %}">
+  {% csrf_token %}
+  <div class="toolbar">
+    <span class="ttl">Drawing groups</span>
+    <span class="sp"></span>
+    {% if user|can:"drawings.edit" %}<button type="submit">Save</button>{% endif %}
+  </div>
+
+  <table>
+    <thead><tr class="hd">
+      <th style="width:110px">Code</th>
+      <th>Name</th>
+      <th class="num" style="width:90px">Order</th>
+      <th class="num" style="width:90px">Drawings</th>
+      <th style="width:90px">Active</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr {% if not row.is_active %}style="opacity:.55"{% endif %}>
+          <td>
+            <input type="hidden" name="row-{{ row.id }}" value="1">
+            {% if user|can:"drawings.edit" %}<input class="cell code" name="code-{{ row.id }}" maxlength="4" value="{{ row.code }}">{% else %}<b class="code">{{ row.code }}</b>{% endif %}
+          </td>
+          <td>{% if user|can:"drawings.edit" %}<input class="cell" name="name-{{ row.id }}" value="{{ row.name }}">{% else %}{{ row.name }}{% endif %}</td>
+          <td class="num">{% if user|can:"drawings.edit" %}<input class="cell num" name="sort_order-{{ row.id }}" value="{{ row.sort_order }}" style="width:60px">{% else %}{{ row.sort_order }}{% endif %}</td>
+          <td class="num">{{ row.drawing_count }}</td>
+          <td><label style="font-size:13px"><input type="checkbox" name="is_active-{{ row.id }}" {% if row.is_active %}checked{% endif %} {% if not user|can:"drawings.edit" %}disabled{% endif %}> in use</label></td>
+        </tr>
+      {% endfor %}
+      {% if user|can:"drawings.edit" %}
+        <tr style="background:var(--pale)">
+          <td><input class="cell code" name="new-code" maxlength="4" placeholder="add one…"></td>
+          <td><input class="cell" name="new-name" placeholder="name"></td>
+          <td class="num"><input class="cell num" name="new-sort_order" placeholder="order" style="width:60px"></td>
+          <td colspan="2"></td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</form>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE SALES DASHBOARD. Every figure here comes from sales.calc, in bulk; the
+template prints and never adds.
+{% endcomment %}
+{% block title %}Sales{% endblock %}
+{% block subtitle %}Units, bookings and collections across live projects{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="home" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_home" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_home" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Sales</span>
+  <span class="sp"></span>
+  {% if user|can:"sales.edit" %}
+    <a href="{% url 'sales_enquiry_new' %}"><button type="button" class="sec">Add enquiry</button></a>
+  {% endif %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Units available</div><div class="v">{{ kpis.available }}</div></div>
+  <div class="kpi"><div class="l">Booked</div><div class="v">{{ kpis.booked }}</div></div>
+  <div class="kpi"><div class="l">Registered</div><div class="v">{{ kpis.registered }}</div></div>
+  <div class="kpi"><div class="l">Enquiries this month</div><div class="v">{{ kpis.enquiries_month }}</div></div>
+  <div class="kpi"><div class="l">Agreement value booked</div><div class="v">₹{{ kpis.value|rupees }}</div></div>
+  <div class="kpi"><div class="l">Collected</div><div class="v">₹{{ kpis.collected|rupees }}</div></div>
+  <div class="kpi"><div class="l">Outstanding</div><div class="v">₹{{ kpis.outstanding|rupees }}</div></div>
+  <div class="kpi {% if kpis.overdue %}bad{% endif %}"><div class="l">Overdue</div><div class="v">₹{{ kpis.overdue|rupees }}</div></div>
+</div>
+
+<h3 class="sec">By project</h3>
+<table>
+  <thead><tr>
+    <th>Project</th><th class="num">Units</th><th class="num">Sold</th><th class="num">Booked %</th>
+    <th class="num">Agreement value</th><th class="num">Collected</th><th class="num">Outstanding</th><th class="num">Overdue</th>
+  </tr></thead>
+  <tbody>
+  {% for row in per_project %}
+    <tr>
+      <td><a href="{% url 'sales_units' %}?project={{ row.project.pk }}"><span class="code">{{ row.project.code }}</span> {{ row.project.name }}</a></td>
+      <td class="num">{{ row.units }}</td>
+      <td class="num">{{ row.sold }}</td>
+      <td class="num">{{ row.booked_pct }}%</td>
+      <td class="num">₹{{ row.value|rupees }}</td>
+      <td class="num">₹{{ row.collected|rupees }}</td>
+      <td class="num">₹{{ row.outstanding|rupees }}</td>
+      <td class="num">{% if row.overdue %}<span class="up">₹{{ row.overdue|rupees }}</span>{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8">No project is Won yet. Sales opens with the first Won project.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td>Total</td>
+    <td class="num">{{ kpis.booked|add:kpis.registered|add:kpis.available }}</td>
+    <td class="num">{{ kpis.booked|add:kpis.registered }}</td>
+    <td></td>
+    <td class="num">₹{{ kpis.value|rupees }}</td>
+    <td class="num">₹{{ kpis.collected|rupees }}</td>
+    <td class="num">₹{{ kpis.outstanding|rupees }}</td>
+    <td class="num">₹{{ kpis.overdue|rupees }}</td>
+  </tr></tfoot>
+</table>
+
+<h3 class="sec">Enquiry funnel</h3>
+<table style="max-width:420px">
+  <thead><tr><th>Stage</th><th class="num">Enquiries</th></tr></thead>
+  <tbody>
+  {% for step in funnel %}
+    <tr>
+      <td><a href="{% url 'sales_enquiries' %}?stage={{ step.stage }}">{{ step.label }}</a></td>
+      <td class="num">{{ step.count }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

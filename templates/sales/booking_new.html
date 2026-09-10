@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+BOOKING A UNIT. The customer is looked up by phone; a new phone with a name
+creates one. The schedule is editable rows and must total 100 — the service
+refuses anything else and the message says the actual total.
+{% endcomment %}
+{% block title %}Book {{ unit.number }}{% endblock %}
+{% block subtitle %}{{ project.code }} — {{ project.name }}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="units" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_booking_new" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_booking_new" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Book {{ unit.number }}</span>
+  <span class="pill p-draft">{{ unit.get_kind_display }} · {{ unit.saleable_sqft|qty }} sqft</span>
+  {% if enquiry %}<span class="pill p-quoted">from enquiry: {{ enquiry.name }}</span>{% endif %}
+</div>
+
+{% if status == 'booked' or status == 'registered' %}
+  <div class="note tight">{{ unit.number }} already has a live booking. Cancel that one before booking it again.</div>
+{% endif %}
+
+<form method="post" class="card sform" style="max-width:900px">
+  {% csrf_token %}
+  {% if enquiry %}<input type="hidden" name="enquiry" value="{{ enquiry.pk }}">{% endif %}
+
+  <h3 class="sec" style="margin-top:0">Customer</h3>
+  <div class="three">
+    <div><label>Phone (digits only)</label><input type="text" name="phone" maxlength="15" required value="{{ form.phone }}"></div>
+    <div><label>Name</label><input type="text" name="name" maxlength="160" value="{{ form.name }}"></div>
+    <div><label>Email</label><input type="email" name="email" value="{{ form.email }}"></div>
+  </div>
+  {% if existing %}
+    <div class="note tight">{{ form.phone }} is already {{ existing.name }}. The booking goes to that customer; the name typed here is not used.</div>
+  {% endif %}
+  <div class="two">
+    <div><label>PAN</label><input type="text" name="pan" maxlength="10" value="{{ form.pan }}" style="text-transform:uppercase"></div>
+    <div><label>Address</label><input type="text" name="address" value="{{ form.address }}"></div>
+  </div>
+
+  <h3 class="sec">Value</h3>
+  <div class="three">
+    <div><label>Agreement value (ex-GST)</label><input type="number" step="0.01" min="0.01" name="agreement_value" required value="{{ form.agreement_value }}"></div>
+    <div><label>GST %</label><input type="number" step="0.01" min="0" name="gst_percent" required value="{{ form.gst_percent }}"></div>
+    <div><label>Booked on</label><input type="date" name="booked_on" required value="{{ form.booked_on }}"></div>
+  </div>
+
+  <h3 class="sec">Payment schedule</h3>
+  <table class="sched">
+    <thead><tr><th style="width:36px">#</th><th>Milestone</th><th class="num" style="width:90px">%</th><th style="width:150px">Due on</th><th>Linked header task</th></tr></thead>
+    <tbody>
+    {% for row in schedule %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td><input class="cell" type="text" name="ms_name_{{ forloop.counter }}" maxlength="120" value="{{ row.name }}"></td>
+        <td class="num"><input class="cell num" type="number" step="0.01" min="0" name="ms_pct_{{ forloop.counter }}" value="{{ row.percent }}"></td>
+        <td><input class="cell" type="date" name="ms_due_{{ forloop.counter }}" value="{{ row.due_on }}"></td>
+        <td><select class="cell" name="ms_header_{{ forloop.counter }}"><option value="">— raised by hand —</option>
+          {% for header in headers %}<option value="{{ header.pk }}" {% if row.task_header == header.pk %}selected{% endif %}>{{ header.name }}</option>{% endfor %}
+        </select></td>
+      </tr>
+    {% endfor %}
+    {% for extra in "1234" %}
+      <tr>
+        <td>{{ schedule|length|add:forloop.counter }}</td>
+        <td><input class="cell" type="text" name="ms_name_{{ schedule|length|add:forloop.counter }}" maxlength="120" value=""></td>
+        <td class="num"><input class="cell num" type="number" step="0.01" min="0" name="ms_pct_{{ schedule|length|add:forloop.counter }}" value=""></td>
+        <td><input class="cell" type="date" name="ms_due_{{ schedule|length|add:forloop.counter }}" value=""></td>
+        <td><select class="cell" name="ms_header_{{ schedule|length|add:forloop.counter }}"><option value="">— raised by hand —</option>
+          {% for header in headers %}<option value="{{ header.pk }}">{{ header.name }}</option>{% endfor %}
+        </select></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td></td><td>Total</td><td class="num">{{ schedule_total|qty }}%</td><td colspan="2"></td></tr></tfoot>
+  </table>
+
+  <div class="foot">
+    <button type="submit">Book {{ unit.number }}</button>
+    <a href="{% url 'sales_units' %}?project={{ project.pk }}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

@@ -22,7 +22,7 @@ THE FRONT DOOR. The only address in the application a stranger may open.
 
   <div class="card">
     <h2 style="margin:0 0 4px;font-size:16px;color:var(--navy)">Sign in</h2>
-    <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">
+    <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">
       Use the user ID your admin set you up with.</p>
 
     {% if form.non_field_errors %}
@@ -34,17 +34,17 @@ THE FRONT DOOR. The only address in the application a stranger may open.
     <form method="post">
       {% csrf_token %}
 
-      <label style="display:block;font-size:11.5px;color:var(--muted);margin-bottom:3px">User ID</label>
+      <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:3px">User ID</label>
       {{ form.username }}
 
-      <label style="display:block;font-size:11.5px;color:var(--muted);margin:12px 0 3px">Password</label>
+      <label style="display:block;font-size:13px;color:var(--muted);margin:12px 0 3px">Password</label>
       {{ form.password }}
 
       <button type="submit" style="width:100%;margin-top:16px">Sign in</button>
     </form>
   </div>
 
-  <p style="font-size:11.5px;color:var(--muted);margin-top:12px;text-align:center">
+  <p style="font-size:13px;color:var(--muted);margin-top:12px;text-align:center">
     Forgotten it? Your admin sets a new one for you — there is no email reset.
   </p>
 

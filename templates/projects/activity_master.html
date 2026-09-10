@@ -82,7 +82,7 @@ THE CONSTRUCTION ACTIVITY MASTER.
                          {% if not user|can:"masters.edit" %}readonly{% endif %}></td>
               <td class="num" style="color:var(--muted)">{{ entry.links }}</td>
               <td>
-                <label style="font-size:12px"><input type="checkbox" name="active-{{ a.id }}"
+                <label style="font-size:13px"><input type="checkbox" name="active-{{ a.id }}"
                   {% if a.is_active %}checked{% endif %}
                   {% if not user|can:"masters.edit" %}disabled{% endif %}> in use</label>
               </td>

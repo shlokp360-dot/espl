@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE FINANCE OVERVIEW. Every figure comes from finance.calc in bulk; the
+template prints and never adds.
+{% endcomment %}
+{% block title %}Finance{% endblock %}
+{% block subtitle %}RA bills, retention, vendor invoices and payments across every project{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="home" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_home" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_home" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Finance</span>
+  <span class="sp"></span>
+</div>
+
+<div class="kpis">
+  <div class="kpi {% if kpis.payable_now %}warn{% endif %}"><div class="l">Payable now</div><div class="v">₹{{ kpis.payable_now|rupees }}</div></div>
+  <div class="kpi"><div class="l">Retention held</div><div class="v">₹{{ kpis.retention_held|rupees }}</div></div>
+  <div class="kpi {% if kpis.retention_due %}bad{% endif %}"><div class="l">Retention due</div><div class="v">₹{{ kpis.retention_due|rupees }}</div></div>
+  <div class="kpi"><div class="l">Advances outstanding</div><div class="v">₹{{ kpis.advances_outstanding|rupees }}</div></div>
+  <div class="kpi good"><div class="l">Paid this month</div><div class="v">₹{{ kpis.paid_month|rupees }}</div></div>
+</div>
+
+<h3 class="sec">Work orders with an open bill or retention held</h3>
+<table>
+  <thead><tr>
+    <th>Work order</th><th>Project</th><th>Contractor</th>
+    <th class="num">Contract</th><th class="num">Certified to date</th><th>Open bill</th>
+    <th class="num">Payable now</th><th class="num">Retention balance</th><th>DLP ends</th>
+  </tr></thead>
+  <tbody>
+  {% for s in live %}
+    <tr>
+      <td><a href="{% url 'finance_wo' s.po.id %}"><span class="code">{{ s.po.number }}</span></a>
+        <span class="pill p-{{ s.po.status }}">{{ s.po.status_word }}</span></td>
+      <td>{{ s.po.project.name }}</td>
+      <td>{{ s.po.vendor.name }}</td>
+      <td class="num">₹{{ s.contract_value|rupees }}</td>
+      <td class="num">₹{{ s.certified_to_date|rupees }}</td>
+      <td>{% if s.open_bill %}
+            <a href="{% url 'finance_ra_bill' s.open_bill.id %}">{{ s.open_bill.number }}</a>
+            <span class="pill {% if s.open_bill.status == 'draft' %}p-draft{% else %}p-onsheet{% endif %}">{{ s.open_bill.get_status_display }}</span>
+          {% else %}—{% endif %}</td>
+      <td class="num">{% if s.payable_now %}₹{{ s.payable_now|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">₹{{ s.retention_balance|rupees }}</td>
+      <td>{% if s.dlp_end %}{{ s.dlp_end|date:"d/m/Y" }}
+            {% if s.retention_eligible %}<span class="pill p-paid">eligible</span>{% endif %}
+          {% else %}not started{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9">No work order has an RA bill yet. Open an approved work order and press RA bills.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="sec">Defect liability ending in the next 90 days</h3>
+<table>
+  <thead><tr>
+    <th>Work order</th><th>Project</th><th>Contractor</th><th>DLP ends</th>
+    <th class="num">Retention balance</th><th>Status</th>
+  </tr></thead>
+  <tbody>
+  {% for s in dlp %}
+    <tr>
+      <td><a href="{% url 'finance_wo' s.po.id %}"><span class="code">{{ s.po.number }}</span></a></td>
+      <td>{{ s.po.project.name }}</td>
+      <td>{{ s.po.vendor.name }}</td>
+      <td>{{ s.dlp_end|date:"d/m/Y" }}</td>
+      <td class="num">₹{{ s.retention_balance|rupees }}</td>
+      <td>{% if s.retention_eligible %}<span class="pill p-paid">eligible</span>{% elif s.retention_balance %}<span class="pill p-approved">held</span>{% else %}<span class="pill p-draft">released</span>{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">No defect liability period ends before {{ today|date:"d/m/Y" }} + 90 days.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -82,7 +82,7 @@ paid and how much has been paid to understand their books better."
   <div class="card">
     <div class="grph">Ageing</div>
     {{ ageing_chart }}
-    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
+    <div style="font-size:13px;color:var(--muted);margin-top:9px">
       From the due date — delivery plus terms.
     </div>
   </div>
@@ -90,7 +90,7 @@ paid and how much has been paid to understand their books better."
   <div class="card">
     <div class="grph">Owed, by vendor</div>
     {{ vendor_chart }}
-    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
+    <div style="font-size:13px;color:var(--muted);margin-top:9px">
       Delivered and unpaid.
     </div>
   </div>
@@ -104,7 +104,7 @@ paid and how much has been paid to understand their books better."
       <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
     {% endfor %}
   </div>
-  <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+  <div style="font-size:13px;color:var(--muted);margin-top:8px">
     A month where invoiced beats paid is a month that added to what you owe.
   </div>
 </div>
@@ -128,7 +128,7 @@ paid and how much has been paid to understand their books better."
         <tr>
           <td>{{ row.vendor.name|default:"—" }}
             {% if row.vendor.payment_terms %}
-              <span class="mut" style="color:var(--muted);font-size:11px">· {{ row.vendor.payment_terms }}</span>
+              <span class="mut" style="color:var(--muted);font-size:13px">· {{ row.vendor.payment_terms }}</span>
             {% else %}
               <span class="pill p-onsheet">terms not set</span>
             {% endif %}

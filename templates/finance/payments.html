@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}THE PAYMENTS REGISTER — what the accountant keys into Tally. The Excel button exports exactly this selection.{% endcomment %}
+{% block title %}Payments{% endblock %}
+{% block subtitle %}Every payment to a vendor or contractor, by date{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="payments" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_payments" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_payments" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar">
+  <span class="ttl">Payments</span>
+  <span class="sp"></span>
+  <form method="post" action="{% url 'finance_payments_excel' %}" style="margin:0">
+    {% csrf_token %}
+    <input type="hidden" name="from" value="{{ chosen.from|date:'Y-m-d' }}">
+    <input type="hidden" name="to" value="{{ chosen.to|date:'Y-m-d' }}">
+    <input type="hidden" name="project" value="{{ chosen.project|default_if_none:'' }}">
+    <input type="hidden" name="vendor" value="{{ chosen.vendor|default_if_none:'' }}">
+    <input type="hidden" name="kind" value="{{ chosen.kind }}">
+    <button type="submit" class="sec">⤓ Excel for Tally</button>
+  </form>
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <input class="cell" type="date" name="from" value="{{ chosen.from|date:'Y-m-d' }}">
+    <input class="cell" type="date" name="to" value="{{ chosen.to|date:'Y-m-d' }}">
+    <select name="project" class="cell">
+      <option value="">All projects</option>
+      {% for p in projects %}<option value="{{ p.id }}" {% if p.id == chosen.project %}selected{% endif %}>{{ p.code }} · {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="vendor" class="cell">
+      <option value="">All vendors</option>
+      {% for v in vendors %}<option value="{{ v.id }}" {% if v.id == chosen.vendor %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+    </select>
+    <select name="kind" class="cell">
+      <option value="">Any kind</option>
+      {% for value, label in kinds %}<option value="{{ value }}" {% if value == chosen.kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="sec sm">Filter</button>
+  </div>
+</form>
+
+<table style="margin-top:12px">
+  <thead><tr>
+    <th>Date</th><th>PV</th><th>Vendor</th><th>GSTIN</th><th>Project</th><th>Document</th><th>Kind</th>
+    <th class="num">Amount</th><th class="num">TDS</th><th>Mode</th><th>Reference</th>
+  </tr></thead>
+  <tbody>
+  {% for p in rows %}
+    <tr>
+      <td>{{ p.paid_on|date:"d/m/Y" }}</td>
+      <td class="code">{{ p.number }}</td>
+      <td>{{ p.vendor.name }}</td>
+      <td class="code">{{ p.purchase_order.vendor_gstin|default:p.vendor.gst_number|default:"—" }}</td>
+      <td>{{ p.purchase_order.project.code }}</td>
+      <td>{% if p.ra_bill_id %}<a href="{% url 'finance_ra_bill' p.ra_bill_id %}">{{ p.ra_bill.number }}</a>
+          {% elif p.purchase_order.document_type == 'WO' %}<a href="{% url 'finance_wo' p.purchase_order_id %}">{{ p.document_number }}</a>
+          {% else %}<a href="{% url 'finance_po' p.purchase_order_id %}">{{ p.document_number }}</a>{% endif %}</td>
+      <td>{{ p.get_kind_display }}</td>
+      <td class="num">₹{{ p.amount|rupees }}</td>
+      <td class="num">{% if p.tds_amount %}₹{{ p.tds_amount|rupees }}{% else %}—{% endif %}</td>
+      <td>{{ p.get_mode_display }}</td>
+      <td>{{ p.reference|default:"—" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="11">No payment between {{ chosen.from|date:"d/m/Y" }} and {{ chosen.to|date:"d/m/Y" }}.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td colspan="7">Total · {{ totals.count }} payment{{ totals.count|pluralize }}</td>
+    <td class="num">₹{{ totals.amount|rupees }}</td><td class="num">₹{{ totals.tds|rupees }}</td><td colspan="2"></td></tr></tfoot>
+</table>
+{% endblock %}

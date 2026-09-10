@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Record invoice — {{ po.number }}{% endblock %}
+{% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="invoices" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_invoice_new" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_invoice_new" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar"><span class="ttl">Record {{ po.vendor.name }}'s invoice on {{ po.number }}</span><span class="sp"></span></div>
+
+<div class="facts">
+  <div class="card"><div class="k">Order basic</div><div class="v">₹{{ totals.taxable|rupees2 }}</div></div>
+  <div class="card"><div class="k">Order GST</div><div class="v">₹{{ totals.gst|rupees2 }}</div></div>
+  <div class="card"><div class="k">Order value</div><div class="v">₹{{ totals.order_value|rupees2 }}</div></div>
+</div>
+
+<form method="post" class="fform card">
+  {% csrf_token %}
+  <div class="two">
+    <div><label>Vendor's invoice number</label><input name="vendor_invoice_no" maxlength="60" value="{{ typed.vendor_invoice_no|default:'' }}" required></div>
+    <div><label>Invoice date</label><input type="date" name="invoice_date" value="{{ typed.invoice_date|default:today|date:'Y-m-d' }}"></div>
+  </div>
+  <div class="three">
+    <div><label>Taxable (their figure)</label><input name="taxable" value="{{ typed.taxable|default:'' }}" required></div>
+    <div><label>GST (their figure)</label><input name="gst" value="{{ typed.gst|default:'' }}" required></div>
+    <div><label>Total — must equal taxable + GST</label><input name="total" value="{{ typed.total|default:'' }}" required></div>
+  </div>
+  <div><label>Note</label><input name="note" maxlength="300" value="{{ typed.note|default:'' }}"></div>
+  <div class="foot">
+    <button type="submit">Record invoice</button>
+    <a href="{% url 'finance_po' po.id %}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

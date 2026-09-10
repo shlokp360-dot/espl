@@ -104,7 +104,7 @@ every time, so it cannot show you a plan that has since gone stale.
             <td>{{ item.line.activity.abbreviation }}</td>
             <td class="code">{{ item.line.material.code }}</td>
             <td>{{ item.line.material.name }}
-              {% if item.line.remark %}<div style="font-size:10.5px;color:var(--muted)">{{ item.line.remark }}</div>{% endif %}</td>
+              {% if item.line.remark %}<div style="font-size:13px;color:var(--muted)">{{ item.line.remark }}</div>{% endif %}</td>
             <td>{{ item.line.material.uom }}</td>
             <td class="num">{{ item.order_qty|qty }}</td>
             <td class="num">{{ item.vendor_rate|rupees2 }}</td>
@@ -128,7 +128,7 @@ every time, so it cannot show you a plan that has since gone stale.
     <button type="submit">Create the ticked purchase orders</button>
     <a href="{% url 'bom_screen' project.id %}?activity={{ activity.abbreviation }}">Cancel — change nothing</a>
     <span class="sp" style="flex:1"></span>
-    <span style="color:var(--muted);font-size:12px">
+    <span style="color:var(--muted);font-size:13px">
       They are created as drafts. Nothing is sent to a vendor until you approve it.</span>
   </div>
 </form>

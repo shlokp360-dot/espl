@@ -56,7 +56,7 @@ ORDER VALUE and then NET PAYABLE.
 
   <div class="toolbar">
     <span class="ttl">{{ order.number }}</span>
-    <span class="pill p-{{ order.status }}" style="font-size:12px">{{ order.status_word|upper }}</span>
+    <span class="pill p-{{ order.status }}" style="font-size:13px">{{ order.status_word|upper }}</span>
     {% if order.document_type == 'WO' %}
       <span class="pill" style="background:var(--lblue);color:var(--navy)">WORK ORDER</span>
     {% endif %}
@@ -109,6 +109,21 @@ ORDER VALUE and then NET PAYABLE.
                             background:#fff;color:var(--navy);font-weight:600"
          href="{% url 'po_pdf' project.id order.id %}">⤓ Download PDF</a>
       {% comment %}
+      THE DOOR TO FINANCE. A work order is billed through RA bills and a
+      purchase order through vendor invoices; both start once the document is
+      approved, so neither link appears on a draft. Hidden unless the role can
+      open the screen — a tab can never lead to a 403.
+      {% endcomment %}
+      {% if order.document_type == 'WO' %}
+        {% if user|can:"finance.view" or user|can:"finance.certify" %}
+          <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line)"
+             href="{% url 'finance_wo' order.id %}">RA bills</a>
+        {% endif %}
+      {% elif user|can:"finance.view" %}
+        <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line)"
+           href="{% url 'finance_po' order.id %}">Vendor invoices &amp; payments</a>
+      {% endif %}
+      {% comment %}
       Delivered and Paid are two different permissions, held by two different
       people — the site sees the lorry, the accountant releases the money — so
       the one button that says "Mark <next status>" has to ask about whichever
@@ -144,7 +159,7 @@ ORDER VALUE and then NET PAYABLE.
   {% endcomment %}
   {% if not editable %}
     <div style="margin:0 0 12px">
-      <span class="pill p-delivered" style="font-size:12px;padding:4px 12px"
+      <span class="pill p-delivered" style="font-size:13px;padding:4px 12px"
             title="Nothing on this document can be changed by anyone. Its prices are a frozen copy, so later changes to the material master or to {{ order.vendor.name }}'s rates do not touch it.{% if order.approved_at %} Approved {{ order.approved_at|date:'d/m/Y H:i' }}.{% endif %}">🔒
         {{ order.status_word }} — locked</span>
     </div>
@@ -170,7 +185,7 @@ ORDER VALUE and then NET PAYABLE.
           <b>{{ company.name }}</b>
           {% if project.billing_address %}
             <div>{{ project.billing_address|linebreaksbr }}</div>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:4px">
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">
               billing address from {{ project.code }}</div>
           {% elif company.address %}
             <div>{{ company.address|linebreaksbr }}</div>
@@ -308,10 +323,10 @@ ORDER VALUE and then NET PAYABLE.
         <tbody>
         {% for line in lines %}
           <tr>
-            <td style="font-size:11px;color:var(--muted)">{{ line.bom_line.activity.name }}</td>
+            <td style="font-size:13px;color:var(--muted)">{{ line.bom_line.activity.name }}</td>
             <td class="code">{{ line.bom_line.material.code }}</td>
             <td>{{ line.bom_line.material.name }}
-              <div style="font-size:10.5px;color:var(--muted)">{{ line.bom_line.material.specification }}</div>
+              <div style="font-size:13px;color:var(--muted)">{{ line.bom_line.material.specification }}</div>
               {% if editable %}
                 <textarea class="cell" name="ref-{{ line.id }}" rows="2" maxlength="300"
                           style="font-size:10.8px;font-style:italic;margin-top:4px"
@@ -369,21 +384,21 @@ ORDER VALUE and then NET PAYABLE.
     <div class="foot" style="display:flex;gap:22px;margin-top:16px;align-items:flex-start">
       <div style="width:52%">
         <div class="card" style="padding:10px 12px">
-          <div style="font-size:10.5px;letter-spacing:.7px;color:var(--muted);text-transform:uppercase">
+          <div style="font-size:13px;letter-spacing:.7px;color:var(--muted);text-transform:uppercase">
             Order value in words</div>
           <div style="font-weight:600;margin-top:3px">{{ totals.order_value|rupees_words }}</div>
         </div>
 
         <div class="card" style="padding:10px 12px;margin-top:10px">
-          <div style="font-size:11.5px;letter-spacing:.6px;color:var(--navy);font-weight:600;margin-bottom:5px">
+          <div style="font-size:13px;letter-spacing:.6px;color:var(--navy);font-weight:600;margin-bottom:5px">
             TERMS &amp; CONDITIONS</div>
           {% if editable %}
-            <textarea class="cell" name="terms" rows="5" style="font-size:11.5px">{{ order.terms }}</textarea>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:4px">
+            <textarea class="cell" name="terms" rows="5" style="font-size:13px">{{ order.terms }}</textarea>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">
               Copied from the company profile when this order was created. Editing here changes this
               document only.</div>
           {% else %}
-            <div style="font-size:11.5px;white-space:pre-line">{{ order.terms|default:"—" }}</div>
+            <div style="font-size:13px;white-space:pre-line">{{ order.terms|default:"—" }}</div>
           {% endif %}
         </div>
       </div>
@@ -435,6 +450,46 @@ ORDER VALUE and then NET PAYABLE.
         </tr>
         <tr class="pay"><td class="k"><b>NET PAYABLE</b></td>
             <td class="num"><b>₹{{ totals.net_payable|rupees }}</b></td></tr>
+
+        {% comment %}
+        >>> ANCHOR: WO-TERMS <<<
+        A WORK ORDER'S BILLING TERMS. They print here, under the ladder, because
+        they do not change one figure on it: retention is held on each RA bill,
+        the advance is recovered from each RA bill, and the DLP starts when the
+        final bill is approved. finance.calc reads these three; totals() never
+        does. Same markup as the deduction and TDS inputs above, draft only.
+        {% endcomment %}
+        {% if order.document_type == 'WO' %}
+          <tr class="sep"><td colspan="2">work order terms — applied on each RA bill</td></tr>
+          <tr>
+            <td class="k">Retention
+              {% if editable %}
+                <input class="cell num" name="retention" value="{{ order.retention_pct|qty }}"
+                       style="width:56px;min-width:56px;display:inline-block"> %
+              {% else %}@ {{ order.retention_pct|qty }}%{% endif %}
+              on basic value, held per bill</td>
+            <td class="num">{{ order.retention_pct|qty }}%</td>
+          </tr>
+          <tr>
+            <td class="k">Defect liability period
+              {% if editable %}
+                <input class="cell num" name="dlp_months" value="{{ order.dlp_months }}"
+                       style="width:56px;min-width:56px;display:inline-block"> months
+              {% else %}{{ order.dlp_months }} months{% endif %}
+              from the final bill</td>
+            <td class="num">{{ order.dlp_months }} months</td>
+          </tr>
+          <tr>
+            <td class="k">Mobilisation advance
+              {% if editable %}
+                <input class="cell num" name="mobilisation_advance"
+                       value="{{ order.mobilisation_advance|rupees2 }}"
+                       style="width:110px;min-width:110px;display:inline-block">
+              {% endif %}
+              recovered pro rata from each bill</td>
+            <td class="num">{% if order.mobilisation_advance %}₹{{ order.mobilisation_advance|rupees }}{% else %}—{% endif %}</td>
+          </tr>
+        {% endif %}
       </table>
     </div>
 

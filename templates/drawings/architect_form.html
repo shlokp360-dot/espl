@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}ADD OR EDIT ONE ARCHITECT. Phone is digits only, like every other master.{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{% if architect %}{{ architect.name }}{% else %}Add an architect{% endif %}{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="architects" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_architects" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_architects" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{% if architect %}Edit {{ architect.name }}{% else %}Add an architect{% endif %}</span>
+  <span class="sp"></span>
+  <a href="{% url 'drawings_architects' %}"><button type="button" class="sec">Back</button></a>
+</div>
+
+<form method="post" class="card" style="max-width:640px;display:grid;gap:10px">
+  {% csrf_token %}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <label>Name<br><input class="cell" name="name" maxlength="120" required value="{{ architect.name|default:'' }}"></label>
+    <label>Firm<br><input class="cell" name="firm" maxlength="160" value="{{ architect.firm|default:'' }}"></label>
+    <label>Phone (digits only)<br><input class="cell" name="phone" maxlength="15" value="{{ architect.phone|default:'' }}"></label>
+    <label>Email<br><input class="cell" type="email" name="email" value="{{ architect.email|default:'' }}"></label>
+  </div>
+  {% if architect %}
+    <label style="font-size:13px"><input type="checkbox" name="is_active" {% if architect.is_active %}checked{% endif %}> Active</label>
+  {% endif %}
+  <div style="display:flex;justify-content:flex-end"><button type="submit">Save</button></div>
+</form>
+
+{% endblock %}

@@ -64,7 +64,7 @@ DOCUMENTS — where every clickable figure in the module lands.
           <td>{{ row.order.delivered_at|date:"d/m/Y"|default:"—" }}</td>
           <td>{{ row.due|date:"d/m/Y"|default:"—" }}
             {% if row.assumed and row.due %}
-              <span class="mut" style="color:var(--muted);font-size:10.5px" title="No terms on the vendor — the default 30 days">*</span>
+              <span class="mut" style="color:var(--muted);font-size:13px" title="No terms on the vendor — the default 30 days">*</span>
             {% endif %}
           </td>
           <td>{{ row.order.paid_at|date:"d/m/Y"|default:"—" }}</td>

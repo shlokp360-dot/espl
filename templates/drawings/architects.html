@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}WHO DRAWS — a master shared by every project. Deactivate, never delete.{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}Architects{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="architects" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_architects" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_architects" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Architects</span>
+  <span class="sp"></span>
+  {% if user|can:"drawings.edit" %}
+    <a href="{% url 'drawings_architect_new' %}"><button type="button">Add an architect</button></a>
+  {% endif %}
+</div>
+
+<table>
+  <thead><tr class="hd">
+    <th>Name</th>
+    <th>Firm</th>
+    <th style="width:130px">Phone</th>
+    <th style="width:200px">Email</th>
+    <th class="num" style="width:90px">Drawings</th>
+    <th style="width:90px">Status</th>
+    <th style="width:80px"></th>
+  </tr></thead>
+  <tbody>
+    {% for row in rows %}
+      <tr {% if not row.is_active %}style="opacity:.55"{% endif %}>
+        <td>{{ row.name }}</td>
+        <td>{{ row.firm|default:"—" }}</td>
+        <td class="code">{{ row.phone|default:"—" }}</td>
+        <td>{{ row.email|default:"—" }}</td>
+        <td class="num">{{ row.drawing_count }}</td>
+        <td>{% if row.is_active %}<span class="pill p-won">active</span>{% else %}<span class="pill p-lost">inactive</span>{% endif %}</td>
+        <td>{% if user|can:"drawings.edit" %}<a href="{% url 'drawings_architect_edit' row.pk %}"><button type="button" class="sec sm">Edit</button></a>{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" style="padding:14px">No architect on the list yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

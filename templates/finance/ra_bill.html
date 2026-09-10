@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+ONE RA BILL — its lines with claimed and certified quantities, the ladder from
+gross to net payable, and the buttons that move it along.
+
+⚠ NOT ONE FIGURE IS WORKED OUT HERE. Every line figure and every rung comes
+  from finance.calc.bill_figures — the same function that draws the register,
+  the work order screen and the PDF, so none of them can disagree.
+
+⚠ THE LADDER MARKUP IS po_detail's totals table, so a reader who knows the
+  order recognises the bill.
+{% endcomment %}
+{% block title %}{{ bill.number }} — {{ po.number }}{% endblock %}
+{% block subtitle %}RA bill no. {{ bill.sequence }}{% if bill.is_final %} (final){% endif %} &nbsp;|&nbsp; {{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="ra_bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_ra_bill" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_ra_bill" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  {% if user|can:"finance.view" %}<a href="{% url 'finance_ra_bills' %}">RA bills</a> &nbsp;▸&nbsp;{% endif %}
+  <a href="{% url 'finance_wo' po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>{{ bill.number }}</b>
+</div>
+
+<form method="post" action="{% url 'finance_ra_bill_save' bill.id %}">
+  {% csrf_token %}
+  <div class="toolbar">
+    <span class="ttl">{{ bill.number }}</span>
+    <span class="pill {{ pill }}" style="font-size:13px">{{ bill.get_status_display|upper }}</span>
+    {% if bill.is_final %}<span class="pill p-delivered">FINAL BILL</span>{% endif %}
+    <span class="sp"></span>
+    {% if editable %}
+      <button class="sec" type="submit" name="action" value="save">Save</button>
+      <button type="submit" name="action" value="certify"
+              onclick="return confirm('Certify {{ bill.number|escapejs }}? Every line needs a certified quantity.');">Certify ▸</button>
+      <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line);color:var(--red)"
+         href="{% url 'finance_ra_bill_discard' bill.id %}">Discard</a>
+    {% endif %}
+    {% if bill.status == 'certified' and user|can:"finance.approve" %}
+      <button type="submit" formaction="{% url 'finance_ra_bill_approve' bill.id %}"
+              onclick="return confirm('Approve {{ bill.number|escapejs }}?\n\nThis locks the bill, records the certified quantities as received on the BOM{% if bill.is_final %} and marks {{ po.number|escapejs }} completed{% endif %}.');">Approve &amp; lock ▸</button>
+    {% endif %}
+    {% if bill.status == 'approved' and user|can:"finance.pay" %}
+      <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--navy);color:var(--navy);font-weight:600"
+         href="{% url 'finance_ra_bill_pay' bill.id %}">Record payment</a>
+    {% endif %}
+    {% if not bill.is_open and user|can:"finance.view" %}
+      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);background:#fff;color:var(--navy);font-weight:600"
+         href="{% url 'finance_ra_bill_pdf' bill.id %}">⤓ Download PDF</a>
+    {% endif %}
+  </div>
+
+  {% if not bill.is_open %}
+    <div style="margin:0 0 12px">
+      <span class="pill p-delivered" style="font-size:13px;padding:4px 12px">🔒 {{ bill.get_status_display }} — locked</span>
+    </div>
+  {% endif %}
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+    <div class="dates">
+      <div class="d done"><span class="l">Bill date</span>
+        {% if editable %}<input class="cell" type="date" name="bill_date" value="{{ bill.bill_date|date:'Y-m-d' }}">
+        {% else %}<span class="v">{{ bill.bill_date|date:"d/m/Y" }}</span>{% endif %}
+        {% if bill.created_by %}<span class="l" style="text-transform:none;letter-spacing:0">raised by {{ bill.created_by.get_full_name|default:bill.created_by.username }}</span>{% endif %}</div>
+      <div class="d done"><span class="l">Contractor's invoice</span>
+        {% if editable %}<input class="cell" name="contractor_ref" maxlength="60" value="{{ bill.contractor_ref }}">
+        {% else %}<span class="v">{{ bill.contractor_ref|default:"—" }}</span>{% endif %}</div>
+      <div class="d done"><span class="l">Period</span>
+        {% if editable %}
+          <input class="cell" type="date" name="period_from" value="{{ bill.period_from|date:'Y-m-d' }}" style="width:130px">
+          <input class="cell" type="date" name="period_to" value="{{ bill.period_to|date:'Y-m-d' }}" style="width:130px">
+        {% else %}<span class="v">{% if bill.period_from %}{{ bill.period_from|date:"d/m/Y" }} – {{ bill.period_to|date:"d/m/Y" }}{% else %}—{% endif %}</span>{% endif %}</div>
+      <div class="d {% if bill.certified_at %}done{% endif %}"><span class="l">Certified</span>
+        <span class="v">{{ bill.certified_at|date:"d/m/Y H:i"|default:"not yet" }}</span>
+        {% if bill.certified_by %}<span class="l" style="text-transform:none;letter-spacing:0">by {{ bill.certified_by.get_full_name|default:bill.certified_by.username }}</span>{% endif %}</div>
+      <div class="d {% if bill.approved_at %}done{% endif %}"><span class="l">Approved</span>
+        <span class="v">{{ bill.approved_at|date:"d/m/Y H:i"|default:"not yet" }}</span>
+        {% if bill.approved_by %}<span class="l" style="text-transform:none;letter-spacing:0">by {{ bill.approved_by.get_full_name|default:bill.approved_by.username }}</span>{% endif %}</div>
+      <div class="d {% if bill.paid_at %}done{% endif %}"><span class="l">Paid</span>
+        <span class="v">{{ bill.paid_at|date:"d/m/Y H:i"|default:"not yet" }}</span></div>
+    </div>
+
+    {% if editable %}
+      <div style="margin-top:10px">
+        <label style="font-size:12.5px"><input type="checkbox" name="is_final" value="1" {% if bill.is_final %}checked{% endif %}> Final bill — closes the contract and recovers the whole advance remainder</label>
+        &nbsp; Note <input class="cell" name="note" maxlength="300" value="{{ bill.note }}" style="width:320px">
+      </div>
+    {% elif bill.note %}
+      <div style="margin-top:10px;font-size:12.5px">Note: {{ bill.note }}</div>
+    {% endif %}
+
+    <div class="scroll" style="margin-top:14px">
+      <table>
+        <thead><tr class="hd">
+          <th>Construction activity</th><th>Code</th><th>Scope</th><th>UOM</th>
+          <th class="num">Order qty</th><th class="num">Certified before</th><th class="num">Remaining</th>
+          <th class="num">Claimed</th><th class="num">Certified</th>
+          <th class="num">Rate</th><th class="num">Disc %</th><th class="num">Basic</th>
+          <th class="num">GST %</th><th class="num">GST</th><th class="num">Line total</th>
+        </tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            <td style="font-size:13px;color:var(--muted)">{{ row.line.po_line.bom_line.activity.name }}</td>
+            <td class="code">{{ row.line.po_line.bom_line.material.code }}</td>
+            <td>{{ row.line.po_line.bom_line.material.name }}
+              {% if editable %}
+                <input class="cell" name="remark-{{ row.line.id }}" maxlength="200" value="{{ row.line.remark }}"
+                       placeholder="remark" style="width:100%;margin-top:4px;font-size:10.8px">
+              {% elif row.line.remark %}<div style="font-size:10.8px;font-style:italic">↳ {{ row.line.remark }}</div>{% endif %}</td>
+            <td>{{ row.line.po_line.bom_line.material.uom }}</td>
+            <td class="num">{{ row.line.po_line.quantity|qty }}</td>
+            <td class="num">{{ row.before|qty }}</td>
+            <td class="num">{{ row.remaining|qty }}</td>
+            {% if editable %}
+              <td><input class="cell num" name="claim-{{ row.line.id }}" value="{{ row.line.claimed_qty|qty }}"></td>
+              <td><input class="cell num" name="cert-{{ row.line.id }}" value="{% if row.line.certified_qty is not None %}{{ row.line.certified_qty|qty }}{% endif %}"></td>
+            {% else %}
+              <td class="num">{{ row.line.claimed_qty|qty }}</td>
+              <td class="num"><b>{% if row.line.certified_qty is not None %}{{ row.line.certified_qty|qty }}{% else %}—{% endif %}</b></td>
+            {% endif %}
+            <td class="num">₹{{ row.line.rate|rupees2 }}</td>
+            <td class="num">{% if row.line.discount_pct %}{{ row.line.discount_pct|qty }}%{% else %}—{% endif %}</td>
+            <td class="num">₹{{ row.figures.taxable|rupees }}</td>
+            <td class="num">{{ row.line.gst_percent|qty }}%</td>
+            <td class="num">{% if row.figures.gst %}₹{{ row.figures.gst|rupees }}{% else %}—{% endif %}</td>
+            <td class="num"><b>₹{{ row.figures.total|rupees }}</b></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="foot" style="display:flex;gap:22px;margin-top:16px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1 1 320px">
+        <div class="card" style="padding:10px 12px">
+          <div style="font-size:13px;letter-spacing:.7px;color:var(--muted);text-transform:uppercase">Net payable in words</div>
+          <div style="font-weight:600;margin-top:3px">{{ ladder.net_payable|rupees_words }}</div>
+        </div>
+        {% if payments %}
+          <h3 class="sec">Payments on this bill</h3>
+          <table>
+            <thead><tr><th>Date</th><th>PV</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">TDS</th></tr></thead>
+            <tbody>
+            {% for p in payments %}
+              <tr><td>{{ p.paid_on|date:"d/m/Y" }}</td><td class="code">{{ p.number }}</td><td>{{ p.get_mode_display }}</td>
+                  <td>{{ p.reference|default:"—" }}</td><td class="num">₹{{ p.amount|rupees }}</td>
+                  <td class="num">{% if p.tds_amount %}₹{{ p.tds_amount|rupees }}{% else %}—{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+            <tfoot><tr><td colspan="4">Paid · left to pay</td><td class="num">₹{{ paid|rupees }}</td><td class="num">₹{{ left|rupees }}</td></tr></tfoot>
+          </table>
+        {% endif %}
+      </div>
+
+      <table class="tot" style="flex:1 1 380px;border-collapse:collapse">
+        <tr><td class="k">Gross value this bill{% if not ladder.certified %} (claimed){% endif %}</td><td class="num">₹{{ ladder.gross|rupees }}</td></tr>
+        <tr><td class="k">Less: line discounts</td>
+            <td class="num">{% if ladder.discount %}− ₹{{ ladder.discount|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr><td class="k"><b>Work done this bill (basic)</b></td><td class="num"><b>₹{{ ladder.taxable|rupees }}</b></td></tr>
+        {% if po.vendor.is_unregistered %}
+          <tr><td class="k">GST</td><td class="num">— unregistered contractor</td></tr>
+        {% elif interstate %}
+          <tr><td class="k">IGST</td><td class="num">₹{{ ladder.gst|rupees }}</td></tr>
+        {% else %}
+          <tr><td class="k">CGST</td><td class="num">₹{{ ladder.cgst|rupees }}</td></tr>
+          <tr><td class="k">SGST</td><td class="num">₹{{ ladder.sgst|rupees }}</td></tr>
+        {% endif %}
+        <tr><td class="k">Amount (contractor's invoice)</td><td class="num">₹{{ ladder.invoice_value|rupees }}</td></tr>
+        <tr><td class="k">Less: agreed deduction (post-tax) @ {{ po.deduction_pct|qty }}%</td>
+            <td class="num">{% if ladder.deduction %}− ₹{{ ladder.deduction|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr><td class="k">Less: retention @ {{ po.retention_pct|qty }}% on basic value</td>
+            <td class="num">{% if ladder.retention %}− ₹{{ ladder.retention|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr><td class="k">Less: mobilisation advance recovered{% if bill.is_final %} (final — whole remainder){% endif %}</td>
+            <td class="num">{% if ladder.advance_recovery %}− ₹{{ ladder.advance_recovery|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr><td class="k">Round off</td><td class="num">₹{{ ladder.round_off|rupees2 }}</td></tr>
+        <tr class="order"><td class="k"><b>PAYABLE THIS BILL</b></td><td class="num"><b>₹{{ ladder.payable|rupees }}</b></td></tr>
+        <tr class="sep"><td colspan="2">what we will actually pay</td></tr>
+        <tr><td class="k">Less: TDS {{ po.tds_section }} @ {{ po.tds_pct|qty }}% on basic value</td>
+            <td class="num">{% if ladder.tds %}− ₹{{ ladder.tds|rupees }}{% else %}—{% endif %}</td></tr>
+        <tr class="pay"><td class="k"><b>NET PAYABLE</b></td><td class="num"><b>₹{{ ladder.net_payable|rupees }}</b></td></tr>
+      </table>
+    </div>
+
+    {% if editable %}
+      <div class="note tight" style="margin-bottom:0"><b>Certified quantities drive the money.</b> Cumulative certified may not exceed the order quantity. <b>Approving locks the bill permanently.</b></div>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

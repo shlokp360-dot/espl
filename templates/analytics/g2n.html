@@ -70,7 +70,7 @@ GROSS TO NET — the ladder that was in the model, on every PDF, and on no scree
                 {% endcomment %}
                 <a href="{% url 'analytics_documents' %}?stage={{ stage }}&month={{ view.month }}&project={{ view.project.pk|default:'' }}&type={{ view.doc_type }}"
                    style="{% if row.kind == 'total' and row.key == 'order_value' %}color:#fff{% endif %}">{{ row.label }}</a>
-                <div style="font-size:10.5px;color:{% if row.kind == 'total' and row.key == 'order_value' %}#C3CEE0{% else %}var(--muted){% endif %}">{{ row.note }}</div>
+                <div style="font-size:13px;color:{% if row.kind == 'total' and row.key == 'order_value' %}#C3CEE0{% else %}var(--muted){% endif %}">{{ row.note }}</div>
               </td>
               <td class="num">{{ row.raw|rupees }}</td>
             </tr>

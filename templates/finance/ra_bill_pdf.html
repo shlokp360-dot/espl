@@ -1,0 +1,182 @@
+{% load inr %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% comment %}
+THE PRINTED RA BILL — rendered by WeasyPrint. Same conventions as po_pdf.html:
+tables not flexbox, "Rs" not the rupee glyph, a running footer with the page
+number. Not one figure is worked out here; every rung is finance.calc's.
+{% endcomment %}
+<style>
+@page {
+  size: A4; margin: 12mm 11mm 16mm 11mm;
+  @bottom-center { content: element(sysline); }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: "DejaVu Sans", sans-serif; font-size: 6.8pt; color: #6B7280;
+  }
+}
+body { font-family: "DejaVu Sans", sans-serif; font-size: 8.2pt; color: #1a1a1a; margin: 0; }
+table { border-collapse: collapse; width: 100%; }
+.n { text-align: right; white-space: nowrap; }
+.b { font-weight: bold; }
+.mono { font-family: "DejaVu Sans Mono", monospace; font-size: 7.4pt; }
+.head td { vertical-align: top; padding: 0; }
+.co { border: 1.2pt solid #1a1a1a; padding: 5pt 7pt; }
+.co .nm { font-size: 11pt; font-weight: bold; }
+.doctitle { border: 1.2pt solid #9AA3AF; color: #6B7280; font-size: 13pt;
+            letter-spacing: 2pt; padding: 6pt 10pt; text-align: center; }
+.meta { border: 1.2pt solid #1a1a1a; margin-top: 7pt; }
+.meta td { border: 0.6pt solid #1a1a1a; padding: 3pt 7pt; font-size: 8pt; }
+.meta td.k { text-align: right; width: 46%; }
+.meta td.v { text-align: center; font-weight: bold; }
+.parties { margin-top: 6pt; }
+.parties td { width: 50%; padding: 0; vertical-align: top; border: 0.8pt solid #1a1a1a; }
+.parties .hd { background: #F2F6FC; font-weight: bold; font-size: 7pt; letter-spacing: 0.8pt;
+               padding: 3pt 6pt; border-bottom: 0.8pt solid #1a1a1a; }
+.parties .bd { padding: 5pt 6pt; line-height: 1.45; }
+.lines { margin-top: 6pt; }
+.lines th { background: #1F3864; color: #fff; padding: 4pt 3pt; font-size: 7pt;
+            text-align: left; border: 0.5pt solid #1F3864; }
+.lines td { border: 0.5pt solid #D6DCE4; padding: 3pt; vertical-align: top; }
+.lines .ref { font-style: italic; font-size: 6.9pt; margin-top: 1.5pt; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+.foot { margin-top: 6pt; }
+.foot > tbody > tr > td { vertical-align: top; padding: 0; }
+.foot > tbody > tr > td.left { width: 50%; padding-right: 8pt; }
+.words { border: 0.8pt solid #1a1a1a; padding: 5pt 7pt; }
+.words .k { color: #6B7280; font-size: 6.8pt; letter-spacing: 0.7pt; text-transform: uppercase; }
+.tot td { border: 0.6pt solid #D6DCE4; padding: 3.5pt 7pt; }
+.tot td.k { text-align: right; }
+.tot tr.order td { background: #1F3864; color: #fff; font-weight: bold; font-size: 9.5pt; }
+.tot tr.sep td { background: #F3F5F8; text-align: center; font-size: 6.6pt;
+                 letter-spacing: 0.8pt; text-transform: uppercase; color: #6B7280; padding: 2pt; }
+.tot tr.pay td { background: #E2EFDA; font-weight: bold; }
+.sign { margin-top: 48pt; page-break-inside: avoid; }
+.sign td { border-top: 0.8pt solid #1a1a1a; padding-top: 4pt; text-align: center;
+           width: 30%; font-size: 7.6pt; }
+.sign td.gap { border: 0; width: 5%; }
+.sysline { position: running(sysline); text-align: center; color: #6B7280; font-size: 6.8pt; }
+</style>
+</head>
+<body>
+
+<table class="head">
+  <tr>
+    <td style="width:52%">
+      <div class="co">
+        <div class="nm">{{ company.name|upper }}</div>
+        {% if company.address %}<div>{{ company.address|linebreaksbr }}</div>{% endif %}
+        {% if company.gst_number %}<div>GSTIN <span class="mono">{{ company.gst_number }}</span></div>{% endif %}
+      </div>
+    </td>
+    <td style="width:4%"></td>
+    <td style="width:44%">
+      <div class="doctitle">RA BILL CERTIFICATE</div>
+      <table class="meta">
+        <tr><td class="k">RA Bill No.</td><td class="v mono">{{ bill.number }} ({{ bill.sequence }}{% if bill.is_final %}, final{% endif %})</td></tr>
+        <tr><td class="k">Bill Date</td><td class="v">{{ bill.bill_date|date:"d/m/Y" }}</td></tr>
+        <tr><td class="k">Work Order</td><td class="v mono">{{ po.number }}</td></tr>
+        <tr><td class="k">Contractor Ref.</td><td class="v">{{ bill.contractor_ref|default:"&mdash;" }}</td></tr>
+        <tr><td class="k">Approved On</td><td class="v">{{ bill.approved_at|date:"d/m/Y H:i"|default:"&mdash;" }}</td></tr>
+        <tr><td class="k">Status</td><td class="v">{{ bill.get_status_display|upper }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="parties">
+  <tr>
+    <td><div class="hd">CONTRACTOR</div>
+        <div class="bd"><b>{{ po.vendor.name }}</b> <span class="mono">{{ po.vendor.code }}</span><br>
+          {% if po.vendor.address %}{{ po.vendor.address|linebreaksbr }}<br>{% endif %}
+          {% if po.vendor_gstin %}GSTIN <span class="mono">{{ po.vendor_gstin }}</span>{% elif po.vendor.is_unregistered %}<b>UNREGISTERED &mdash; no GST charged</b>{% endif %}
+        </div></td>
+    <td><div class="hd">PROJECT</div>
+        <div class="bd"><b>{{ po.project.code }} &middot; {{ po.project.name }}</b><br>
+          {% if bill.period_from %}Period {{ bill.period_from|date:"d/m/Y" }} &ndash; {{ bill.period_to|date:"d/m/Y" }}<br>{% endif %}
+          Retention {{ po.retention_pct|qty }}% &middot; DLP {{ po.dlp_months }} months
+          {% if po.mobilisation_advance %}&middot; Advance Rs {{ po.mobilisation_advance|rupees }}{% endif %}
+        </div></td>
+  </tr>
+</table>
+
+<table class="lines">
+  <thead>
+    <tr>
+      <th style="width:9%">Code</th><th style="width:25%">Scope</th>
+      <th class="n" style="width:8%">Order qty</th><th class="n" style="width:8%">Prev. certified</th>
+      <th class="n" style="width:8%">This bill</th><th class="n" style="width:8%">Rate</th>
+      <th class="n" style="width:9%">Basic</th><th class="n" style="width:5%">GST</th>
+      <th class="n" style="width:9%">GST Amt</th><th class="n" style="width:11%">Line total</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="mono">{{ row.line.po_line.bom_line.material.code }}</td>
+      <td>{{ row.line.po_line.bom_line.material.name }}
+        {% if row.line.po_line.reference %}<div class="ref">&#8627; {{ row.line.po_line.reference }}</div>{% endif %}
+        {% if row.line.remark %}<div class="ref">{{ row.line.remark }}</div>{% endif %}</td>
+      <td class="n">{{ row.line.po_line.quantity|qty }} {{ row.line.po_line.bom_line.material.uom }}</td>
+      <td class="n">{{ row.before|qty }}</td>
+      <td class="n b">{{ row.figures.qty|qty }}</td>
+      <td class="n">{{ row.line.rate|rupees2 }}</td>
+      <td class="n">{{ row.figures.taxable|rupees2 }}</td>
+      <td class="n">{{ row.line.gst_percent|qty }}%</td>
+      <td class="n">{{ row.figures.gst|rupees2 }}</td>
+      <td class="n b">{{ row.figures.total|rupees2 }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<table class="foot">
+  <tr>
+    <td class="left">
+      <div class="words">
+        <div class="k">Net payable in words</div>
+        <div class="b" style="margin-top:2pt">{{ ladder.net_payable|rupees_words }}</div>
+      </div>
+    </td>
+    <td>
+      <table class="tot">
+        <tr><td class="k">Gross value this bill</td><td class="n">{{ ladder.gross|rupees2 }}</td></tr>
+        <tr><td class="k">Less: line discounts</td><td class="n">{% if ladder.discount %}- {{ ladder.discount|rupees2 }}{% else %}&mdash;{% endif %}</td></tr>
+        <tr><td class="k b">Work done this bill (basic)</td><td class="n b">{{ ladder.taxable|rupees2 }}</td></tr>
+        {% if po.vendor.is_unregistered %}
+          <tr><td class="k">GST</td><td class="n">&mdash; unregistered</td></tr>
+        {% elif interstate %}
+          <tr><td class="k">IGST</td><td class="n">{{ ladder.gst|rupees2 }}</td></tr>
+        {% else %}
+          <tr><td class="k">CGST</td><td class="n">{{ ladder.cgst|rupees2 }}</td></tr>
+          <tr><td class="k">SGST</td><td class="n">{{ ladder.sgst|rupees2 }}</td></tr>
+        {% endif %}
+        <tr><td class="k">Amount</td><td class="n">{{ ladder.invoice_value|rupees2 }}</td></tr>
+        {% if po.deduction_pct %}<tr><td class="k">Less: agreed deduction (post-tax) @ {{ po.deduction_pct|qty }}%</td><td class="n">- {{ ladder.deduction|rupees2 }}</td></tr>{% endif %}
+        <tr><td class="k">Less: retention @ {{ po.retention_pct|qty }}% on basic value</td><td class="n">- {{ ladder.retention|rupees2 }}</td></tr>
+        {% if ladder.advance_recovery %}<tr><td class="k">Less: mobilisation advance recovered</td><td class="n">- {{ ladder.advance_recovery|rupees2 }}</td></tr>{% endif %}
+        <tr><td class="k">Round off</td><td class="n">{{ ladder.round_off|rupees2 }}</td></tr>
+        <tr class="order"><td class="k">PAYABLE THIS BILL</td><td class="n">Rs {{ ladder.payable|rupees }}</td></tr>
+        <tr class="sep"><td colspan="2">what we will actually pay</td></tr>
+        <tr><td class="k">Less: TDS {{ po.tds_section }} @ {{ po.tds_pct|qty }}% on basic value</td><td class="n">{% if ladder.tds %}- {{ ladder.tds|rupees2 }}{% else %}&mdash;{% endif %}</td></tr>
+        <tr class="pay"><td class="k">NET PAYABLE</td><td class="n">Rs {{ ladder.net_payable|rupees }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="sign">
+  <tr>
+    <td>Certified by<br><span style="font-size:6.8pt;color:#777">{{ bill.certified_by.get_full_name|default:"" }}</span></td>
+    <td class="gap"></td>
+    <td>Approved by<br><span style="font-size:6.8pt;color:#777">{{ bill.approved_by.get_full_name|default:"" }}</span></td>
+    <td class="gap"></td>
+    <td>For {{ company.name }}<br><span style="font-size:6.8pt;color:#777">Authorised signatory</span></td>
+  </tr>
+</table>
+
+<div class="sysline">System-generated RA bill certificate &middot; {{ company.name }} &middot; {{ bill.number }} on {{ po.number }}</div>
+</body>
+</html>

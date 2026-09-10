@@ -71,10 +71,10 @@ THE VENDOR MASTER — 173 rows.
         <option value="inactive" {% if applied.show == 'inactive' %}selected{% endif %}>Inactive only</option>
         <option value="all" {% if applied.show == 'all' %}selected{% endif %}>Active and inactive</option>
       </select>
-      <label style="font-size:11.5px"><input type="checkbox" name="nogst" value="1"
+      <label style="font-size:13px"><input type="checkbox" name="nogst" value="1"
         {% if applied.nogst %}checked{% endif %}> No GSTIN only</label>
       {% if applied.q or applied.group or applied.activity or applied.type or applied.nogst %}
-        <a href="{% url 'vendor_list' %}" style="font-size:11.5px">clear filters</a>
+        <a href="{% url 'vendor_list' %}" style="font-size:13px">clear filters</a>
       {% endif %}
     </div>
   </form>
@@ -118,7 +118,7 @@ THE VENDOR MASTER — 173 rows.
             class="srow" style="margin:0">
         {% csrf_token %}
         <input type="file" name="file" accept=".xlsx" required
-               style="font-size:11.5px;max-width:280px">
+               style="font-size:13px;max-width:280px">
         <button class="sec sm" type="submit">⤒ Upload the corrected file</button>
       </form>
     </div>

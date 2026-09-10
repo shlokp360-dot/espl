@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE UNIT GRID for one project, grouped by block and floor. Status is derived
+from the bookings in one query (calc.bulk_unit_status); the Book button appears
+only on a unit that can be booked, and only for a role that may book.
+{% endcomment %}
+{% block title %}Units{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="units" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_units" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_units" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Units</span>
+  {% if projects %}
+    <form method="get" style="margin:0">
+      <select name="project" class="cell" onchange="this.form.submit()">
+        {% for option in projects %}
+          <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>{{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  {% endif %}
+  <span class="sp"></span>
+  {% if project and user|can:"sales.edit" %}
+    <a href="{% url 'sales_unit_new' %}?project={{ project.pk }}"><button type="button" class="sec">Add unit</button></a>
+    <a href="{% url 'sales_units_bulk' %}?project={{ project.pk }}"><button type="button" class="sec">Add units in bulk</button></a>
+  {% endif %}
+</div>
+
+{% if not project %}
+  <div class="card">No project is Won yet. Units belong to a Won project.</div>
+{% else %}
+  <div class="kpis">
+    <div class="kpi"><div class="l">Units</div><div class="v">{{ total }}</div></div>
+    <div class="kpi"><div class="l">Available</div><div class="v">{{ counts.available }}</div></div>
+    <div class="kpi"><div class="l">Booked</div><div class="v">{{ counts.booked }}</div></div>
+    <div class="kpi"><div class="l">Registered</div><div class="v">{{ counts.registered }}</div></div>
+    <div class="kpi"><div class="l">Cancelled</div><div class="v">{{ counts.cancelled }}</div></div>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Unit</th><th>Type</th><th class="num">Carpet sqft</th><th class="num">Saleable sqft</th>
+      <th class="num">Base price</th><th>Status</th><th>Customer</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for group in groups %}
+      <tr><td colspan="8" style="background:#FAFBFD;font-weight:600;color:var(--navy)">
+        {% if group.block %}Block {{ group.block }} · {% endif %}Floor {{ group.floor }}</td></tr>
+      {% for row in group.rows %}
+        <tr>
+          <td><span class="code">{{ row.unit.number }}</span>{% if not row.unit.is_active %} <span class="pill p-draft">inactive</span>{% endif %}</td>
+          <td>{{ row.unit.get_kind_display }}</td>
+          <td class="num">{{ row.unit.carpet_sqft|qty }}</td>
+          <td class="num">{{ row.unit.saleable_sqft|qty }}</td>
+          <td class="num">₹{{ row.unit.base_price|rupees }}</td>
+          <td><span class="pill {{ row.pill }}">{{ row.word }}</span></td>
+          <td>{% if row.booking %}<a href="{% url 'sales_booking' row.booking.pk %}">{{ row.booking.customer.name }}</a>{% else %}—{% endif %}</td>
+          <td class="num">
+            {% if user|can:"sales.edit" %}
+              {% if row.bookable %}
+                <a href="{% url 'sales_booking_new' row.unit.pk %}"><button type="button" class="sm">Book</button></a>
+              {% endif %}
+              <a href="{% url 'sales_unit_form' row.unit.pk %}"><button type="button" class="sec sm">Edit</button></a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    {% empty %}
+      <tr><td colspan="8">No units yet on {{ project.code }}.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

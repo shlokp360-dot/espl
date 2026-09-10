@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% comment %}
+THE PRINTED TRANSMITTAL — rendered by WeasyPrint into the PDF.
+
+⚠ TABLES, NOT FLEXBOX, for the same reason as the purchase order: WeasyPrint's
+  CSS support varies by version and a table renders identically everywhere.
+⚠ NOT A FIGURE IS WORKED OUT HERE. Everything printed is a field on a row.
+{% endcomment %}
+<style>
+@page { size: A4; margin: 14mm 12mm 16mm 12mm;
+        @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #666; } }
+body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9.5pt; color: #111; }
+h1 { font-size: 15pt; margin: 0 0 2mm 0; }
+table { width: 100%; border-collapse: collapse; }
+table.head td { padding: 1mm 0; vertical-align: top; }
+table.lines th, table.lines td { border: 1px solid #999; padding: 1.6mm 2mm; text-align: left; }
+table.lines th { background: #eee; font-size: 8.5pt; }
+.mono { font-family: "DejaVu Sans Mono", monospace; }
+.small { font-size: 8pt; color: #555; }
+.box { border: 1px solid #999; padding: 2mm; margin-top: 5mm; }
+</style>
+</head>
+<body>
+
+<table class="head">
+  <tr>
+    <td style="width:60%"><h1>{{ company.name|default:"Elegance Skyz" }}</h1>
+      <div class="small">{{ company.address|default:"" }}</div></td>
+    <td style="text-align:right"><h1>Drawing transmittal</h1>
+      <div class="mono">{{ transmittal.number }}</div>
+      <div>{{ transmittal.issued_on|date:"d/m/Y" }}</div></td>
+  </tr>
+</table>
+
+<table class="head" style="margin-top:4mm">
+  <tr><td style="width:22%"><b>To</b></td><td>{{ transmittal.vendor.name }}{% if transmittal.vendor.contact_person %} · {{ transmittal.vendor.contact_person }}{% endif %}</td></tr>
+  <tr><td><b>Project</b></td><td>{{ project.code }} — {{ project.name }}{% if project.site_address %} · {{ project.site_address }}{% endif %}</td></tr>
+  <tr><td><b>Issued for</b></td><td>{{ transmittal.get_purpose_display }}</td></tr>
+  {% if transmittal.note %}<tr><td><b>Note</b></td><td>{{ transmittal.note }}</td></tr>{% endif %}
+</table>
+
+<table class="lines" style="margin-top:5mm">
+  <thead><tr>
+    <th style="width:8%">Sr</th>
+    <th style="width:10%">Group</th>
+    <th style="width:20%">Drawing no.</th>
+    <th>Title</th>
+    <th style="width:10%">Rev</th>
+    <th style="width:16%">Date received</th>
+  </tr></thead>
+  <tbody>
+    {% for line in lines %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ line.revision.drawing.group.code }}</td>
+        <td class="mono">{{ line.revision.drawing.number }}</td>
+        <td>{{ line.revision.drawing.title }}</td>
+        <td class="mono">{{ line.revision.label }}</td>
+        <td>{{ line.revision.received_on|date:"d/m/Y" }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="box">
+  Issued by {% if transmittal.issued_by %}{{ transmittal.issued_by.get_full_name|default:transmittal.issued_by.username }}{% else %}—{% endif %}
+  &nbsp;&nbsp;&nbsp;&nbsp; Received by: ______________________ &nbsp;&nbsp; Date: ____________
+</div>
+
+</body>
+</html>

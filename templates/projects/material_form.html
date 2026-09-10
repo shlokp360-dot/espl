@@ -33,7 +33,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
     <span class="ttl">
       {% if material.pk %}{{ material.code }} — {{ material.name }}{% else %}New material{% endif %}</span>
     <span class="sp"></span>
-    <a href="{% url 'material_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <a href="{% url 'material_list' %}" style="font-size:13px;margin-right:6px">Cancel</a>
     <button type="submit">{% if material.pk %}Save{% else %}Create material{% endif %}</button>
   </div>
 
@@ -45,7 +45,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
         <tr>
           <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
             <b>Code</b>
-            <div style="font-size:11px;color:var(--muted)">Assigned once. Never regenerated, so it
+            <div style="font-size:13px;color:var(--muted)">Assigned once. Never regenerated, so it
               may name the construction activity this material was born under rather than its current one</div></td>
           <td style="border:0;padding:8px 0">
             <span class="code" style="font-size:13px">{{ material.code }}</span></td>
@@ -60,7 +60,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Specification</b>
-          <div style="font-size:11px;color:var(--muted)">Brand or grade — ULTRATECH, ASTRAL</div></td>
+          <div style="font-size:13px;color:var(--muted)">Brand or grade — ULTRATECH, ASTRAL</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="specification" value="{{ material.specification|default:'' }}"
                  style="max-width:420px"></td>
@@ -68,7 +68,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Group</b>
-          <div style="font-size:11px;color:var(--muted)">Part of the code on a new material</div></td>
+          <div style="font-size:13px;color:var(--muted)">Part of the code on a new material</div></td>
         <td style="border:0;padding:8px 0">
           <select class="cell" name="group" style="max-width:320px">
             <option value="">— pick a group —</option>
@@ -96,7 +96,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       activity in the same material master screen, not as a separate tile."
     {% endcomment %}
     <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Which construction activity buys it</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       The home activity is required — it decides which BOM tab offers this material, and it is the
       first part of the code on a new one. The second is for the rare material genuinely bought
       under two construction activities; <b>leave it blank for almost everything</b>.
@@ -116,7 +116,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Also used in</b>
-          <div style="font-size:11px;color:var(--muted)">Optional. There is no third</div></td>
+          <div style="font-size:13px;color:var(--muted)">Optional. There is no third</div></td>
         <td style="border:0;padding:8px 0">
           <select class="cell" name="also_used_in" style="max-width:340px">
             <option value="">— none —</option>
@@ -129,7 +129,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Used by every construction activity</b>
-          <div style="font-size:11px;color:var(--muted)">Wall plugs, fevicol, hacksaw blades. Shows
+          <div style="font-size:13px;color:var(--muted)">Wall plugs, fevicol, hacksaw blades. Shows
             in every activity's list whatever its home</div></td>
         <td style="border:0;padding:8px 0">
           <label style="font-size:12.5px"><input type="checkbox" name="is_common"
@@ -138,7 +138,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
     </table>
 
     <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Money and tax</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>The estimation rate is what the BOM plans at, not what a vendor charges.</b> A vendor's
       price lives on the BOM line and on their rate list; this is the company's own planning figure.
       The BOQ is built from construction activity rates, per sqft, and not from this.
@@ -165,7 +165,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>HSN code</b>
-          <div style="font-size:11px;color:var(--muted)">Required on a GST invoice. Filled on first
+          <div style="font-size:13px;color:var(--muted)">Required on a GST invoice. Filled on first
             use</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="hsn_code" value="{{ material.hsn_code|default:'' }}"
@@ -178,7 +178,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Current stock</b>
-          <div style="font-size:11px;color:var(--muted)">Subtracted from what the BOM suggests
+          <div style="font-size:13px;color:var(--muted)">Subtracted from what the BOM suggests
             ordering</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell num" name="current_stock" style="max-width:180px"
@@ -187,7 +187,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Reorder level</b>
-          <div style="font-size:11px;color:var(--muted)">Below this the BOM flags it</div></td>
+          <div style="font-size:13px;color:var(--muted)">Below this the BOM flags it</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell num" name="reorder_level" style="max-width:180px"
                  value="{% if material.reorder_level %}{{ material.reorder_level|qty }}{% endif %}"></td>
@@ -195,7 +195,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Search aliases</b>
-          <div style="font-size:11px;color:var(--muted)">Site vocabulary — “saria” finds TMT bar,
+          <div style="font-size:13px;color:var(--muted)">Site vocabulary — “saria” finds TMT bar,
             “chips” finds aggregate</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="search_aliases" value="{{ material.search_aliases|default:'' }}"
@@ -204,7 +204,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Active</b>
-          <div style="font-size:11px;color:var(--muted)">Turn off instead of deleting. Every
+          <div style="font-size:13px;color:var(--muted)">Turn off instead of deleting. Every
             historical record still resolves</div></td>
         <td style="border:0;padding:8px 0">
           <label style="font-size:12.5px"><input type="checkbox" name="is_active"

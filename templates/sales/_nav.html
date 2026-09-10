@@ -1,0 +1,16 @@
+{% load perms %}
+{% comment %}
+The sales tab strip. `here` is one of: home, units, enquiries, bookings,
+collections, receipts.
+
+⚠ EVERY TAB HERE IS READABLE BY EVERY ROLE THAT HOLDS sales.view. The buttons
+  that need sales.edit or sales.collect are hidden on the screens themselves.
+{% endcomment %}
+<nav>
+  <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'sales_home' %}">Dashboard</a>
+  <a class="{% if here == 'units' %}on{% endif %}" href="{% url 'sales_units' %}">Units</a>
+  <a class="{% if here == 'enquiries' %}on{% endif %}" href="{% url 'sales_enquiries' %}">Enquiries</a>
+  <a class="{% if here == 'bookings' %}on{% endif %}" href="{% url 'sales_bookings' %}">Bookings</a>
+  <a class="{% if here == 'collections' %}on{% endif %}" href="{% url 'sales_collections' %}">Collections</a>
+  <a class="{% if here == 'receipts' %}on{% endif %}" href="{% url 'sales_receipts' %}">Receipts</a>
+</nav>

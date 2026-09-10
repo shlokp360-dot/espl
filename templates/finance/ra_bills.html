@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE RA BILL REGISTER — every bill on every work order, with the ladder's
+headline figures. The Excel button exports exactly what is filtered here.
+{% endcomment %}
+{% block title %}RA bills{% endblock %}
+{% block subtitle %}Contractor bills across every work order{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="ra_bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_ra_bills" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_ra_bills" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">RA bills</span>
+  <span class="sp"></span>
+  <form method="post" action="{% url 'finance_ra_bills_excel' %}" style="margin:0">
+    {% csrf_token %}
+    <input type="hidden" name="project" value="{{ chosen.project|default_if_none:'' }}">
+    <input type="hidden" name="vendor" value="{{ chosen.vendor|default_if_none:'' }}">
+    <input type="hidden" name="status" value="{{ chosen.status }}">
+    <button type="submit" class="sec">⤓ Excel</button>
+  </form>
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <select name="project" class="cell">
+      <option value="">All projects</option>
+      {% for p in projects %}<option value="{{ p.id }}" {% if p.id == chosen.project %}selected{% endif %}>{{ p.code }} · {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="vendor" class="cell">
+      <option value="">All contractors</option>
+      {% for v in vendors %}<option value="{{ v.id }}" {% if v.id == chosen.vendor %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="cell">
+      <option value="">Any status</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if value == chosen.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="sec sm">Filter</button>
+  </div>
+</form>
+
+<table style="margin-top:12px">
+  <thead><tr>
+    <th>RA bill</th><th>No.</th><th>Status</th><th>Bill date</th><th>Work order</th><th>Project</th><th>Contractor</th>
+    <th class="num">Taxable</th><th class="num">Invoice value</th><th class="num">Retention</th>
+    <th class="num">Advance rec.</th><th class="num">Net payable</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td><a href="{% url 'finance_ra_bill' row.bill.id %}"><span class="code">{{ row.bill.number }}</span></a>
+        {% if row.bill.is_final %}<span class="pill p-delivered">final</span>{% endif %}</td>
+      <td class="num">{{ row.bill.sequence }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.bill.get_status_display }}</span></td>
+      <td>{{ row.bill.bill_date|date:"d/m/Y" }}</td>
+      <td><a href="{% url 'finance_wo' row.bill.purchase_order.id %}">{{ row.bill.purchase_order.number }}</a></td>
+      <td>{{ row.bill.purchase_order.project.name }}</td>
+      <td>{{ row.bill.purchase_order.vendor.name }}</td>
+      <td class="num">₹{{ row.ladder.taxable|rupees }}</td>
+      <td class="num">₹{{ row.ladder.invoice_value|rupees }}</td>
+      <td class="num">₹{{ row.ladder.retention|rupees }}</td>
+      <td class="num">{% if row.ladder.advance_recovery %}₹{{ row.ladder.advance_recovery|rupees }}{% else %}—{% endif %}</td>
+      <td class="num"><b>₹{{ row.ladder.net_payable|rupees }}</b></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="12">No RA bill matches. Bills are raised from a work order's RA bills screen.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="7">Total · {{ rows|length }} bill{{ rows|length|pluralize }}</td>
+    <td class="num">₹{{ totals.taxable|rupees }}</td><td></td>
+    <td class="num">₹{{ totals.retention|rupees }}</td><td></td>
+    <td class="num">₹{{ totals.net_payable|rupees }}</td>
+  </tr></tfoot>
+</table>
+{% endblock %}

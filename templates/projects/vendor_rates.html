@@ -37,7 +37,7 @@ VENDOR RATES — what each supplier last quoted for a material.
         {% endfor %}
       </select>
       <button class="sec sm" type="submit">Search</button>
-      {% if applied %}<a href="{% url 'vendor_rate_list' %}" style="font-size:11.5px">clear</a>{% endif %}
+      {% if applied %}<a href="{% url 'vendor_rate_list' %}" style="font-size:13px">clear</a>{% endif %}
     </div>
   </form>
 
@@ -71,7 +71,7 @@ VENDOR RATES — what each supplier last quoted for a material.
                 project doorway, so the document must not offer project tabs
                 when it is opened from here.
               {% endcomment %}
-              <td style="font-size:11.5px">
+              <td style="font-size:13px">
                 {% if r.source_po_line %}
                   <a href="{% url 'po_detail' r.source_po_line.purchase_order.project_id r.source_po_line.purchase_order_id %}?from=register"
                      title="{{ r.source_po_line.purchase_order.project.code }} — {{ r.source_po_line.purchase_order.project.name }}">{{ r.source_po_line.purchase_order.number }}</a>

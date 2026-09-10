@@ -386,6 +386,28 @@ class PurchaseOrder(models.Model):
     tds_section = models.CharField(
         max_length=10, blank=True, help_text='e.g. 194Q for goods, 194C for a contractor.')
 
+    # ---- work order terms: retention, defect liability, mobilisation ----
+    # >>> ANCHOR: WO-TERMS <<<
+    # Read by finance.calc for every RA bill on this order and NOWHERE in the
+    # PO ladder above — a purchase order for cement carries no retention, and
+    # totals() must keep printing the same order value it always has. They are
+    # editable while the document is a draft, like the deduction and TDS, and
+    # frozen by approval, so an approved bill's figures can never move because
+    # somebody changed a term after the fact.
+    #
+    # ⚠ THESE THREE HAVE DEFAULTS, unlike deduction and TDS, and that is a
+    #   customer rule rather than a convenience: 10% retention on EVERY
+    #   contractor bill, a 12-month defect liability period, and no advance
+    #   unless one was agreed.
+    retention_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=10, validators=[MinValueValidator(0)],
+        help_text="Held back from every RA bill, on the work value (ex-GST). Work orders only.")
+    dlp_months = models.PositiveSmallIntegerField(
+        default=12, help_text="Defect liability period, months from the final bill's approval.")
+    mobilisation_advance = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="Advance agreed on the work order, recovered pro rata from each RA bill.")
+
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -672,6 +694,10 @@ class Receipt(models.Model):
     class Source(models.TextChoices):
         MANUAL = "manual", "Marked delivered by hand"
         TASK_MODULE = "task", "Task management module"
+        # A work order's certified quantity, written when an RA bill is
+        # approved — finance.services.approve, through record_receipt like
+        # every other source.
+        RA_BILL = "rabill", "Certified on an RA bill"
 
     po_line = models.ForeignKey(PurchaseOrderLine, on_delete=models.PROTECT, related_name="receipts")
     quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(0)])

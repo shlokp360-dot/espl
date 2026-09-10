@@ -53,6 +53,10 @@ class ATabNeverLeadsToA403(TestCase):
     def tabs_on(self, response):
         """The project screens this page offers a link to."""
         page = response.content.decode()
+        # ⚠ THE SIDEBAR ONLY. The top bar carries a Projects link on every screen
+        #   since the slice 10 restyle; that is a module link, not a project tab.
+        start, end = page.find("<nav"), page.find("</nav>")
+        page = page[start:end] if start >= 0 else ""
         return {name for name, url in (
             ("boq", reverse("boq_screen", args=[self.project.id])),
             ("bom", reverse("bom_screen", args=[self.project.id])),

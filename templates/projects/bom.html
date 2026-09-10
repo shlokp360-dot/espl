@@ -206,7 +206,7 @@ HOW EDITING WORKS
           <tr>
             <td class="code">{{ line.material.code }}</td>
             <td>{{ line.material.name }}
-              <div style="font-size:10.5px;color:var(--muted)">{{ line.material.specification }}</div>
+              <div style="font-size:13px;color:var(--muted)">{{ line.material.specification }}</div>
               {% if row.discontinued_reason %}
                 {# The same rule po_service refuses on, so the flag and the refusal agree. #}
                 <div><span class="pill p-nogst" title="Post POs will refuse while this is true">
@@ -445,9 +445,8 @@ started matching the draft-PO panel above once that was added.
     </div>
   </form>
 
-  <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">
-    {{ hit_count }} match{{ hit_count|pluralize:"es" }}{% if hit_count > search_limit %} — showing the first {{ search_limit }}{% endif %}.
-    Which materials this activity offers comes from the material–activity links, not from the code.
+  <div style="font-size:13px;color:var(--muted);margin-bottom:6px">
+    {{ hit_count }} match{{ hit_count|pluralize:"es" }}{% if hit_count > search_limit %} — showing the first {{ search_limit }}{% endif %}
   </div>
 
   <form method="post" action="{% url 'bom_add_lines' project.id %}">
@@ -480,7 +479,7 @@ started matching the draft-PO panel above once that was added.
     {% if hits %}
       <div style="margin-top:9px;display:flex;align-items:center;gap:12px">
         <button type="submit">Add ticked materials</button>
-        <span style="color:var(--muted);font-size:12px">they drop in with quantity blank, ready to type</span>
+        <span style="color:var(--muted);font-size:13px">they drop in with quantity blank, ready to type</span>
       </div>
     {% endif %}
   </form>

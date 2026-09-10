@@ -90,7 +90,7 @@ THE ANALYTICS OVERVIEW.
     <div class="grph">Paid, by construction activity</div>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
       {{ activity_donut }}
-      <div style="flex:1;min-width:160px;display:grid;gap:4px;font-size:11.5px">
+      <div style="flex:1;min-width:160px;display:grid;gap:4px;font-size:13px">
         {% for row in activity_rows %}
           <div style="display:flex;align-items:center;gap:7px">
             <i class="sw" style="background:{{ row.colour }}"></i>
@@ -109,7 +109,7 @@ THE ANALYTICS OVERVIEW.
       split them across construction activities, so this uses the line-level basic value —
       the same basis the BOQ reserve uses. It will not add up to money paid.
     {% endcomment %}
-    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">Before GST. See ⓘ.</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:9px">Before GST. See ⓘ.</div>
   </div>
 
   <div class="card">
@@ -120,7 +120,7 @@ THE ANALYTICS OVERVIEW.
       <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
     {% endfor %}
   </div>
-  <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+  <div style="font-size:13px;color:var(--muted);margin-top:8px">
     The gap is money still to leave the bank.
   </div>
 </div>

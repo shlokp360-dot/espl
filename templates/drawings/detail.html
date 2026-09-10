@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+ONE DRAWING: every revision, who approved which, and who was sent what.
+
+⚠ EVERY REVISION STAYS DOWNLOADABLE. The contractor sent R0 built from R0.
+⚠ APPROVE ONCE. The button disappears once a revision is approved; the server
+  refuses a second approval regardless.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — {{ drawing.number }}{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_detail" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_detail" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{{ drawing.number }} — {{ drawing.title }}</span>
+  <span class="pill {{ pill }}">{{ state_label }}</span>
+  {% if not drawing.is_active %}<span class="pill p-lost">deactivated</span>{% endif %}
+  <span class="sp"></span>
+  {% if user|can:"drawings.edit" %}
+    <a href="{% url 'drawings_edit' project.pk drawing.pk %}"><button type="button" class="sec">Edit</button></a>
+  {% endif %}
+  <a href="{% url 'drawings_register' project.pk %}"><button type="button" class="sec">Register</button></a>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Group</div><div class="v">{{ drawing.group.code }}</div></div>
+  <div class="kpi"><div class="l">Architect</div><div class="v">{{ drawing.architect.name|default:"—" }}</div></div>
+  <div class="kpi"><div class="l">Latest</div><div class="v">{{ latest.label|default:"—" }}</div></div>
+  <div class="kpi"><div class="l">Required by</div><div class="v">{% if drawing.required_by %}{{ drawing.required_by|date:"d/m/Y" }}{% else %}—{% endif %}</div></div>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:11px">
+  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Revisions</span></div>
+  <table>
+    <thead><tr class="hd">
+      <th style="width:70px">Label</th>
+      <th>File</th>
+      <th style="width:100px">Received</th>
+      <th style="width:100px">Status</th>
+      <th style="width:200px">Approved</th>
+      <th style="width:160px">Uploaded by</th>
+      <th style="width:190px"></th>
+    </tr></thead>
+    <tbody>
+      {% for revision in revisions %}
+        <tr>
+          <td class="code">{{ revision.label }}{% if forloop.first %} <span class="pill p-won">current</span>{% endif %}</td>
+          <td>{{ revision.original_name }}{% if revision.note %} · {{ revision.note }}{% endif %}</td>
+          <td>{{ revision.received_on|date:"d/m/Y" }}</td>
+          <td>{% if revision.approved_on %}<span class="pill p-approved">Approved</span>{% else %}<span class="pill p-delivered">Received</span>{% endif %}</td>
+          <td>{% if revision.approved_on %}{{ revision.approved_on|date:"d/m/Y" }}{% if revision.approved_by %} · {{ revision.approved_by.get_full_name|default:revision.approved_by.username }}{% endif %}{% else %}—{% endif %}</td>
+          <td>{% if revision.uploaded_by %}{{ revision.uploaded_by.get_full_name|default:revision.uploaded_by.username }}{% else %}—{% endif %} · {{ revision.uploaded_at|date:"d/m/Y" }}</td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'drawings_download' revision.pk %}"><button type="button" class="sec sm">Download</button></a>
+            {% if user|can:"drawings.edit" and not revision.approved_on %}
+              <form method="post" action="{% url 'drawings_approve' project.pk revision.pk %}" style="display:inline;margin:0">
+                {% csrf_token %}
+                <button type="submit" class="sm">Approve</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:14px">No revision has arrived yet — the drawing is Required.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if user|can:"drawings.edit" %}
+  <form method="post" enctype="multipart/form-data" id="upload" class="card" style="margin-bottom:11px"
+        action="{% url 'drawings_upload' project.pk drawing.pk %}">
+    {% csrf_token %}
+    <div class="toolbar" style="margin:0 0 8px;padding:0"><span class="ttl">Upload a revision</span></div>
+    <div style="display:grid;grid-template-columns:100px 1fr 150px 1fr;gap:10px;align-items:end">
+      <label>Label<br><input class="cell" name="label" maxlength="12" required value="{{ suggested_label }}"></label>
+      <label>File<br><input class="cell" type="file" name="file" accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png,.zip" required></label>
+      <label>Received on<br><input class="cell" type="date" name="received_on" value="{{ today|date:'Y-m-d' }}"></label>
+      <label>Note<br><input class="cell" name="note" maxlength="300"></label>
+    </div>
+    {% if state == 'approved' %}
+      <div class="note tight" style="margin-top:8px"><b>{{ latest.label }} is approved.</b> A new revision supersedes it and the drawing goes back to Received until approved.</div>
+    {% endif %}
+    <div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="submit">Upload</button></div>
+  </form>
+{% endif %}
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Sent to</span></div>
+  <table>
+    <thead><tr class="hd">
+      <th style="width:110px">Transmittal</th>
+      <th>Contractor</th>
+      <th style="width:70px">Revision</th>
+      <th style="width:140px">Purpose</th>
+      <th style="width:100px">Issued</th>
+    </tr></thead>
+    <tbody>
+      {% for line in sent_to %}
+        <tr>
+          <td class="code"><a href="{% url 'drawings_transmittal' project.pk line.transmittal.pk %}">{{ line.transmittal.number }}</a></td>
+          <td>{{ line.transmittal.vendor.name }}</td>
+          <td class="code">{{ line.revision.label }}</td>
+          <td>{{ line.transmittal.get_purpose_display }}</td>
+          <td>{{ line.transmittal.issued_on|date:"d/m/Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" style="padding:14px">Not sent to any contractor yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

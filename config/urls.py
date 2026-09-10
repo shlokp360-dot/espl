@@ -44,5 +44,8 @@ urlpatterns = [
     path("", include("tasks.urls")),
     path("", include("analytics.urls")),
     path("", include("compliance.urls")),
+    path("", include("sales.urls")),
+    path("", include("finance.urls")),
+    path("", include("drawings.urls")),
     path("", include("projects.urls")),
 ]

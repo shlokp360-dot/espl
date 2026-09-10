@@ -65,7 +65,7 @@ every BOQ in the company.
         <option value="all" {% if applied.show == 'all' %}selected{% endif %}>Active and inactive</option>
       </select>
       {% if applied.q or applied.group or applied.activity %}
-        <a href="{% url 'material_list' %}" style="font-size:11.5px">clear filters</a>
+        <a href="{% url 'material_list' %}" style="font-size:13px">clear filters</a>
       {% endif %}
     </div>
   </form>
@@ -118,7 +118,7 @@ every BOQ in the company.
             class="srow" style="margin:0">
         {% csrf_token %}
         <input type="file" name="file" accept=".xlsx" required
-               style="font-size:11.5px;max-width:280px">
+               style="font-size:13px;max-width:280px">
         <button class="sec sm" type="submit">⤒ Upload the corrected file</button>
       </form>
     </div>

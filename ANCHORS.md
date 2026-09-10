@@ -197,6 +197,30 @@ COMPLIANCE-SCREENS         compliance/views.py             who reads, who upload
 COMPLIANCE-MASTER          compliance/views.py             the template, and the blast radius
 DUMMY-GSTINS               seed_dummy_gstins.py            fake tax numbers, and how they stay fake
 PO-LINE-SHARES             bom_models.py, views.py         document money split across the lines, exactly
+ANCHOR                     Lives in                        What it governs
+SALES-MODEL                sales/models.py                 the chain Unit→Booking→Customer, derived statuses
+SALES-ONE-BOOKING          sales/models.py, services.py    one live booking per unit, three ways
+SALES-SCHEDULE             calc.py, models.py, services.py  percents total 100; header-linked demands
+SALES-CALC                 sales/calc.py                   every sales figure, Decimal, one place
+SALES-CALC-BULK            sales/calc.py                   list screens: two queries, not two per row
+SALES-SERVICES             sales/services.py               every write to a booking, atomic, with a history row
+SALES-SCREENS              sales/views.py                  who may read, edit, collect
+ANCHOR                     Lives in                        What it governs
+WO-TERMS                   bom_models.py, po_service.py,   retention, DLP and advance terms on a WO,
+RA-BILL-OWNS-THE-WO        projects/po_service.py          a billed WO is completed and paid by finance
+FIN-MODEL                  finance/models.py               bills store quantities and frozen rates, no money
+FIN-CALC                   finance/calc.py                 the RA bill ladder, ONE copy, half-up per rung
+FIN-CALC-BULK              finance/calc.py                 registers: fixed queries, not per row
+FIN-CUMULATIVE             finance/services.py             certified to date may not exceed the order
+FIN-SERVICES               finance/services.py             every finance write, atomic, user-facing refusals
+FIN-SCREENS                finance/views.py                who may read, certify, approve, pay
+DRAWINGS-MODEL               drawings/models.py              five tables; the number is the architect's
+DRAWINGS-STATUS              drawings/status.py              Required/Received/Approved, from the newest revision
+DRAWINGS-NO-DELETE           drawings/models.py              a drawing with history is deactivated, never deleted
+DRAWINGS-APPROVE-ONCE        drawings/models.py              who and when, recorded once
+DRAWINGS-LABEL-UNIQUE        drawings/views.py               R1 twice on one drawing is refused
+DRAWINGS-TRANSMITTAL-ATOMIC  drawings/models.py              header and lines together; empty is refused before a number
+DRAWINGS-SCREENS             drawings/views.py               who reads, who uploads, how files serve
 ```
 
 ---
@@ -1576,3 +1600,252 @@ python manage.py runserver         then open http://127.0.0.1:8000/
 `test` proves the CODE is right using invented data. `check_integrity` checks
 that YOUR DATA is sane. You need both — correct code can still be handed a
 spreadsheet with two materials sharing a code.
+
+---
+
+## Sales (slice 10)
+## The long-form entries
+
+### `SALES-MODEL` — `sales/models.py`
+**Unit ← Booking → Customer, with the schedule, demands, receipts and history hanging off the
+booking.** A customer is identified by PHONE, exactly as a vendor is — two Patels with two flats
+are two customers, one Patel typed twice is one — and the booking form looks the phone up before
+it creates anybody.
+
+**⚠ STATUS IS DERIVED WHEREVER IT CAN BE.** A unit's status (available / booked / registered /
+cancelled) is read from its bookings; a demand's (open / part-paid / paid) from its receipts.
+Nobody maintains either, so nothing can quietly disagree with reality. The one typed status is the
+booking's own ladder — booked → agreement → registered, or cancelled — because those are decisions
+with dates, not arithmetic.
+
+**⚠ CANCELLED ON A UNIT MEANS "WAS SOLD, IS FOR SALE AGAIN".** It is bookable, and the KPI counts
+it with the available ones; the word stays on the grid so the person selling it knows there is a
+history to look at.
+
+**⚠ COPY, DON'T LINK.** A demand freezes `amount` and `gst_percent` at the moment it is raised.
+Change the booking's GST afterwards and the letter the customer holds does not move. A test proves it.
+
+### `SALES-ONE-BOOKING` — `sales/models.py`, `sales/services.py`
+**A unit may have at most one booking that is not cancelled — enforced three ways.**
+`Booking.clean()` and `services.book_unit` give a person a sentence naming the clashing booking;
+the partial unique index `one_live_booking_per_unit` (`UniqueConstraint(fields=["unit"],
+condition=~Q(status="cancelled"))`) is what holds when two people press Book in the same second.
+Tested at all three levels, including the `IntegrityError` under a direct create.
+
+### `SALES-SCHEDULE` — `sales/calc.py`, `sales/models.py`, `sales/services.py`
+**The construction-linked payment schedule: rows of (name, percent), and the percents must total
+exactly 100.** `calc.DEFAULT_SCHEDULE` is the eight-row template a new booking starts with
+(10/10/10/15/15/15/15/10); the booking form shows it as editable rows and `calc.validate_schedule`
+refuses anything else, with the actual total in the message.
+
+**⚠⚠ THE 100 IS CHECKED ON WHAT WILL BE SAVED, NOT ON WHAT WAS TYPED.** A milestone that already
+has a demand letter keeps its name and percent whatever the rows say — the letter is out. So a row
+that tries to change that percent is REFUSED rather than silently kept, otherwise the typed rows
+could add to 100 and the saved schedule to something else. Deleting such a row is refused too.
+
+**⚠ A MILESTONE MAY LINK A HEADER TASK.** "A milestone is a header task" is the vocabulary rule, and
+here it is literal: `PaymentMilestone.task_header` points at `tasks.TaskHeader`. When every subtask
+under that header is Done, `services.raise_demands_for_milestone(project, header)` raises the
+letter on every live booking of the project whose schedule links it and has no demand yet. Safe
+to run twice; refused while the header is unfinished. The button is on the Collections screen.
+
+### `SALES-CALC` — `sales/calc.py`
+**Every figure a sales screen, the demand letter or an Excel export shows, one function each, all
+`Decimal`, rounded half-up to the paisa where calculated.** `milestone_amount`, `demand_gst`,
+`demand_total`, `booking_gst`, `booking_total`, `receipt_credit`, `collected`, `demanded`,
+`outstanding`, `due_balance`, `overdue`, `demand_status`, `unit_status`, `ledger`,
+`refund_on_cancel`, `suggested_tds`, `ageing_bucket`. A template never adds; a view never repeats a
+formula. Sums are done in Python over prefetched rows, never in SQL — SQLite integer-divides
+percentages.
+
+**⚠ THE LEDGER CONVENTION.** A demand is a debit (the customer owes it), a receipt a credit. A
+receipt's credit is `amount + tds_amount`: under section 194-IA the buyer withholds 1% above fifty
+lakh and deposits it in the developer's name, so the customer is credited for both while the bank
+received only the amount. `suggested_tds(booking, amount=None)` gives the 1% when the agreement
+value crosses the threshold, zero below it.
+
+**⚠ AN ON-ACCOUNT RECEIPT PAYS THE OLDEST OPEN DEMAND FIRST** (`allocate_receipts`) — the customer
+paid before the letter or without quoting it, and the money is still theirs against the earliest
+thing they owe. Excess stays as an advance and the ledger says so in words, not with a minus sign.
+
+**⚠ REFUND ON CANCEL** is collected less a deduction that is a percent of the AGREEMENT value
+(a forfeiture clause reads "10% of the consideration"), capped at what was actually collected.
+
+### `SALES-CALC-BULK` — `sales/calc.py`
+**`bulk_booking_figures`, `bulk_demand_figures`, `bulk_unit_status` — every list screen's
+figures in two queries however many rows there are.** The dashboard, the unit grid, the booking
+register, collections and receipts all use them. `sales/tests.py::QueryCounts` renders each screen
+with 4 rows and then 24 and asserts fewer than 10 extra queries.
+
+**⚠ `bulk_demand_figures` FETCHES EVERY DEMAND OF THE BOOKINGS INVOLVED, not only the ones listed** —
+on-account receipts are allocated oldest-first across the whole booking, so a filtered list
+would allocate wrongly if it saw only part of the picture.
+
+### `SALES-SERVICES` — `sales/services.py`
+**Every write to a booking is one function here, atomic, raising `SalesError` with a sentence, and
+leaving a `BookingEvent` row.** `book_unit` (customer by phone, booking, schedule, marks the
+enquiry Booked), `raise_demand` (one letter per milestone, or ad hoc), `raise_demands_for_milestone`,
+`record_receipt`, `mark_agreement`, `mark_registered`, `cancel_booking` (refuses a registered
+sale; records the refund), `transfer_booking` (keeps `transferred_from`), `write_schedule`.
+A view never writes a Booking, a Demand or a receipt directly.
+
+**⚠ A REGISTERED SALE CANNOT BE CANCELLED HERE.** The deed is registered; undoing it is a legal act
+outside this system. A cancelled booking refuses further demands and receipts.
+
+### `SALES-SCREENS` — `sales/views.py`
+**Who may do what:** `sales.view` (Admin, Project manager, Accountant) reads everything, every PDF
+and every Excel; `sales.edit` (Admin, Project manager) creates and edits units, enquiries and
+bookings, cancels and transfers; `sales.collect` (Admin, Accountant) raises demands and records
+receipts. The Collections and Receipts registers are READ by `sales.view`; the POSTs on them are
+`sales.collect`. Buttons a role cannot use are hidden with `{{ user|can:… }}` and the view refuses
+them anyway.
+
+**⚠ THE DEMAND LETTER PDF** follows `po_pdf` exactly: WeasyPrint imported inside the view, tables not
+flexbox, "Rs" not `₹`, and the test injects a fake module into `sys.modules`.
+
+**⚠ RAW IDS ARE `.isdigit()`-GUARDED**, project-scoped objects are fetched scoped to the project
+(`PaymentMilestone … booking=booking`, `TaskHeader … project=project`), and Booked on an enquiry is
+set only by booking a unit — never from the stage dropdown — so the funnel cannot say Booked with
+no booking behind it.
+
+---
+
+## Finance (slice 10)
+**⚠ RETENTION IS ON THE WORK VALUE, NOT THE INVOICE.** Retention secures the work; the GST is
+the contractor's liability to the department this month and is paid in full. The deduction
+stays post-tax because it is the same agreed deduction as on the order (PO-TOTALS), and one
+base for both would put one of them on the wrong money — the test fixture carries three GST
+rates so the two bases give visibly different answers.
+
+**⚠ THE ADVANCE RECOVERY FOLLOWS THE AGREED TERM, NOT THE PAYMENTS REGISTER.** Outstanding =
+`mobilisation_advance` less what earlier APPROVED bills recovered. Not the sum of advance
+payments made: a bill approved in March must print the same figures in June, and a payment
+recorded late would otherwise move an approved bill's net payable. The work order screen shows
+advance agreed / paid / recovered side by side for the case where they differ; a test proves a
+late advance payment leaves an approved bill's net payable untouched.
+
+**⚠ "TO DATE" SUMS OVER APPROVED AND PAID BILLS ONLY**, exactly as a draft PO counts nowhere in
+ANALYTICS-MONEY. `dlp_end` = final bill's `approved_at` + `dlp_months`, None until then;
+`retention_eligible` = DLP ended and a balance held.
+
+**PO side:** `po_settlement` = order `net_payable` (from `totals()`), Σ invoice totals, Σ
+payments, Σ TDS withheld, balance = net payable − paid; `over_invoiced` when Σ invoice totals
+exceed the order value — amount level only, an invoice carries no quantities.
+
+### `FIN-CALC-BULK` — `finance/calc.py`
+**`bulk_cumulative`, `bulk_bill_figures`, `bulk_invoice_figures`, `bulk_po_settlement` fetch
+every related row for a set of orders in a fixed number of queries.** `bulk_bill_figures`
+fetches the WHOLE order's bills even when the caller filtered some out, because the advance
+carry runs bill to bill. Tests pin the registers at fewer than ten extra queries between 3 and
+23 work orders.
+
+### `FIN-CUMULATIVE` — `finance/services.py`
+**Cumulative certified — earlier approved bills plus this one — may not exceed the work order
+line's quantity.** Checked on save, on certify and again on approve; refused with the line
+named and the excess stated ("… which is 0.500 over the order's 10.000"). Over-delivery on a
+PO is allowed (TASK-MODULE); over-certification on a WO is not, because certification is what
+the contractor gets paid for.
+
+### `FIN-SERVICES` — `finance/services.py`
+**Every write, atomic, raising `FinanceError` with a message for the person.**
+DRAFT → CERTIFIED → APPROVED → PAID, strictly sequential. One open bill per work order; no bill
+after an approved final bill; approve needs every line certified and writes receipts through
+`record_receipt` with `Source.RA_BILL` (zero lines write none); part payments allowed, PAID when
+Σ amount ≥ net payable, never more than is left; the WO turns PAID when every bill is paid and a
+final bill exists. Retention release refuses more than the balance and refuses before the DLP
+unless `override=True` WITH a note; it writes a `RetentionRelease` AND a `VendorPayment` of kind
+`retention_release`, because the money left the bank and the register goes to Tally. A PO turns
+PAID when Σ payments ≥ its net payable and it is DELIVERED. Numbers `RA-` / `VB-` / `PV-` come
+from `NumberSeries`, never from max().
+
+### `FIN-SCREENS` — `finance/views.py`
+**finance.view** reads everything; **finance.certify** raises bills, types certified quantities,
+discards drafts; **finance.approve** approves bills and releases retention; **finance.pay**
+records invoices and payments.
+
+**⚠ TWO SCREENS OPEN TO view OR certify — `finance_wo` and `finance_ra_bill` — via
+`requires_any`.** The site engineer holds certify and not view; the bill they certify must be a
+screen they can open, and "a permission is only real if the role can reach the screen the
+button is on" (PERMS-MATRIX). Used on those two READS only; every write behind them carries its
+own single key, and tests prove Site is refused every register, the PDF and the PO screens.
+The nav strip is hidden without finance.view so no tab leads to a 403.
+
+**RA bill PDF is approved onwards only** (the PO-PDF rule). The Excel exports follow the
+screen's filters; widths and formats are keyed off `headings`, never counted by hand.
+
+---
+
+## Drawings (slice 10)
+## Drawings
+
+### `DRAWINGS-MODEL` — `drawings/models.py`
+**Five tables, two of them masters.** `Architect` and `DrawingGroup` are
+shared; `Drawing`, `DrawingRevision`, `Transmittal`/`TransmittalLine` are per
+project. The register is grouped by `DrawingGroup` (ARC, STR, MEP, LND, INT,
+SUR — seeded by `0002_seed_groups`).
+
+**The drawing number is typed, not generated.** It is the architect's number
+from the title block, unique per project only — two architects on two sites may
+both call their first sheet A-101.
+
+**A revision is a new row.** `DrawingRevision` is versioned by existence: the
+newest row (`-uploaded_at, -id`) is current, and every earlier one stays and
+stays downloadable, because the contractor who was sent R0 built from R0.
+
+**A transmittal is a record, not a message.** Nothing is sent from the system.
+`TransmittalLine` points at the REVISION, not the drawing, so R1 arriving later
+cannot change what the record says a contractor was handed. Numbered
+`TR-000001` from `NumberSeries("transmittal")`.
+
+Affects: every drawings screen, the transmittal PDF, `drawings/status.py`.
+
+### `DRAWINGS-STATUS` — `drawings/status.py`
+**Derived, never typed.** Required = no revision; Received = newest revision
+not approved; Approved = newest revision approved. A newer revision after an
+approved one puts the drawing back to Received — the paper on site is no longer
+the paper that was approved.
+
+**`latest_by_drawing` is the bulk hand-down.** One query for the newest
+revision of every drawing on a list screen; `Drawing.status` is for one drawing
+and costs a query each. Tested by the query-shape tests in `drawings/tests.py`
+(N rows vs N+20, fewer than 10 extra queries).
+
+### `DRAWINGS-NO-DELETE` — `drawings/models.py`, `Drawing.delete()`
+**Refused once a revision exists.** The revision FK cascades at the database,
+so this guard is the only thing between a stray delete and a transmittal that
+says a contractor was sent a drawing that no longer exists. Raises
+`DrawingInUse`; the screens offer only the Active tick. A revision on a
+transmittal is `PROTECT`ed by the line. A drawing nothing points at can still be
+deleted — the same rule as everywhere else.
+
+### `DRAWINGS-APPROVE-ONCE` — `drawings/models.py`, `DrawingRevision.approve()`
+**Who and when, recorded once.** A second approval is refused with the first
+approver's name and date in the message; the screen hides the button once
+approved and the server refuses regardless. Re-approving would move the
+signature onto somebody else.
+
+### `DRAWINGS-LABEL-UNIQUE` — `drawings/views.py`, `upload`
+**R1 twice on one drawing is refused, not replaced.** Enforced case-insensitively
+in the view with a message, and by a unique constraint `(drawing, label)` at the
+database. The new file gets its own label; nothing is ever overwritten.
+
+### `DRAWINGS-TRANSMITTAL-ATOMIC` — `drawings/models.py`, `Transmittal.issue()`
+**Header and lines together, or not at all — and an empty one is refused
+BEFORE a number is taken.** A numbered transmittal with no lines would burn a
+number and sit on the register saying nothing. Also refuses a revision from
+another project. The view resolves ticked drawings to their newest revision and
+offers only drawings that have one.
+
+### `DRAWINGS-SCREENS` — `drawings/views.py`
+**Who may do what**, from `accounts/perms.py` and not widened here:
+`drawings.view` (A, PM, PUR, SITE) reads and downloads; `drawings.edit` (A, PM)
+registers, uploads, approves, edits the masters; `drawings.transmit` (A, PM)
+records a transmittal.
+
+**⚠ Files are served through `download` and never from a URL.** No MEDIA_URL,
+nothing under the static tree; a missing file is a 404, not a crash. Every
+per-project object is fetched scoped to the project
+(`get_object_or_404(..., project=project)` / `drawing__project=project`).
+
+**The transmittal PDF imports WeasyPrint inside the view**, the same as
+`po_pdf`, and the test stubs the module in `sys.modules`.

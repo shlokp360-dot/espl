@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+ADD SEVERAL DRAWINGS AT ONCE — one line each, "number | title", under one group.
+⚠ ALL OR NOTHING: a bad line refuses the whole paste, and says which line.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — add several drawings{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_bulk" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_bulk" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Add several drawings</span>
+  <span class="sp"></span>
+  <a href="{% url 'drawings_register' project.pk %}"><button type="button" class="sec">Back</button></a>
+</div>
+
+<form method="post" class="card" style="max-width:720px;display:grid;gap:10px">
+  {% csrf_token %}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <label>Group<br>
+      <select class="cell" name="group" required>
+        <option value="">choose…</option>
+        {% for option in groups %}<option value="{{ option.pk }}">{{ option.code }} — {{ option.name }}</option>{% endfor %}
+      </select></label>
+    <label>Architect<br>
+      <select class="cell" name="architect">
+        <option value="">—</option>
+        {% for option in architects %}<option value="{{ option.pk }}">{{ option }}</option>{% endfor %}
+      </select></label>
+  </div>
+  <label>Lines — number | title<br>
+    <textarea class="cell" name="lines" rows="12" style="width:100%;font-family:monospace" placeholder="A-101 | Ground floor plan&#10;A-102 | First floor plan">{{ lines }}</textarea></label>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button type="submit">Register all</button>
+  </div>
+</form>
+
+{% endblock %}

@@ -40,7 +40,7 @@ looking for a Create Project button and not finding one.
     <span class="ttl">
       {% if project.pk %}{{ project.code }} — {{ project.name }}{% else %}New project{% endif %}</span>
     <span class="sp"></span>
-    <a href="{% url 'project_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <a href="{% url 'project_list' %}" style="font-size:13px;margin-right:6px">Cancel</a>
     <button type="submit">{% if project.pk %}Save{% else %}Create project{% endif %}</button>
   </div>
 
@@ -53,7 +53,7 @@ looking for a Create Project button and not finding one.
         <tr>
           <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
             <b>Code</b>
-            <div style="font-size:11px;color:var(--muted)">Assigned once, never changes</div></td>
+            <div style="font-size:13px;color:var(--muted)">Assigned once, never changes</div></td>
           <td style="border:0;padding:8px 0">
             <span class="code" style="font-size:13px">{{ project.code }}</span></td>
         </tr>
@@ -80,7 +80,7 @@ looking for a Create Project button and not finding one.
             assumed, because two people measuring it differently produce two
             different projects.
           {% endcomment %}
-          <div style="font-size:11px;color:var(--muted)">Including common areas, staircase,
+          <div style="font-size:13px;color:var(--muted)">Including common areas, staircase,
             lift lobby and mumty. Every construction activity's amount is rate × this.</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell num" name="bua_sqft"
@@ -90,7 +90,7 @@ looking for a Create Project button and not finding one.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Floors</b>
-          <div style="font-size:11px;color:var(--muted)">Recorded, but does not affect the rate
+          <div style="font-size:13px;color:var(--muted)">Recorded, but does not affect the rate
             today — a G+3 quotes the same as a G+7</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="floors" value="{{ project.floors|default:'' }}"
@@ -104,7 +104,7 @@ looking for a Create Project button and not finding one.
             built, which is exactly when it is busiest. Completed means the
             building is finished and the job leaves the default list.
           {% endcomment %}
-          <div style="font-size:11px;color:var(--muted)">Won means sold. Completed means the
+          <div style="font-size:13px;color:var(--muted)">Won means sold. Completed means the
             building is finished and it leaves the default list.</div></td>
         <td style="border:0;padding:8px 0">
           <select class="cell" name="status" style="max-width:200px">
@@ -124,7 +124,7 @@ looking for a Create Project button and not finding one.
     approval so editing this later cannot rewrite an order already sent.
     {% endcomment %}
     <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Addresses</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:840px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:840px">
       Both print on this project's purchase orders. The site address also pre-fills the delivery
       address on every order, and is <b>frozen onto a document when it is approved</b> — so changing
       it here never rewrites an order already sent to a vendor.
@@ -134,7 +134,7 @@ looking for a Create Project button and not finding one.
       <tr>
         <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Billing address</b>
-          <div style="font-size:11px;color:var(--muted)">Where the vendor's invoice goes. Leave
+          <div style="font-size:13px;color:var(--muted)">Where the vendor's invoice goes. Leave
             blank to use the company's registered address</div></td>
         <td style="border:0;padding:8px 0">
           <textarea class="cell" name="billing_address" rows="3"
@@ -143,7 +143,7 @@ looking for a Create Project button and not finding one.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Site address</b>
-          <div style="font-size:11px;color:var(--muted)">Where material is delivered</div></td>
+          <div style="font-size:13px;color:var(--muted)">Where material is delivered</div></td>
         <td style="border:0;padding:8px 0">
           <textarea class="cell" name="site_address" rows="3"
                     style="max-width:420px">{{ project.site_address|default:'' }}</textarea></td>

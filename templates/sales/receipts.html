@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Receipts{% endblock %}
+{% block subtitle %}Money received from customers{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="receipts" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_receipts" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_receipts" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Receipts</span>
+  <span class="sp"></span>
+  <a href="{% url 'sales_receipts_excel' %}?project={{ applied.project|default:'' }}&from={{ applied.from|default:'' }}&to={{ applied.to|default:'' }}&mode={{ applied.mode|default:'' }}"><button type="button" class="sec">Excel</button></a>
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+  <div class="srow">
+    <select name="project" title="Which project">
+      <option value="">Every project</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if applied.project == p.pk %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>{% endfor %}
+    </select>
+    <input type="date" name="from" value="{{ applied.from|default:'' }}" title="From">
+    <input type="date" name="to" value="{{ applied.to|default:'' }}" title="To">
+    <select name="mode" title="Mode">
+      <option value="">Every mode</option>
+      {% for value, label in modes %}<option value="{{ value }}" {% if applied.mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="sec sm" type="submit">Apply</button>
+    {% if applied %}<a href="{% url 'sales_receipts' %}" style="font-size:13px">clear filters</a>{% endif %}
+  </div>
+</form>
+
+<table>
+  <thead><tr>
+    <th>Receipt</th><th>Received</th><th>Project</th><th>Unit</th><th>Booking</th><th>Customer</th><th>Against</th><th>Mode</th><th>Reference</th>
+    <th class="num">Amount</th><th class="num">TDS</th><th class="num">Credited</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="code">{{ row.number }}</td>
+      <td>{{ row.received_on|date:"d/m/Y" }}</td>
+      <td>{{ row.booking.unit.project.code }}</td>
+      <td class="code">{{ row.booking.unit.number }}</td>
+      <td><a href="{% url 'sales_booking' row.booking.pk %}" class="code">{{ row.booking.number }}</a></td>
+      <td>{{ row.booking.customer.name }}</td>
+      <td>{% if row.demand %}{{ row.demand.number }}{% else %}On account{% endif %}</td>
+      <td>{{ row.get_mode_display }}</td>
+      <td>{{ row.reference|default:"—" }}</td>
+      <td class="num">₹{{ row.amount|rupees2 }}</td>
+      <td class="num">{% if row.tds_amount %}₹{{ row.tds_amount|rupees2 }}{% else %}—{% endif %}</td>
+      <td class="num">₹{{ row.credit_amount|rupees2 }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="12">No receipts match.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="9">{{ rows|length }} receipt{{ rows|length|pluralize }}</td>
+    <td class="num">₹{{ totals.amount|rupees2 }}</td>
+    <td class="num">₹{{ totals.tds|rupees2 }}</td>
+    <td class="num">₹{{ totals.credit|rupees2 }}</td>
+  </tr></tfoot>
+</table>
+{% endblock %}

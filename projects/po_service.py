@@ -419,6 +419,26 @@ def capture_vendor_rates(purchase_order):
         )
 
 
+def _refuse_if_billed_by_ra(purchase_order, word):
+    """
+    >>> ANCHOR: RA-BILL-OWNS-THE-WO <<<
+    Once a work order has an RA bill, its Completed and Paid steps belong to
+    the finance module: the final bill's approval marks it completed with the
+    CERTIFIED quantities as receipts, and the last payment marks it paid. The
+    hand buttons would write a full-quantity receipt on top of the certified
+    ones, or call a work order paid while a bill is still open — so they are
+    refused and the person is sent to the screen that owns it.
+
+    ⚠ Imported inside the function: finance imports projects, not the other
+      way round, and a module-level import here would make that a cycle.
+    """
+    from finance.models import RABill
+    if RABill.objects.filter(purchase_order=purchase_order).exists():
+        raise POError(f"{purchase_order.number} is billed through RA bills, so it cannot be "
+                      f"marked {word} here. Open Finance → RA bills for this work order: the "
+                      f"final bill marks it completed and the last payment marks it paid.")
+
+
 @transaction.atomic
 def mark_delivered(purchase_order, received_on=None, note="", user=None):
     """
@@ -430,6 +450,7 @@ def mark_delivered(purchase_order, received_on=None, note="", user=None):
     if purchase_order.status != PurchaseOrder.Status.APPROVED:
         raise POError(f"{purchase_order.number} is {purchase_order.get_status_display()}. "
                       f"Only an approved order can be marked delivered.")
+    _refuse_if_billed_by_ra(purchase_order, "completed")
 
     record_full_delivery(purchase_order, received_on=received_on, note=note)
     purchase_order.status = PurchaseOrder.Status.DELIVERED
@@ -448,6 +469,7 @@ def mark_paid(purchase_order, user=None):
         raise POError(f"{purchase_order.number} is {purchase_order.get_status_display()}. "
                       f"Only a delivered order can be marked paid. If you have paid an advance "
                       f"before delivery, that is not yet recorded here — see PROJECT-CONTEXT.md.")
+    _refuse_if_billed_by_ra(purchase_order, "paid")
 
     purchase_order.status = PurchaseOrder.Status.PAID
     purchase_order.paid_at = timezone.now()
@@ -525,9 +547,17 @@ def update_draft_line(po_line, quantity=None, rate=None, gst_percent=None,
 
 @transaction.atomic
 def update_draft_document(order, deduction_pct=None, tds_pct=None, tds_section=None,
-                          terms=None, delivery_address=None, required_by=None):
+                          terms=None, delivery_address=None, required_by=None,
+                          retention_pct=None, dlp_months=None, mobilisation_advance=None):
     """
-    The document-level fields: the post-tax deduction, TDS, terms and delivery.
+    The document-level fields: the post-tax deduction, TDS, terms and delivery,
+    and on a work order the retention, defect liability and advance terms.
+
+    >>> ANCHOR: WO-TERMS <<<
+    The three work-order terms are bounded here rather than in the model:
+    retention 0–50%, DLP 0–60 months, an advance of at least zero and never
+    more than the order's own taxable value — an advance bigger than the work
+    could never be recovered from the bills.
 
     ⚠ NEITHER PERCENTAGE HAS A DEFAULT, and that is deliberate (Saahil, 10 Aug).
       They are single numbers that genuinely vary order to order, and a default
@@ -560,6 +590,29 @@ def update_draft_document(order, deduction_pct=None, tds_pct=None, tds_section=N
         order.delivery_address = str(delivery_address)
     if required_by is not None:
         order.required_by = required_by or None
+
+    if retention_pct is not None:
+        amount = Decimal(str(retention_pct))
+        if amount < ZERO or amount > 50:
+            raise POError("Retention must be between 0 and 50 per cent.")
+        order.retention_pct = amount
+    if dlp_months is not None:
+        try:
+            months = int(str(dlp_months).strip() or 0)
+        except ValueError:
+            raise POError("The defect liability period must be a whole number of months.")
+        if months < 0 or months > 60:
+            raise POError("The defect liability period must be between 0 and 60 months.")
+        order.dlp_months = months
+    if mobilisation_advance is not None:
+        amount = _money(Decimal(str(mobilisation_advance)))
+        if amount < ZERO:
+            raise POError("A mobilisation advance cannot be negative.")
+        taxable = order.totals()["taxable"]
+        if amount > taxable:
+            raise POError(f"A mobilisation advance of {amount} is more than the order's basic "
+                          f"value of {taxable}. It could never be recovered from the bills.")
+        order.mobilisation_advance = amount
 
     order.save()
     return order

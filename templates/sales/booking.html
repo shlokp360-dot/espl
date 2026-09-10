@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+ONE SALE. Customer, unit, the value ladder, the schedule, demands, receipts,
+the customer's ledger and the history. Every figure is from sales.calc; the
+buttons a role cannot use are not shown, and the view refuses them anyway.
+{% endcomment %}
+{% block title %}{{ booking.number }}{% endblock %}
+{% block subtitle %}{{ booking.unit.project.code }} — {{ booking.unit.project.name }} · {{ booking.unit.number }}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="bookings" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_booking" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_booking" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">{{ booking.number }}</span>
+  <span class="pill {{ pill }}">{{ booking.get_status_display }}</span>
+  <span class="sp"></span>
+  <span class="acts">
+    {% if booking.is_live %}
+      {% if user|can:"sales.collect" %}
+        <a href="{% url 'sales_demand_new' booking.pk %}"><button type="button">Raise demand</button></a>
+        <a href="{% url 'sales_receipt_new' booking.pk %}"><button type="button">Record receipt</button></a>
+      {% endif %}
+      {% if user|can:"sales.edit" %}
+        {% if booking.status == 'booked' %}
+          <form method="post" action="{% url 'sales_booking_mark' booking.pk %}">{% csrf_token %}
+            <input type="hidden" name="step" value="agreement">
+            <input type="date" name="on" value="{{ today|date:'Y-m-d' }}" class="cell" style="width:130px">
+            <button type="submit" class="sec">Mark agreement</button></form>
+        {% endif %}
+        {% if booking.status != 'registered' %}
+          <form method="post" action="{% url 'sales_booking_mark' booking.pk %}">{% csrf_token %}
+            <input type="hidden" name="step" value="registered">
+            <button type="submit" class="sec">Mark registered</button></form>
+          <a href="{% url 'sales_booking_cancel' booking.pk %}"><button type="button" class="sec">Cancel booking</button></a>
+        {% endif %}
+        <a href="{% url 'sales_booking_transfer' booking.pk %}"><button type="button" class="sec">Transfer</button></a>
+      {% endif %}
+    {% endif %}
+  </span>
+</div>
+
+<div class="facts">
+  <div class="card">
+    <div class="k">Customer</div>
+    <div class="v">{{ booking.customer.name }}</div>
+    <div>{{ booking.customer.phone }}{% if booking.customer.email %} · {{ booking.customer.email }}{% endif %}</div>
+    <div>{% if booking.customer.pan %}PAN {{ booking.customer.pan }}{% else %}No PAN on file{% endif %}
+      {% if user|can:"sales.edit" %} · <a href="{% url 'sales_customer_form' booking.customer.pk %}?next={{ booking.pk }}">edit</a>{% endif %}</div>
+    {% if booking.transferred_from %}<div>Transferred from {{ booking.transferred_from.name }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="k">Unit</div>
+    <div class="v">{{ booking.unit.number }} · {{ booking.unit.get_kind_display }}</div>
+    <div>{% if booking.unit.block %}Block {{ booking.unit.block }} · {% endif %}Floor {{ booking.unit.floor }}</div>
+    <div>Carpet {{ booking.unit.carpet_sqft|qty }} · saleable {{ booking.unit.saleable_sqft|qty }} sqft</div>
+  </div>
+  <div class="card">
+    <div class="k">Dates</div>
+    <div>Booked {{ booking.booked_on|date:"d/m/Y" }}</div>
+    <div>Agreement {% if booking.agreement_on %}{{ booking.agreement_on|date:"d/m/Y" }}{% else %}—{% endif %}</div>
+    <div>Registered {% if booking.registered_on %}{{ booking.registered_on|date:"d/m/Y" }}{% else %}—{% endif %}</div>
+    {% if booking.cancelled_on %}<div>Cancelled {{ booking.cancelled_on|date:"d/m/Y" }} — {{ booking.cancel_reason }}. Refund ₹{{ booking.refund_amount|rupees }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="k">Value</div>
+    <table class="tot" style="width:100%">
+      <tr><td class="k">Agreement value</td><td class="num">₹{{ figures.agreement|rupees }}</td></tr>
+      <tr><td class="k">GST @ {{ booking.gst_percent|qty }}%</td><td class="num">₹{{ figures.gst|rupees }}</td></tr>
+      <tr><td class="k"><b>Total payable</b></td><td class="num"><b>₹{{ figures.total|rupees }}</b></td></tr>
+      <tr><td class="k">Demanded</td><td class="num">₹{{ figures.demanded|rupees }}</td></tr>
+      <tr><td class="k">Collected</td><td class="num">₹{{ figures.collected|rupees }}</td></tr>
+      <tr><td class="k">Due now</td><td class="num">₹{{ figures.due|rupees }}</td></tr>
+      <tr><td class="k">Overdue</td><td class="num">{% if figures.overdue %}<span class="up">₹{{ figures.overdue|rupees }}</span>{% else %}—{% endif %}</td></tr>
+      <tr><td class="k"><b>Outstanding</b></td><td class="num"><b>₹{{ figures.outstanding|rupees }}</b></td></tr>
+      {% if suggested_tds %}<tr><td class="k">TDS expected (1%)</td><td class="num">₹{{ suggested_tds|rupees }}</td></tr>{% endif %}
+    </table>
+  </div>
+</div>
+
+<h3 class="sec">Payment schedule <span class="pill {% if schedule_total == 100 %}p-approved{% else %}p-lost{% endif %}">{{ schedule_total|qty }}%</span></h3>
+{% if can_edit_schedule %}<form method="post" action="{% url 'sales_booking_schedule' booking.pk %}">{% csrf_token %}{% endif %}
+<table class="sched">
+  <thead><tr><th style="width:36px">#</th><th>Milestone</th><th class="num">%</th><th class="num">Amount</th><th>Due on</th><th>Linked header task</th><th>Demand</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for row in schedule %}
+    <tr>
+      <td>{{ row.milestone.sequence }}</td>
+      {% if can_edit_schedule and not row.demand %}
+        <td><input class="cell" type="text" name="ms_name_{{ row.milestone.sequence }}" maxlength="120" value="{{ row.milestone.name }}"></td>
+        <td class="num"><input class="cell num" type="number" step="0.01" min="0" name="ms_pct_{{ row.milestone.sequence }}" value="{{ row.milestone.percent|qty }}" style="width:80px"></td>
+      {% else %}
+        <td>{{ row.milestone.name }}{% if can_edit_schedule %}<input type="hidden" name="ms_name_{{ row.milestone.sequence }}" value="{{ row.milestone.name }}"><input type="hidden" name="ms_pct_{{ row.milestone.sequence }}" value="{{ row.milestone.percent }}">{% endif %}</td>
+        <td class="num">{{ row.milestone.percent|qty }}</td>
+      {% endif %}
+      <td class="num">₹{{ row.amount|rupees }}</td>
+      <td>{% if can_edit_schedule %}<input class="cell" type="date" name="ms_due_{{ row.milestone.sequence }}" value="{{ row.milestone.due_on|date:'Y-m-d' }}">{% else %}{{ row.milestone.due_on|date:"d/m/Y"|default:"—" }}{% endif %}</td>
+      <td>{% if can_edit_schedule %}
+            <select class="cell" name="ms_header_{{ row.milestone.sequence }}"><option value="">— raised by hand —</option>
+              {% for header in headers %}<option value="{{ header.pk }}" {% if row.milestone.task_header_id == header.pk %}selected{% endif %}>{{ header.name }}</option>{% endfor %}
+            </select>
+          {% else %}{{ row.milestone.task_header.name|default:"—" }}{% endif %}</td>
+      <td>{% if row.demand %}<a href="{% url 'sales_demand_pdf' row.demand.pk %}" class="code">{{ row.demand.number }}</a>{% else %}—{% endif %}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.word }}</span></td>
+    </tr>
+  {% endfor %}
+  {% if can_edit_schedule %}
+    {% for extra in "12" %}
+      <tr>
+        <td>{{ schedule|length|add:forloop.counter }}</td>
+        <td><input class="cell" type="text" name="ms_name_{{ schedule|length|add:forloop.counter }}" maxlength="120" value=""></td>
+        <td class="num"><input class="cell num" type="number" step="0.01" min="0" name="ms_pct_{{ schedule|length|add:forloop.counter }}" value="" style="width:80px"></td>
+        <td></td>
+        <td><input class="cell" type="date" name="ms_due_{{ schedule|length|add:forloop.counter }}" value=""></td>
+        <td><select class="cell" name="ms_header_{{ schedule|length|add:forloop.counter }}"><option value="">— raised by hand —</option>
+          {% for header in headers %}<option value="{{ header.pk }}">{{ header.name }}</option>{% endfor %}</select></td>
+        <td colspan="2"></td>
+      </tr>
+    {% endfor %}
+  {% endif %}
+  </tbody>
+  <tfoot><tr><td></td><td>Total</td><td class="num">{{ schedule_total|qty }}%</td><td class="num">₹{{ figures.agreement|rupees }}</td><td colspan="4">
+    {% if can_edit_schedule %}<button type="submit" class="sec sm">Save schedule</button>{% endif %}</td></tr></tfoot>
+</table>
+{% if can_edit_schedule %}</form>{% endif %}
+
+<h3 class="sec">Demand letters</h3>
+<table>
+  <thead><tr><th>Demand</th><th>Raised</th><th>Due</th><th>For</th><th class="num">Basic</th><th class="num">GST</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for demand in demands %}
+    <tr>
+      <td class="code">{{ demand.number }}</td>
+      <td>{{ demand.raised_on|date:"d/m/Y" }}</td>
+      <td>{{ demand.due_on|date:"d/m/Y" }}</td>
+      <td>{% if demand.milestone %}{{ demand.milestone.name }}{% else %}{{ demand.note|default:"ad hoc" }}{% endif %}</td>
+      <td class="num">₹{{ demand.amount|rupees }}</td>
+      <td class="num">₹{{ demand.figures.gst|rupees }}</td>
+      <td class="num">₹{{ demand.figures.total|rupees }}</td>
+      <td class="num">₹{{ demand.figures.paid|rupees }}</td>
+      <td class="num">₹{{ demand.figures.balance|rupees }}</td>
+      <td><span class="pill {{ demand.pill }}">{{ demand.word }}</span></td>
+      <td class="num"><a href="{% url 'sales_demand_pdf' demand.pk %}"><button type="button" class="sec sm">PDF</button></a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="11">No demand raised yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="sec">Receipts</h3>
+<table>
+  <thead><tr><th>Receipt</th><th>Received</th><th>Against</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">TDS</th><th class="num">Credited</th><th>Recorded by</th></tr></thead>
+  <tbody>
+  {% for receipt in receipts %}
+    <tr>
+      <td class="code">{{ receipt.number }}</td>
+      <td>{{ receipt.received_on|date:"d/m/Y" }}</td>
+      <td>{% if receipt.demand %}{{ receipt.demand.number }}{% else %}On account{% endif %}</td>
+      <td>{{ receipt.get_mode_display }}</td>
+      <td>{{ receipt.reference|default:"—" }}</td>
+      <td class="num">₹{{ receipt.amount|rupees2 }}</td>
+      <td class="num">{% if receipt.tds_amount %}₹{{ receipt.tds_amount|rupees2 }}{% else %}—{% endif %}</td>
+      <td class="num">₹{{ receipt.credit|rupees2 }}</td>
+      <td>{% if receipt.recorded_by %}{{ receipt.recorded_by.get_full_name|default:receipt.recorded_by.username }}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9">Nothing received yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="sec">Customer ledger</h3>
+<table>
+  <thead><tr><th>Date</th><th>Ref</th><th>Particulars</th><th class="num">Demanded</th><th class="num">Received</th><th class="num">Balance</th></tr></thead>
+  <tbody>
+  {% for row in ledger %}
+    <tr>
+      <td>{{ row.on|date:"d/m/Y" }}</td>
+      <td class="code">{{ row.ref }}</td>
+      <td>{{ row.text|default:"—" }}</td>
+      <td class="num">{% if row.debit %}₹{{ row.debit|rupees2 }}{% else %}—{% endif %}</td>
+      <td class="num">{% if row.credit %}₹{{ row.credit|rupees2 }}{% else %}—{% endif %}</td>
+      <td class="num">₹{{ row.balance_shown|rupees2 }}{% if row.advance %} advance{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">Nothing on the ledger yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="sec">History</h3>
+<table style="max-width:820px">
+  <thead><tr><th>When</th><th>What</th><th>Detail</th><th>By</th></tr></thead>
+  <tbody>
+  {% for event in events %}
+    <tr><td>{{ event.at|date:"d/m/Y H:i" }}</td><td>{{ event.get_kind_display }}</td><td>{{ event.detail }}</td><td>{% if event.by %}{{ event.by.get_full_name|default:event.by.username }}{% else %}—{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

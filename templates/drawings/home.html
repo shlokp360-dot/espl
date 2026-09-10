@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+DRAWINGS OVERVIEW — every Won site: what is required, received and approved.
+
+⚠ THE NUMBER THAT LEADS IS "REQUIRED" — drawings the site is waiting for.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}Which drawings each site needs, holds and has approved{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="home" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_home" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_home" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Drawings</span>
+  {% if required %}<span class="pill p-draft">{{ required }} required</span>{% endif %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Required</div><div class="v">{{ required }}</div></div>
+  <div class="kpi"><div class="l">Received</div><div class="v">{{ received }}</div></div>
+  <div class="kpi"><div class="l">Approved</div><div class="v">{{ approved }}</div></div>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>Project</th>
+      <th class="num" style="width:110px">Required</th>
+      <th class="num" style="width:110px">Received</th>
+      <th class="num" style="width:110px">Approved</th>
+      <th class="num" style="width:110px">Total</th>
+      <th style="width:150px">Last transmittal</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><a href="{% url 'drawings_register' row.project.pk %}">{{ row.project.code }} — {{ row.project.name }}</a></td>
+          <td class="num">{% if row.summary.required %}<span class="pill p-draft">{{ row.summary.required }}</span>{% else %}—{% endif %}</td>
+          <td class="num">{{ row.summary.received }}</td>
+          <td class="num">{{ row.summary.approved }}</td>
+          <td class="num">{{ row.summary.total }}</td>
+          <td>{% if row.last_sent %}<a href="{% url 'drawings_transmittals' row.project.pk %}">{{ row.last_sent|date:"d/m/Y" }}</a>{% else %}none yet{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="padding:14px">No project is Won yet. Drawings open with the site.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

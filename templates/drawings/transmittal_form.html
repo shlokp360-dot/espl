@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+RECORD A TRANSMITTAL — the contractor, the drawings (newest revision each), the purpose.
+
+⚠ ONLY DRAWINGS THAT HAVE A REVISION ARE OFFERED. There is nothing to hand
+  over for a Required drawing.
+⚠ CONTRACTORS ON THIS SITE COME FIRST — those holding a purchase or work order.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — record a transmittal{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="transmittals" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_transmittal_new" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_transmittal_new" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Record a transmittal</span>
+  <span class="sp"></span>
+  <a href="{% url 'drawings_transmittals' project.pk %}"><button type="button" class="sec">Back</button></a>
+</div>
+
+<form method="post" class="card" style="display:grid;gap:10px">
+  {% csrf_token %}
+  <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+    <label>Contractor<br>
+      <select class="cell" name="vendor" required>
+        <option value="">choose…</option>
+        {% if on_site %}
+          <optgroup label="On this project">
+            {% for vendor in on_site %}<option value="{{ vendor.pk }}">{{ vendor.name }}</option>{% endfor %}
+          </optgroup>
+        {% endif %}
+        <optgroup label="Every active vendor">
+          {% for vendor in others %}<option value="{{ vendor.pk }}">{{ vendor.name }}</option>{% endfor %}
+        </optgroup>
+      </select></label>
+    <label>Purpose<br>
+      <select class="cell" name="purpose" required>
+        {% for value, label in purposes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select></label>
+    <label>Issued on<br><input class="cell" type="date" name="issued_on" value="{{ today|date:'Y-m-d' }}"></label>
+  </div>
+  <label>Note<br><input class="cell" name="note" maxlength="300" style="width:100%"></label>
+
+  <table>
+    <thead><tr class="hd">
+      <th style="width:40px"></th>
+      <th style="width:70px">Group</th>
+      <th style="width:130px">Number</th>
+      <th>Title</th>
+      <th style="width:70px">Revision</th>
+      <th style="width:100px">Status</th>
+      <th style="width:100px">Received</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><input type="checkbox" name="drawing" value="{{ row.drawing.pk }}"></td>
+          <td class="code">{{ row.drawing.group.code }}</td>
+          <td class="code">{{ row.drawing.number }}</td>
+          <td>{{ row.drawing.title }}</td>
+          <td class="code">{{ row.latest.label }}</td>
+          <td><span class="pill {{ row.pill }}">{{ row.label }}</span></td>
+          <td>{{ row.latest.received_on|date:"d/m/Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:14px">No drawing on {{ project.code }} has a revision yet, so there is nothing to hand over.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="note tight"><b>Record only.</b> Nothing is sent from here — this is the register of what the contractor was handed.</div>
+  <div style="display:flex;justify-content:flex-end">
+    <button type="submit" {% if not rows %}disabled{% endif %}>Record transmittal</button>
+  </div>
+</form>
+
+{% endblock %}

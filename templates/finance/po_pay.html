@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Record payment — {{ po.number }}{% endblock %}
+{% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="payments" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_po_pay" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_po_pay" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar"><span class="ttl">Record payment on {{ po.number }}</span><span class="sp"></span></div>
+
+<div class="facts">
+  <div class="card"><div class="k">Order net payable</div><div class="v">₹{{ s.net_payable|rupees2 }}</div></div>
+  <div class="card"><div class="k">Paid to date</div><div class="v">₹{{ s.paid_total|rupees2 }}</div></div>
+  <div class="card"><div class="k">Balance</div><div class="v">₹{{ s.balance|rupees2 }}</div></div>
+</div>
+
+<form method="post" class="fform card">
+  {% csrf_token %}
+  <div class="two">
+    <div><label>Kind</label>
+      <select name="kind">
+        <option value="against_invoice" {% if kind == 'against_invoice' %}selected{% endif %}>Against an invoice</option>
+        <option value="advance" {% if kind == 'advance' %}selected{% endif %}>Advance (before any invoice)</option>
+      </select></div>
+    <div><label>Invoice (for a payment against one)</label>
+      <select name="invoice">
+        <option value="">— pick the invoice —</option>
+        {% for i in open_invoices %}<option value="{{ i.id }}" {% if i.id == chosen %}selected{% endif %}>{{ i.number }} · {{ i.vendor_invoice_no }} · ₹{{ i.total|rupees }}</option>{% endfor %}
+      </select></div>
+  </div>
+  <div class="three">
+    <div><label>Amount paid (what left the bank)</label><input name="amount" required></div>
+    <div><label>TDS withheld</label><input name="tds_amount" value="0"></div>
+    <div><label>Paid on</label><input type="date" name="paid_on" value="{{ today|date:'Y-m-d' }}"></div>
+  </div>
+  <div class="three">
+    <div><label>Mode</label><select name="mode">{% for value, label in modes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+    <div><label>Reference (UTR / cheque)</label><input name="reference" maxlength="60"></div>
+    <div><label>Note</label><input name="note" maxlength="300"></div>
+  </div>
+  <div class="foot">
+    <button type="submit">Record payment</button>
+    <a href="{% url 'finance_po' po.id %}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

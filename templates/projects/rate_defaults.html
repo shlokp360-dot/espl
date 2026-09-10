@@ -70,7 +70,7 @@ From BOQ_Prototype.html's fourth view.
           </td>
           <td><input class="cell num" name="rate-{{ activity.id }}" value="{{ activity.rate|rupees2 }}"></td>
           <td><input class="cell num" name="gst-{{ activity.id }}" value="{{ activity.gst_percent|qty }}"></td>
-          <td style="color:var(--muted);font-size:11px">{{ activity.basis|default:"—" }}</td>
+          <td style="color:var(--muted);font-size:13px">{{ activity.basis|default:"—" }}</td>
           <td class="num" style="color:var(--muted)">{{ activity.material_links.count }}</td>
           <td>{% if activity.is_active %}<span class="pill p-won">yes</span>
               {% else %}<span class="pill p-lost">no</span>{% endif %}</td>

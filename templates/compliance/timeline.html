@@ -49,7 +49,7 @@ THE EXPIRY TIMELINE — everything with a validity, across every site, in date o
             {% else %}{{ row.days }}{% endif %}
           </td>
           <td>{{ row.item.name }}
-            <div class="mut" style="font-size:11px;color:var(--muted)">
+            <div class="mut" style="font-size:13px;color:var(--muted)">
               {{ row.latest.original_name }}{% if row.latest.reference %} · {{ row.latest.reference }}{% endif %}</div>
           </td>
           <td><a href="{% url 'compliance_project' row.project.pk %}">{{ row.project.code }}</a></td>

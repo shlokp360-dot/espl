@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+ONE PROJECT'S DRAWING REGISTER, grouped by section.
+
+⚠ STATUS IS A PILL WORKED OUT FROM THE REVISIONS HELD — nobody types it.
+⚠ UPLOAD IS HIDDEN FROM ANYONE WHO CANNOT UPLOAD; the register itself is not.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_register" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_register" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Register</span>
+  {% if projects %}
+    <form method="get" style="margin:0">
+      <select class="cell" onchange="location.href='/drawings/project/'+this.value+'/'">
+        {% for option in projects %}
+          <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
+            {{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  {% endif %}
+  <span class="sp"></span>
+  {% if project and user|can:"drawings.edit" %}
+    <a href="{% url 'drawings_bulk' project.pk %}"><button type="button" class="sec">Add several</button></a>
+    <a href="{% url 'drawings_new' project.pk %}"><button type="button">Register a drawing</button></a>
+  {% endif %}
+</div>
+
+{% if not project %}
+  <div class="note tight"><b>No project is Won yet.</b> Drawings open with the site.</div>
+{% else %}
+
+  <div class="kpis">
+    <div class="kpi"><div class="l">Required</div><div class="v">{{ summary.required }}</div></div>
+    <div class="kpi"><div class="l">Received</div><div class="v">{{ summary.received }}</div></div>
+    <div class="kpi"><div class="l">Approved</div><div class="v">{{ summary.approved }}</div></div>
+  </div>
+
+  <form method="get" class="searchbox" style="margin-bottom:11px">
+    <div class="srow">
+      <select class="cell" name="group">
+        <option value="">Every group</option>
+        {% for option in all_groups %}
+          <option value="{{ option.code }}" {% if option.code == group_code %}selected{% endif %}>{{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="cell" name="status">
+        <option value="">Every status</option>
+        {% for value, label in states %}
+          <option value="{{ value }}" {% if value == state %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <label style="font-size:13px"><input type="checkbox" name="inactive" value="yes" {% if show_inactive %}checked{% endif %}> show deactivated</label>
+      <button type="submit" class="sec sm">Filter</button>
+    </div>
+  </form>
+
+  {% for block in groups %}
+    <div class="card" style="margin-bottom:11px;padding:0;overflow:hidden">
+      <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">{{ block.group.code }} — {{ block.group.name }}</span></div>
+      <table>
+        <thead><tr class="hd">
+          <th style="width:130px">Number</th>
+          <th>Title</th>
+          <th style="width:160px">Architect</th>
+          <th style="width:70px">Latest</th>
+          <th style="width:100px">Status</th>
+          <th style="width:100px">Received</th>
+          <th style="width:100px">Approved</th>
+          <th style="width:190px"></th>
+        </tr></thead>
+        <tbody>
+          {% for row in block.rows %}
+            <tr {% if not row.drawing.is_active %}style="opacity:.55"{% endif %}>
+              <td class="code"><a href="{% url 'drawings_detail' project.pk row.drawing.pk %}">{{ row.drawing.number }}</a></td>
+              <td>{{ row.drawing.title }}{% if not row.drawing.is_active %} <span class="pill p-lost">deactivated</span>{% endif %}</td>
+              <td>{{ row.drawing.architect.name|default:"—" }}</td>
+              <td class="code">{{ row.latest.label|default:"—" }}</td>
+              <td><span class="pill {{ row.pill }}">{{ row.label }}</span></td>
+              <td>{% if row.latest %}{{ row.latest.received_on|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+              <td>{% if row.latest.approved_on %}{{ row.latest.approved_on|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+              <td style="white-space:nowrap">
+                <a href="{% url 'drawings_detail' project.pk row.drawing.pk %}"><button type="button" class="sec sm">Open</button></a>
+                {% if row.latest %}<a href="{% url 'drawings_download' row.latest.pk %}"><button type="button" class="sec sm">Download</button></a>{% endif %}
+                {% if user|can:"drawings.edit" %}
+                  <a href="{% url 'drawings_detail' project.pk row.drawing.pk %}#upload"><button type="button" class="sec sm">Upload revision</button></a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% empty %}
+    <div class="card">No drawings match. {% if user|can:"drawings.edit" %}Press <b>Register a drawing</b> to add the first one.{% endif %}</div>
+  {% endfor %}
+
+{% endif %}
+
+{% endblock %}

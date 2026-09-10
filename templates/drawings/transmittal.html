@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}ONE TRANSMITTAL — the contractor, the date, and every revision handed over.{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — {{ transmittal.number }}{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="transmittals" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_transmittal" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_transmittal" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{{ transmittal.number }}</span>
+  <span class="pill p-approved">{{ transmittal.get_purpose_display }}</span>
+  <span class="sp"></span>
+  <a href="{% url 'drawings_transmittal_pdf' project.pk transmittal.pk %}"><button type="button">Download PDF</button></a>
+  <a href="{% url 'drawings_transmittals' project.pk %}"><button type="button" class="sec">Back</button></a>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Contractor</div><div class="v">{{ transmittal.vendor.name }}</div></div>
+  <div class="kpi"><div class="l">Issued</div><div class="v">{{ transmittal.issued_on|date:"d/m/Y" }}</div></div>
+  <div class="kpi"><div class="l">Issued by</div><div class="v">{% if transmittal.issued_by %}{{ transmittal.issued_by.get_full_name|default:transmittal.issued_by.username }}{% else %}—{% endif %}</div></div>
+  <div class="kpi"><div class="l">Drawings</div><div class="v">{{ lines|length }}</div></div>
+</div>
+
+{% if transmittal.note %}<div class="card" style="margin-bottom:11px">{{ transmittal.note }}</div>{% endif %}
+
+<table>
+  <thead><tr class="hd">
+    <th style="width:70px">Group</th>
+    <th style="width:130px">Number</th>
+    <th>Title</th>
+    <th style="width:70px">Revision</th>
+    <th style="width:100px">Received</th>
+    <th style="width:120px"></th>
+  </tr></thead>
+  <tbody>
+    {% for line in lines %}
+      <tr>
+        <td class="code">{{ line.revision.drawing.group.code }}</td>
+        <td class="code"><a href="{% url 'drawings_detail' project.pk line.revision.drawing.pk %}">{{ line.revision.drawing.number }}</a></td>
+        <td>{{ line.revision.drawing.title }}</td>
+        <td class="code">{{ line.revision.label }}</td>
+        <td>{{ line.revision.received_on|date:"d/m/Y" }}</td>
+        <td><a href="{% url 'drawings_download' line.revision.pk %}"><button type="button" class="sec sm">Download</button></a></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

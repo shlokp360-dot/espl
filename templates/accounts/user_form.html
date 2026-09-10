@@ -35,7 +35,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
   <div class="toolbar">
     <span class="ttl">{% if person %}{{ display_name }}{% else %}Add user{% endif %}</span>
     <span class="sp"></span>
-    <a href="{% url 'user_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <a href="{% url 'user_list' %}" style="font-size:13px;margin-right:6px">Cancel</a>
     <button type="submit">{% if person %}Save{% else %}Create user{% endif %}</button>
   </div>
 
@@ -51,7 +51,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>User ID</b>
-          <div style="font-size:11px;color:var(--muted)">
+          <div style="font-size:13px;color:var(--muted)">
             What they type to sign in — short, like SAP. Letters, digits, dot, dash or underscore.
             Not case sensitive.</div></td>
         <td style="border:0;padding:8px 0">
@@ -62,7 +62,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Email</b>
-          <div style="font-size:11px;color:var(--muted)">
+          <div style="font-size:13px;color:var(--muted)">
             Optional, and not a login. For the day there is something to send them.</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" type="email" name="email" style="max-width:380px"
@@ -71,7 +71,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Role</b>
-          <div style="font-size:11px;color:var(--muted)">Decides which screens they see</div></td>
+          <div style="font-size:13px;color:var(--muted)">Decides which screens they see</div></td>
         <td style="border:0;padding:8px 0">
           <select class="cell" name="role" style="max-width:260px" {% if editing_self %}disabled{% endif %}>
             {% for value, label in roles %}
@@ -81,7 +81,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
           {% if editing_self %}
             {# Disabled inputs post nothing, so the current role rides along. #}
             <input type="hidden" name="role" value="{{ current_role }}">
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">
               You cannot change your own role — another Admin has to.</div>
           {% endif %}
         </td>
@@ -89,12 +89,12 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>{% if person %}New password{% else %}First password{% endif %}</b>
-          <div style="font-size:11px;color:var(--muted)">
+          <div style="font-size:13px;color:var(--muted)">
             {% if person %}Leave blank to keep the current one{% else %}You will need to tell them what it is{% endif %}</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" type="password" name="password" style="max-width:280px;background:#fff"
                  autocomplete="new-password">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          <div style="font-size:13px;color:var(--muted);margin-top:4px">
             They are asked to change it the first time they sign in.</div></td>
       </tr>
       <tr>
@@ -108,11 +108,11 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
           </label>
           {% if editing_self %}
             <input type="hidden" name="is_active" value="on">
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">
               You cannot switch your own account off.</div>
           {% endif %}
           {% if person and not person.is_active %}
-            <div style="font-size:11px;color:var(--red);margin-top:4px">
+            <div style="font-size:13px;color:var(--red);margin-top:4px">
               Deactivated — everything they did is still on record.</div>
           {% endif %}
         </td>
@@ -166,7 +166,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
         </tbody>
       </table>
     {% else %}
-      <p style="color:var(--muted);font-size:12px;margin:0">
+      <p style="color:var(--muted);font-size:13px;margin:0">
         Nothing recorded. This account predates the history, or nothing has happened to it since.</p>
     {% endif %}
   </div>

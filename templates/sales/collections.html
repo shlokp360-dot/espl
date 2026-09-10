@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+EVERY OPEN DEMAND across live projects, aged from its due date. Figures from
+calc.bulk_demand_figures — one query for every receipt involved.
+{% endcomment %}
+{% block title %}Collections{% endblock %}
+{% block subtitle %}Open demand letters, aged from their due date{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="collections" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_collections" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_collections" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Collections</span>
+  <form method="get" style="margin:0">
+    <select name="project" class="cell" onchange="this.form.submit()">
+      <option value="">Every project</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if applied.project == p.pk %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>{% endfor %}
+    </select>
+  </form>
+  <span class="sp"></span>
+  <a href="{% url 'sales_collections_excel' %}{% if applied.project %}?project={{ applied.project }}{% endif %}"><button type="button" class="sec">Excel</button></a>
+</div>
+
+<div class="kpis">
+  {% for bucket in buckets %}
+    <div class="kpi {% if bucket.key == '61_90' or bucket.key == '90_plus' %}{% if bucket.amount %}bad{% endif %}{% endif %}">
+      <div class="l">{{ bucket.label }} · {{ bucket.count }}</div><div class="v">₹{{ bucket.amount|rupees }}</div></div>
+  {% endfor %}
+  <div class="kpi"><div class="l">Overdue</div><div class="v">₹{{ totals.overdue|rupees }}</div></div>
+</div>
+
+{% if project and user|can:"sales.collect" and headers %}
+  <form method="post" action="{% url 'sales_demands_for_header' %}" class="searchbox" style="margin-top:0;margin-bottom:13px">
+    {% csrf_token %}
+    <h3>Raise demands for a finished stage on {{ project.code }}</h3>
+    <div class="srow">
+      <input type="hidden" name="project" value="{{ project.pk }}">
+      <select name="header">{% for header in headers %}<option value="{{ header.pk }}">{{ header.name }}</option>{% endfor %}</select>
+      <button type="submit" class="sec sm">Raise linked demands</button>
+    </div>
+  </form>
+{% endif %}
+
+<table>
+  <thead><tr>
+    <th>Demand</th><th>Project</th><th>Unit</th><th>Customer</th><th>Phone</th><th>For</th><th>Due</th><th>Ageing</th>
+    <th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td><a href="{% url 'sales_booking' row.demand.booking.pk %}" class="code">{{ row.demand.number }}</a></td>
+      <td>{{ row.demand.booking.unit.project.code }}</td>
+      <td class="code">{{ row.demand.booking.unit.number }}</td>
+      <td>{{ row.demand.booking.customer.name }}</td>
+      <td class="code">{{ row.demand.booking.customer.phone }}</td>
+      <td>{% if row.demand.milestone %}{{ row.demand.milestone.name }}{% else %}{{ row.demand.note|default:"ad hoc" }}{% endif %}</td>
+      <td>{{ row.demand.due_on|date:"d/m/Y" }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.bucket_word }}</span></td>
+      <td class="num">₹{{ row.figures.total|rupees }}</td>
+      <td class="num">₹{{ row.figures.paid|rupees }}</td>
+      <td class="num">₹{{ row.figures.balance|rupees }}</td>
+      <td><span class="pill {{ row.status_pill }}">{{ row.status_word }}</span></td>
+      <td class="num">
+        <a href="{% url 'sales_demand_pdf' row.demand.pk %}"><button type="button" class="sec sm">PDF</button></a>
+        {% if user|can:"sales.collect" %}<a href="{% url 'sales_receipt_new' row.demand.booking.pk %}"><button type="button" class="sm">Receipt</button></a>{% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="13">Nothing open. Every demand raised has been paid.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="8">{{ rows|length }} open demand{{ rows|length|pluralize }}</td>
+    <td class="num">₹{{ totals.total|rupees }}</td>
+    <td class="num">₹{{ totals.paid|rupees }}</td>
+    <td class="num">₹{{ totals.balance|rupees }}</td>
+    <td colspan="2"></td>
+  </tr></tfoot>
+</table>
+{% endblock %}

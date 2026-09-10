@@ -63,6 +63,8 @@ ALL_ROLES = frozenset(Role.values)
 _TILES = [
     {
         "key": "projects",
+        "color": "#2E5C9A",
+        "icon": "M3 21V8l9-5 9 5v13H3zm4-2h4v-5h2v5h4V9.4L12 5.3 7 9.4V19z",
         "title": "Projects",
         "subtitle": "Estimates, bills of materials and everything per site",
         "url_name": "project_list",
@@ -71,6 +73,8 @@ _TILES = [
     },
     {
         "key": "orders",
+        "color": "#8A6D1F",
+        "icon": "M6 2h9l5 5v15H6V2zm8 1.5V8h4.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2z",
         "title": "Purchase orders",
         "subtitle": "Every document across every project",
         "url_name": "po_register",
@@ -79,6 +83,8 @@ _TILES = [
     },
     {
         "key": "masters",
+        "color": "#4C6B3A",
+        "icon": "M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z",
         "title": "Master data",
         "subtitle": "Materials, vendors, construction activities and the company's own details",
         "url_name": "master_data",
@@ -87,6 +93,8 @@ _TILES = [
     },
     {
         "key": "analytics",
+        "color": "#4A3B79",
+        "icon": "M4 20V10h3v10H4zm6.5 0V4h3v16h-3zM17 20v-7h3v7h-3z",
         "title": "Analytics",
         "subtitle": "Committed, owed and paid — and reserve against actual",
         "url_name": "analytics_home",
@@ -97,6 +105,8 @@ _TILES = [
     },
     {
         "key": "compliance",
+        "color": "#A32D2D",
+        "icon": "M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3zm-1.2 13.2l5.7-5.7-1.4-1.4-4.3 4.3-2.1-2.1-1.4 1.4 3.5 3.5z",
         "title": "Compliance",
         "subtitle": "AMC and RERA — what every site holds, and what it is missing",
         "url_name": "compliance_home",
@@ -108,6 +118,8 @@ _TILES = [
     },
     {
         "key": "tasks",
+        "color": "#C55A11",
+        "icon": "M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h13v2H4v-2zm14-5l1.5 1.5L21 12l1 1-2.5 2.5L17 13l1-1z",
         "title": "Task management",
         "subtitle": "Who is doing what on site, and by when",
         "url_name": "task_board",
@@ -120,6 +132,36 @@ _TILES = [
         #   which is exactly what the greyed tiles were for: "the last 2 will be
         #   added later but it gives a view to the user holistically". Nobody has
         #   to be told where it is — they have been looking at it for weeks.
+        "live": True,
+    },
+    {
+        "key": "sales",
+        "color": "#0F766E",
+        "icon": "M3 11l9-8 9 8v10h-6v-6H9v6H3V11zm9 1.5a2 2 0 100-4 2 2 0 000 4z",
+        "title": "Sales",
+        "subtitle": "Units, enquiries, bookings and what customers still owe",
+        "url_name": "sales_home",
+        "perm": "sales.view",
+        "live": True,
+    },
+    {
+        "key": "finance",
+        "color": "#B45309",
+        "icon": "M3 6h18v12H3V6zm2 2v8h14V8H5zm7 1a3 3 0 110 6 3 3 0 010-6z",
+        "title": "Finance",
+        "subtitle": "Contractor bills, retention, vendor invoices and payments",
+        "url_name": "finance_home",
+        "perm": "finance.view",
+        "live": True,
+    },
+    {
+        "key": "drawings",
+        "color": "#1D4ED8",
+        "icon": "M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h6v2H7V7zm0 4h10v2H7v-2zm0 4h8v2H7v-2z",
+        "title": "Drawings",
+        "subtitle": "Every drawing, its revisions, and who was sent which",
+        "url_name": "drawings_home",
+        "perm": "drawings.view",
         "live": True,
     },
 ]
@@ -267,3 +309,46 @@ def master_data_for(role=None):
         for title, blurb, url_name in _ENTRIES
         if allowed(_ENTRY_PERMS[url_name])
     ]
+
+
+def stats_for(role):
+    """
+    A handful of live figures for the home screen, each shown only to a role
+    that can open the screen it counts. Five cheap COUNT queries at most — the
+    figures are the ones somebody checks first thing in the morning.
+    """
+    from datetime import date
+    from django.db.models import Q
+    out = []
+    if role_can(role, "projects.view"):
+        from projects.models import Project
+        out.append(("Live projects", Project.objects.filter(status__in=Project.ONGOING).count(),
+                    reverse("project_list"), "#2E5C9A"))
+    if role_can(role, "register.view"):
+        from projects.bom_models import PurchaseOrder
+        out.append(("Orders awaiting approval",
+                    PurchaseOrder.objects.filter(status=PurchaseOrder.Status.DRAFT).count(),
+                    reverse("po_register") + "?status=draft", "#8A6D1F"))
+    if role_can(role, "tasks.view"):
+        from tasks.models import Subtask
+        today = date.today()
+        # Overdue = open and its planned finish is behind us. The finish is
+        # start + days, so narrow in SQL to open rows and finish in Python.
+        overdue = sum(1 for t in Subtask.objects.filter(status__in=["open", "blocked"])
+                      .only("start", "days", "status") if t.planned_end < today)
+        out.append(("Tasks overdue", overdue, reverse("task_board"), "#C55A11"))
+    if role_can(role, "compliance.view"):
+        from compliance.models import ComplianceDocument
+        soon = date.today()
+        from datetime import timedelta
+        n = ComplianceDocument.objects.filter(
+            expires_on__isnull=False, expires_on__lte=soon + timedelta(days=60)).count()
+        out.append(("Documents expiring in 60 days", n, reverse("compliance_timeline"), "#A32D2D"))
+    if role_can(role, "sales.view"):
+        from sales.models import Unit
+        from sales.calc import bulk_unit_status
+        units = list(Unit.objects.filter(is_active=True, project__status__in=["won"]).only("id"))
+        status = bulk_unit_status(units)
+        free = sum(1 for u in units if status.get(u.id) in ("available", "cancelled"))
+        out.append(("Units available", free, reverse("sales_units"), "#0F766E"))
+    return out

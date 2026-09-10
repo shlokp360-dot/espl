@@ -68,7 +68,7 @@ ONE TEMPLATE, THREE TABLES — material groups, vendor groups, units of measure.
             {% for cell in entry.cells %}
               <td>
                 {% if cell.kind == 'flag' %}
-                  <label style="font-size:12px"><input type="checkbox" name="{{ cell.field }}-{{ entry.row.id }}"
+                  <label style="font-size:13px"><input type="checkbox" name="{{ cell.field }}-{{ entry.row.id }}"
                     {% if cell.value %}checked{% endif %}
                     {% if not user|can:"masters.edit" %}disabled{% endif %}> yes</label>
                 {% elif user|can:"masters.edit" %}
@@ -78,7 +78,7 @@ ONE TEMPLATE, THREE TABLES — material groups, vendor groups, units of measure.
             {% endfor %}
             <td class="num" style="color:var(--muted)">{{ entry.used }}</td>
             <td>
-              <label style="font-size:12px"><input type="checkbox" name="is_active-{{ entry.row.id }}"
+              <label style="font-size:13px"><input type="checkbox" name="is_active-{{ entry.row.id }}"
                 {% if entry.row.is_active %}checked{% endif %}
                 {% if not user|can:"masters.edit" %}disabled{% endif %}> in use</label>
             </td>
@@ -95,10 +95,10 @@ ONE TEMPLATE, THREE TABLES — material groups, vendor groups, units of measure.
             <td><input class="cell" name="new-{{ spec.key_field }}" placeholder="add one…"></td>
             {% for field, label, kind in spec.extra %}
               <td>{% if kind == 'flag' %}
-                    <label style="font-size:12px"><input type="checkbox" name="new-{{ field }}" checked> yes</label>
+                    <label style="font-size:13px"><input type="checkbox" name="new-{{ field }}" checked> yes</label>
                   {% else %}<input class="cell" name="new-{{ field }}" placeholder="{{ label|lower }}">{% endif %}</td>
             {% endfor %}
-            <td colspan="2" style="color:var(--muted);font-size:11px">{{ spec.key_help }}</td>
+            <td colspan="2" style="color:var(--muted);font-size:13px">{{ spec.key_help }}</td>
           </tr>
         {% endif %}
       </tbody>

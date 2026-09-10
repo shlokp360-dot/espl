@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% block title %}Discard {{ bill.number }}{% endblock %}
+{% block subtitle %}{{ po.number }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="ra_bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_ra_bill_discard" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_ra_bill_discard" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar"><span class="ttl">Discard {{ bill.number }}?</span><span class="sp"></span></div>
+<div class="card">
+  <p>{{ bill.number }} is {{ bill.get_status_display|lower }} on {{ po.number }}. Discarding it deletes the claim and its certified quantities; nothing was recorded against the BOM. The number {{ bill.number }} is not reused.</p>
+  <form method="post" class="acts">
+    {% csrf_token %}
+    <button type="submit" style="background:var(--red)">Discard {{ bill.number }}</button>
+    <a href="{% url 'finance_ra_bill' bill.id %}"><button type="button" class="sec">Keep it</button></a>
+  </form>
+</div>
+{% endblock %}

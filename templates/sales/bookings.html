@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Bookings{% endblock %}
+{% block subtitle %}Every sale, with what is collected and what is owed{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="bookings" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_bookings" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_bookings" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+<div class="toolbar"><span class="ttl">Bookings</span></div>
+
+<form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+  <div class="srow">
+    <select name="project" title="Which project">
+      <option value="">Every project</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if applied.project == p.pk %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="status" title="Status">
+      <option value="" {% if applied.status == 'live' %}selected{% endif %}>Live — not cancelled</option>
+      <option value="all" {% if not applied.status %}selected{% endif %}>Everything</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if applied.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ applied.q|default:'' }}" placeholder="Booking number, customer, phone or unit">
+    <button class="sec sm" type="submit">Apply</button>
+  </div>
+</form>
+
+<table>
+  <thead><tr>
+    <th>Booking</th><th>Booked</th><th>Project</th><th>Unit</th><th>Customer</th><th>Status</th>
+    <th class="num">Agreement</th><th class="num">Total with GST</th><th class="num">Collected</th><th class="num">Outstanding</th><th class="num">Overdue</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td><a href="{% url 'sales_booking' row.pk %}" class="code">{{ row.number }}</a></td>
+      <td>{{ row.booked_on|date:"d/m/Y" }}</td>
+      <td>{{ row.unit.project.code }}</td>
+      <td class="code">{{ row.unit.number }}</td>
+      <td>{{ row.customer.name }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.get_status_display }}</span></td>
+      <td class="num">₹{{ row.figures.agreement|rupees }}</td>
+      <td class="num">₹{{ row.figures.total|rupees }}</td>
+      <td class="num">₹{{ row.figures.collected|rupees }}</td>
+      <td class="num">₹{{ row.figures.outstanding|rupees }}</td>
+      <td class="num">{% if row.figures.overdue %}<span class="up">₹{{ row.figures.overdue|rupees }}</span>{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="11">No bookings match.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="6">{{ rows|length }} booking{{ rows|length|pluralize }}</td>
+    <td class="num">₹{{ totals.agreement|rupees }}</td>
+    <td class="num">₹{{ totals.total|rupees }}</td>
+    <td class="num">₹{{ totals.collected|rupees }}</td>
+    <td class="num">₹{{ totals.outstanding|rupees }}</td>
+    <td class="num">₹{{ totals.overdue|rupees }}</td>
+  </tr></tfoot>
+</table>
+{% endblock %}

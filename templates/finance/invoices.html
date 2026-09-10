@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Vendor invoices{% endblock %}
+{% block subtitle %}Supplier invoices recorded against purchase orders{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="invoices" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_invoices" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_invoices" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar"><span class="ttl">Vendor invoices</span><span class="sp"></span></div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <select name="project" class="cell">
+      <option value="">All projects</option>
+      {% for p in projects %}<option value="{{ p.id }}" {% if p.id == chosen.project %}selected{% endif %}>{{ p.code }} · {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="vendor" class="cell">
+      <option value="">All vendors</option>
+      {% for v in vendors %}<option value="{{ v.id }}" {% if v.id == chosen.vendor %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="cell">
+      <option value="">Any status</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if value == chosen.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="sec sm">Filter</button>
+  </div>
+</form>
+
+<table style="margin-top:12px">
+  <thead><tr>
+    <th>Our ref</th><th>Vendor invoice</th><th>Date</th><th>Status</th><th>Purchase order</th><th>Project</th><th>Vendor</th>
+    <th class="num">Taxable</th><th class="num">GST</th><th class="num">Total</th><th class="num">Settled</th><th class="num">Balance</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="code">{{ row.invoice.number }}</td>
+      <td>{{ row.invoice.vendor_invoice_no }}</td>
+      <td>{{ row.invoice.invoice_date|date:"d/m/Y" }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.word }}</span></td>
+      <td><a href="{% url 'finance_po' row.invoice.purchase_order.id %}">{{ row.invoice.purchase_order.number }}</a></td>
+      <td>{{ row.invoice.purchase_order.project.name }}</td>
+      <td>{{ row.invoice.purchase_order.vendor.name }}</td>
+      <td class="num">₹{{ row.invoice.taxable|rupees }}</td>
+      <td class="num">₹{{ row.invoice.gst|rupees }}</td>
+      <td class="num"><b>₹{{ row.invoice.total|rupees }}</b></td>
+      <td class="num">₹{{ row.f.settled|rupees }}</td>
+      <td class="num">{% if row.f.balance %}₹{{ row.f.balance|rupees }}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="12">No vendor invoice matches. Invoices are recorded from a purchase order's Vendor invoices &amp; payments screen.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td colspan="9">Total · {{ rows|length }} invoice{{ rows|length|pluralize }}</td>
+    <td class="num">₹{{ totals.total|rupees }}</td><td class="num">₹{{ totals.settled|rupees }}</td><td class="num">₹{{ totals.balance|rupees }}</td></tr></tfoot>
+</table>
+{% endblock %}

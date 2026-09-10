@@ -198,7 +198,7 @@ area, and the total is a composite ₹/sqft.
             <td><b>{{ line.name }}</b>
               {% if line.is_custom %}
                 <span class="pill p-onsheet" title="Added for this project">custom</span>{% endif %}</td>
-            <td style="color:var(--muted);font-size:11px">{{ line.basis|default:"—" }}</td>
+            <td style="color:var(--muted);font-size:13px">{{ line.basis|default:"—" }}</td>
             {% if editable %}
               <td><input class="cell num" name="rate-{{ line.id }}" value="{{ line.rate|rupees2 }}"></td>
               <td><input class="cell num" name="gst-{{ line.id }}" value="{{ line.gst_percent|qty }}"></td>
@@ -241,7 +241,7 @@ area, and the total is a composite ₹/sqft.
     {# ---------------- the statutory add-ons -------------------------------- #}
     {% if editable %}
       <h3 style="margin:18px 0 4px;font-size:13px;color:var(--navy)">Statutory and add-on factors</h3>
-      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">
         Applied to the base cost, in this order: contingency, then design fee, then GST on the lot.
       </div>
       <div class="srow">
@@ -297,7 +297,7 @@ area, and the total is a composite ₹/sqft.
               <td><label for="act-{{ activity.id }}" style="cursor:pointer">{{ activity.name }}</label></td>
               <td class="num">{{ activity.rate|rupees2 }}</td>
               <td class="num">{{ activity.gst_percent|qty }}%</td>
-              <td style="color:var(--muted);font-size:11px">{{ activity.basis|default:"—" }}</td>
+              <td style="color:var(--muted);font-size:13px">{{ activity.basis|default:"—" }}</td>
             </tr>
           {% endfor %}
           </tbody>
@@ -307,11 +307,11 @@ area, and the total is a composite ₹/sqft.
       {% if editable %}
         <div style="margin-top:9px;display:flex;align-items:center;gap:12px">
           <button type="submit">Add ticked construction activities</button>
-          <span style="color:var(--muted);font-size:12px">
+          <span style="color:var(--muted);font-size:13px">
             they come in at the company rate, editable above for this project only</span>
         </div>
       {% else %}
-        <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+        <div style="font-size:13px;color:var(--muted);margin-top:8px">
           These have no reserve on this project, so anything bought under them shows as spend that
           was never quoted — which is the point of listing them.
         </div>

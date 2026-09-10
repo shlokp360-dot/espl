@@ -6,10 +6,11 @@ Django 5.2 · SQLite in dev, PostgreSQL in production · no static files, all CS
 
 ```
 .venv\Scripts\activate
-python manage.py test            # expect 892, then OK. Run ALONE, never chained.
+python manage.py test            # expect ~1200, then OK. Run ALONE, never chained (--parallel 4 is fine).
 python manage.py migrate
 python manage.py runserver       # http://127.0.0.1:8000/  · login: schokshi
-python manage.py seed_showcase   # demo data · --remove takes it away
+python manage.py seed_showcase   # demo data · --remove takes it away (run seed_sales_showcase --remove first)
+python manage.py seed_sales_showcase  # units, enquiries, bookings, demands, receipts on the showcase projects · --remove
 python manage.py check_integrity # read-only, safe any time
 python manage.py import_masters  # ⚠ THE ONLY way to seed a fresh database
 python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBUG only · --remove
@@ -35,7 +36,7 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
   description; reading `.git/HEAD` and `.git/refs` is fine.
 - **Never build without an explicit "go".** He asks for the plan first and reads it.
 - **ANCHORS.md ships in the same commit as the code.** Run the drift check every time:
-  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 87.
+  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 109.
   ⚠ Exclude `.venv`, `.git` **and `__pycache__`** or the grep runs for minutes,
   times out, and counts compiled copies of the same anchor twice.
   ⚠ `BOM-CALC-` appears in the output and is NOT an anchor — it is the wildcard
@@ -47,6 +48,19 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
   preview script, and it says so at both ends.
 - **The yellow-box rule:** a `.note` earns its place only if it stops a mistake at the
   moment of acting, and then it is one line.
+
+## The screens (slice 10 restyle)
+
+- **Option B look**: white top bar carrying the module links (from `hub.tiles_for`, via
+  `projects/context_processors.py`), a left sidebar wherever a module's `_nav.html` renders a
+  `<nav>`, 14px base, KPI figures in one ruled row, flat tables with a navy rule under the header.
+- **No grey helper text.** `.hint`, `.legend`, `.sugg` and `.kpi .s` are `display:none` in
+  `base.html` and must not be reintroduced; instructions belong in the ⓘ panel. Inline font sizes
+  below 13px are not allowed in templates.
+- **Modules:** `sales` (units → bookings → demands → receipts), `finance` (RA bills with 10%
+  retention and DLP on work orders, vendor invoices and payments on purchase orders), `drawings`
+  (revisions and transmittals). Each keeps its ⓘ panels in `<app>/panels.py`, merged into
+  `projects/help_panels.py`.
 
 ## Vocabulary — do not drift
 

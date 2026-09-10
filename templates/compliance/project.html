@@ -23,19 +23,19 @@ ONE SITE'S COMPLIANCE FILE.
 .citem{display:flex;align-items:flex-start;gap:10px;padding:7px 11px;border-bottom:1px solid #EDEFF3}
 .citem:last-child{border-bottom:none}
 .citem .nm{flex:1;min-width:0;font-size:12.5px}
-.citem .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.citem .sub{font-size:13px;color:var(--muted);margin-top:2px}
 .citem .act{display:flex;gap:6px;align-items:center;white-space:nowrap}
 .ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
-        font-size:12px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
+        font-size:13px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
 .cblock{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px;overflow:hidden}
 .dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
-.dlgform label{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+.dlgform label{display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;
                color:var(--muted);margin-bottom:3px}
 .dlgform input,.dlgform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
                                border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
 .dlgform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dlgform .foot{display:flex;gap:8px;justify-content:flex-end}
-.dlgform p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5;white-space:normal}
+.dlgform p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;white-space:normal}
 </style>
 
 <div class="toolbar">
@@ -156,7 +156,7 @@ ONE SITE'S COMPLIANCE FILE.
           {% endcomment %}
           {% for old in row.history %}
             <div class="citem" style="padding-left:34px;background:#FCFCFD">
-              <span class="nm" style="color:var(--muted);font-size:11.5px">
+              <span class="nm" style="color:var(--muted);font-size:13px">
                 {{ old.original_name }} · uploaded {{ old.uploaded_at|date:"d/m/Y" }}
                 {% if old.uploaded_by %}by {{ old.uploaded_by.get_full_name|default:old.uploaded_by.username }}{% endif %}
               </span>
@@ -216,13 +216,13 @@ ONE SITE'S COMPLIANCE FILE.
           <b style="min-width:60px">{{ row.item.title.type.code }}</b>
           <span style="flex:1">{{ row.item.name }}
             <span style="color:var(--muted)">· {{ row.item.title.name }}</span></span>
-          <span style="color:var(--muted);font-size:11.5px;white-space:nowrap">
+          <span style="color:var(--muted);font-size:13px;white-space:nowrap">
             {{ row.removed_at|date:"d/m/Y" }}{% if row.removed_by %} ·
             {{ row.removed_by.get_full_name|default:row.removed_by.username }}{% endif %}</span>
           <button type="submit" class="sec sm">Put back</button>
         </form>
       {% endfor %}
-      <div style="color:var(--muted);font-size:11.5px;margin-top:2px">
+      <div style="color:var(--muted);font-size:13px;margin-top:2px">
         Removed here only. These lines are untouched on the master and on every other project.
       </div>
     </div>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Pay {{ bill.number }}{% endblock %}
+{% block subtitle %}{{ bill.purchase_order.number }} &nbsp;|&nbsp; {{ bill.purchase_order.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="payments" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_ra_bill_pay" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_ra_bill_pay" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+<div class="toolbar"><span class="ttl">Record payment — {{ bill.number }}</span><span class="sp"></span></div>
+
+<div class="facts">
+  <div class="card"><div class="k">Net payable</div><div class="v">₹{{ ladder.net_payable|rupees2 }}</div></div>
+  <div class="card"><div class="k">TDS on this bill</div><div class="v">₹{{ ladder.tds|rupees2 }}</div></div>
+  <div class="card"><div class="k">Paid so far</div><div class="v">₹{{ paid|rupees2 }}</div></div>
+  <div class="card"><div class="k">Left to pay</div><div class="v">₹{{ left|rupees2 }}</div></div>
+</div>
+
+<form method="post" class="fform card">
+  {% csrf_token %}
+  <div class="three">
+    <div><label>Amount paid (what left the bank)</label><input name="amount" value="{{ left|rupees2 }}" required></div>
+    <div><label>TDS withheld</label><input name="tds_amount" value="{{ ladder.tds|rupees2 }}"></div>
+    <div><label>Paid on</label><input type="date" name="paid_on" value="{{ today|date:'Y-m-d' }}"></div>
+  </div>
+  <div class="three">
+    <div><label>Mode</label><select name="mode">{% for value, label in modes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+    <div><label>Reference (UTR / cheque)</label><input name="reference" maxlength="60"></div>
+    <div><label>Note</label><input name="note" maxlength="300"></div>
+  </div>
+  <div class="foot">
+    <button type="submit">Record payment</button>
+    <a href="{% url 'finance_ra_bill' bill.id %}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

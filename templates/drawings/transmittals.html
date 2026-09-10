@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load perms help %}
+{% comment %}
+THE TRANSMITTAL REGISTER — who was handed which revisions, when. Record only.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — transmittals{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="transmittals" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_transmittals" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_transmittals" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Transmittals</span>
+  <span class="sp"></span>
+  {% if user|can:"drawings.transmit" %}
+    <a href="{% url 'drawings_transmittal_new' project.pk %}"><button type="button">Record a transmittal</button></a>
+  {% endif %}
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th style="width:110px">Number</th>
+      <th>Contractor</th>
+      <th style="width:140px">Purpose</th>
+      <th class="num" style="width:90px">Drawings</th>
+      <th style="width:100px">Issued</th>
+      <th style="width:160px">Issued by</th>
+      <th style="width:120px"></th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="code"><a href="{% url 'drawings_transmittal' project.pk row.pk %}">{{ row.number }}</a></td>
+          <td>{{ row.vendor.name }}</td>
+          <td>{{ row.get_purpose_display }}</td>
+          <td class="num">{{ row.line_count }}</td>
+          <td>{{ row.issued_on|date:"d/m/Y" }}</td>
+          <td>{% if row.issued_by %}{{ row.issued_by.get_full_name|default:row.issued_by.username }}{% else %}—{% endif %}</td>
+          <td><a href="{% url 'drawings_transmittal_pdf' project.pk row.pk %}"><button type="button" class="sec sm">PDF</button></a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:14px">No transmittal recorded on {{ project.code }} yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

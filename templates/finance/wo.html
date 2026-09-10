@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+ONE WORK ORDER, FROM THE MONEY SIDE: its lines against the quantities certified
+so far, every bill, the retention and advance ledgers, and the payments.
+
+Two forms live here — New RA bill and Release retention — because both act on
+the work order rather than on a bill.
+{% endcomment %}
+{% block title %}{{ po.number }} — RA bills{% endblock %}
+{% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="ra_bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_wo" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_wo" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+  {% if user|can:"finance.view" %}<a href="{% url 'finance_ra_bills' %}">RA bills</a> &nbsp;▸&nbsp;{% endif %}
+  <a href="{% url 'po_detail' po.project.id po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>Bills</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">{{ po.number }}</span>
+  <span class="pill p-{{ po.status }}">{{ po.status_word|upper }}</span>
+  <span class="pill" style="background:var(--lblue);color:var(--navy)">WORK ORDER</span>
+  <span class="sp"></span>
+</div>
+
+<div class="facts">
+  <div class="card"><div class="k">Contract value (basic)</div><div class="v">₹{{ s.contract_value|rupees }}</div></div>
+  <div class="card"><div class="k">Certified to date</div><div class="v">₹{{ s.certified_to_date|rupees }}</div></div>
+  <div class="card"><div class="k">Billed to date (invoice value)</div><div class="v">₹{{ s.billed_to_date|rupees }}</div></div>
+  <div class="card"><div class="k">Paid to date</div><div class="v">₹{{ s.paid_to_date|rupees }}</div></div>
+  <div class="card"><div class="k">Payable now</div><div class="v">₹{{ s.payable_now|rupees }}</div></div>
+  <div class="card"><div class="k">Retention {{ po.retention_pct|qty }}% · balance</div><div class="v">₹{{ s.retention_balance|rupees }}</div></div>
+  <div class="card"><div class="k">Advance agreed / paid / recovered</div>
+    <div class="v">₹{{ s.advance_agreed|rupees }} / ₹{{ s.advance_paid|rupees }} / ₹{{ s.advance_recovered|rupees }}</div></div>
+  <div class="card"><div class="k">DLP {{ po.dlp_months }} months · ends</div>
+    <div class="v">{% if s.dlp_end %}{{ s.dlp_end|date:"d/m/Y" }}{% if s.retention_eligible %} <span class="pill p-paid">eligible</span>{% endif %}{% else %}after the final bill{% endif %}</div></div>
+</div>
+
+<h3 class="sec">Contract lines</h3>
+{% comment %}The claim inputs in the table below belong to this form through their form= attribute.{% endcomment %}
+<form method="post" action="{% url 'finance_ra_bill_new' po.id %}" id="newbill">{% csrf_token %}</form>
+<table>
+  <thead><tr>
+    <th>Construction activity</th><th>Code</th><th>Scope</th><th>UOM</th>
+    <th class="num">Order qty</th><th class="num">Certified to date</th><th class="num">Remaining</th>
+    <th class="num">Rate</th>
+    {% if can_bill and user|can:"finance.certify" %}<th class="num">Claim this bill</th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for row in s.lines %}
+    <tr>
+      <td style="font-size:13px;color:var(--muted)">{{ row.po_line.bom_line.activity.name }}</td>
+      <td class="code">{{ row.po_line.bom_line.material.code }}</td>
+      <td>{{ row.po_line.bom_line.material.name }}
+        {% if row.po_line.reference %}<div style="font-size:10.8px;font-style:italic">↳ {{ row.po_line.reference }}</div>{% endif %}</td>
+      <td>{{ row.po_line.bom_line.material.uom }}</td>
+      <td class="num">{{ row.quantity|qty }}</td>
+      <td class="num">{{ row.certified_to_date|qty }}</td>
+      <td class="num">{{ row.remaining|qty }}</td>
+      <td class="num">₹{{ row.po_line.rate|rupees2 }}</td>
+      {% if can_bill and user|can:"finance.certify" %}
+        <td><input class="cell num" form="newbill" name="claim-{{ row.po_line.id }}" value=""></td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if can_bill and user|can:"finance.certify" %}
+  <div class="card" style="margin-top:10px">
+    <div class="fform" style="max-width:none">
+      <div class="three">
+        <div><label>Bill date</label><input form="newbill" type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}"></div>
+        <div><label>Contractor's invoice no.</label><input form="newbill" name="contractor_ref" maxlength="60"></div>
+        <div><label>Final bill</label><label style="text-transform:none;font-size:12.5px;color:inherit"><input form="newbill" type="checkbox" name="is_final" value="1" style="width:auto"> This bill closes the contract</label></div>
+      </div>
+      <div class="three">
+        <div><label>Period from</label><input form="newbill" type="date" name="period_from"></div>
+        <div><label>Period to</label><input form="newbill" type="date" name="period_to"></div>
+        <div><label>Note</label><input form="newbill" name="note" maxlength="300"></div>
+      </div>
+      <div class="foot"><button type="submit" form="newbill">New RA bill ▸</button></div>
+    </div>
+  </div>
+{% elif s.open_bill %}
+  <div class="note tight" style="margin-top:10px"><b>{{ s.open_bill.number }} is {{ s.open_bill.get_status_display|lower }}.</b> Approve or discard it before raising another.</div>
+{% endif %}
+
+<h3 class="sec">Bills</h3>
+<table>
+  <thead><tr>
+    <th>RA bill</th><th>No.</th><th>Status</th><th>Bill date</th><th>Contractor ref</th>
+    <th class="num">Taxable</th><th class="num">Invoice value</th><th class="num">Retention</th>
+    <th class="num">Advance rec.</th><th class="num">Net payable</th><th class="num">Paid</th>
+  </tr></thead>
+  <tbody>
+  {% for row in bills %}
+    <tr>
+      <td><a href="{% url 'finance_ra_bill' row.bill.id %}"><span class="code">{{ row.bill.number }}</span></a>
+        {% if row.bill.is_final %}<span class="pill p-delivered">final</span>{% endif %}</td>
+      <td class="num">{{ row.bill.sequence }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.bill.get_status_display }}</span></td>
+      <td>{{ row.bill.bill_date|date:"d/m/Y" }}</td>
+      <td>{{ row.bill.contractor_ref|default:"—" }}</td>
+      <td class="num">₹{{ row.ladder.taxable|rupees }}</td>
+      <td class="num">₹{{ row.ladder.invoice_value|rupees }}</td>
+      <td class="num">₹{{ row.ladder.retention|rupees }}</td>
+      <td class="num">{% if row.ladder.advance_recovery %}₹{{ row.ladder.advance_recovery|rupees }}{% else %}—{% endif %}</td>
+      <td class="num"><b>₹{{ row.ladder.net_payable|rupees }}</b></td>
+      <td class="num">{% if row.paid %}₹{{ row.paid|rupees }}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="11">No bill on this work order yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-top:6px">
+  <div style="flex:1 1 380px">
+    <h3 class="sec">Retention ledger</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Reference</th><th>By</th><th>Note</th><th class="num">Released</th></tr></thead>
+      <tbody>
+      {% for r in releases %}
+        <tr><td>{{ r.released_on|date:"d/m/Y" }}</td><td>{{ r.reference|default:"—" }}</td>
+            <td>{{ r.released_by.get_full_name|default:r.released_by.username|default:"—" }}</td>
+            <td>{{ r.note|default:"—" }}</td><td class="num">₹{{ r.amount|rupees }}</td></tr>
+      {% empty %}
+        <tr><td colspan="5">Nothing released yet.</td></tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="4">Held on approved bills</td><td class="num">₹{{ s.retention_held|rupees }}</td></tr>
+        <tr><td colspan="4">Released</td><td class="num">₹{{ s.retention_released|rupees }}</td></tr>
+        <tr><td colspan="4"><b>Balance</b></td><td class="num"><b>₹{{ s.retention_balance|rupees }}</b></td></tr>
+      </tfoot>
+    </table>
+    {% if user|can:"finance.approve" and s.retention_balance %}
+      <form method="post" action="{% url 'finance_retention_release' po.id %}" class="card" style="margin-top:10px">
+        {% csrf_token %}
+        <div class="fform" style="max-width:none">
+          <div class="three">
+            <div><label>Release amount</label><input name="amount" value="{{ s.retention_balance|rupees2 }}"></div>
+            <div><label>Released on</label><input type="date" name="released_on" value="{{ today|date:'Y-m-d' }}"></div>
+            <div><label>Reference (UTR)</label><input name="reference" maxlength="60"></div>
+          </div>
+          <div><label>Note</label><input name="note" maxlength="300"></div>
+          {% if not s.retention_eligible %}
+            <div class="note tight" style="margin:0"><b>Before the DLP ends.</b> Tick override and say why in the note, or wait.
+              <label style="display:inline;text-transform:none;font-size:12.5px;color:inherit;margin-left:8px"><input type="checkbox" name="override" value="1" style="width:auto"> Override</label></div>
+          {% endif %}
+          <div class="foot"><button type="submit" onclick="return confirm('Release retention on {{ po.number|escapejs }}?');">Release retention</button></div>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+
+  <div style="flex:1 1 380px">
+    <h3 class="sec">Payments on this work order</h3>
+    <table>
+      <thead><tr><th>Date</th><th>PV</th><th>Kind</th><th>Document</th><th>Reference</th><th class="num">Amount</th><th class="num">TDS</th></tr></thead>
+      <tbody>
+      {% for p in payments %}
+        <tr><td>{{ p.paid_on|date:"d/m/Y" }}</td><td class="code">{{ p.number }}</td>
+            <td>{{ p.get_kind_display }}</td>
+            <td>{% if p.ra_bill_id %}<a href="{% url 'finance_ra_bill' p.ra_bill_id %}">{{ p.ra_bill.number }}</a>{% else %}{{ po.number }}{% endif %}</td>
+            <td>{{ p.reference|default:"—" }}</td>
+            <td class="num">₹{{ p.amount|rupees }}</td><td class="num">{% if p.tds_amount %}₹{{ p.tds_amount|rupees }}{% else %}—{% endif %}</td></tr>
+      {% empty %}
+        <tr><td colspan="7">No payment yet.</td></tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="5">Advance paid / recovered from bills</td><td class="num">₹{{ s.advance_paid|rupees }}</td><td class="num">₹{{ s.advance_recovered|rupees }}</td></tr>
+        <tr><td colspan="5"><b>Paid to date</b></td><td class="num"><b>₹{{ s.paid_to_date|rupees }}</b></td><td class="num">₹{{ s.tds_withheld|rupees }}</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

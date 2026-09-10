@@ -75,6 +75,56 @@ SCREENS = [
     #   everybody's delays was left open in the design session; manager-only is
     #   the reversible answer, and their own late rows are on their own screen.
     ("task_delay_log",   False, {A, PM}),
+    # ---- sales ------------------------------------------------------------
+    ("sales_home",             False, {A, PM, ACC}),
+    ("sales_units",            False, {A, PM, ACC}),
+    ("sales_unit_new",         False, {A, PM}),
+    ("sales_unit_form",        True,  {A, PM}),
+    ("sales_units_bulk",       False, {A, PM}),
+    ("sales_enquiries",        False, {A, PM, ACC}),
+    ("sales_enquiry_new",      False, {A, PM}),
+    ("sales_enquiry_form",     True,  {A, PM}),
+    ("sales_booking_new",      True,  {A, PM}),
+    ("sales_bookings",         False, {A, PM, ACC}),
+    ("sales_booking",          True,  {A, PM, ACC}),
+    ("sales_booking_cancel",   True,  {A, PM}),
+    ("sales_booking_transfer", True,  {A, PM}),
+    ("sales_customer_form",    True,  {A, PM}),
+    ("sales_demand_new",       True,  {A, ACC}),
+    ("sales_demand_pdf",       True,  {A, PM, ACC}),
+    ("sales_receipt_new",      True,  {A, ACC}),
+    ("sales_collections",      False, {A, PM, ACC}),
+    ("sales_collections_excel", False, {A, PM, ACC}),
+    ("sales_receipts",         False, {A, PM, ACC}),
+    ("sales_receipts_excel",   False, {A, PM, ACC}),
+    # ---- finance ------------------------------------------------------------
+    ("finance_home",             False, {A, PM, ACC}),
+    ("finance_ra_bills",         False, {A, PM, ACC}),
+    # ⚠ The site engineer holds finance.certify and not finance.view; the bill
+    #   they certify has to be a screen they can open (requires_any, reads only).
+    ("finance_wo",               True,  {A, PM, ACC, SITE}),
+    ("finance_ra_bill",          True,  {A, PM, ACC, SITE}),
+    ("finance_ra_bill_pay",      True,  {A, ACC}),
+    ("finance_ra_bill_pdf",      True,  {A, PM, ACC}),
+    ("finance_ra_bill_discard",  True,  {A, PM, SITE}),
+    ("finance_retention",        False, {A, PM, ACC}),
+    ("finance_invoices",         False, {A, PM, ACC}),
+    ("finance_po",               True,  {A, PM, ACC}),
+    ("finance_invoice_new",      True,  {A, ACC}),
+    ("finance_po_pay",           True,  {A, ACC}),
+    ("finance_payments",         False, {A, PM, ACC}),
+    # ---- drawings -----------------------------------------------------------
+    ("drawings_home",              False, {A, PM, PUR, SITE}),
+    ("drawings_register_default",  False, {A, PM, PUR, SITE}),
+    ("drawings_register",          True,  {A, PM, PUR, SITE}),
+    ("drawings_transmittals",      True,  {A, PM, PUR, SITE}),
+    ("drawings_architects",        False, {A, PM, PUR, SITE}),
+    ("drawings_groups",            False, {A, PM, PUR, SITE}),
+    ("drawings_download",          True,  {A, PM, PUR, SITE}),
+    ("drawings_new",               True,  {A, PM}),
+    ("drawings_bulk",              True,  {A, PM}),
+    ("drawings_architect_new",     False, {A, PM}),
+    ("drawings_transmittal_new",   True,  {A, PM}),
 ]
 
 #: POST-only actions, checked for the refusal rather than the whole flow.
@@ -114,6 +164,19 @@ ACTIONS = [
     #   Accountant all hold. This is what the whole company reads as
     #   instructions, in a language most of the office cannot check.
     ("panel_text_save",     "bom", {A}),
+    # ---- sales / finance / drawings -----------------------------------------
+    ("sales_enquiry_visit",       True,  {A, PM}),
+    ("sales_enquiry_stage",       True,  {A, PM}),
+    ("sales_booking_schedule",    True,  {A, PM}),
+    ("sales_booking_mark",        True,  {A, PM}),
+    ("sales_demands_for_header",  False, {A, ACC}),
+    ("finance_ra_bills_excel",    False, {A, PM, ACC}),
+    ("finance_ra_bill_new",       True,  {A, PM, SITE}),
+    ("finance_ra_bill_save",      True,  {A, PM, SITE}),
+    ("finance_ra_bill_approve",   True,  {A, PM}),
+    ("finance_retention_release", True,  {A, PM}),
+    ("finance_payments_excel",    False, {A, PM, ACC}),
+    ("drawings_groups_save",      False, {A, PM}),
 ]
 
 

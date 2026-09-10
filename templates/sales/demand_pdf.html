@@ -1,0 +1,136 @@
+{% load inr %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% comment %}
+THE DEMAND LETTER — rendered by WeasyPrint into the PDF.
+
+⚠ TABLES, NOT FLEXBOX, and "Rs" not the rupee glyph — the same two rules the
+  purchase order learned on real paper (see projects/po_pdf.html).
+⚠ NOT ONE FIGURE IS WORKED OUT HERE. Every number is from sales.calc via the
+  view, the same functions the booking screen prints.
+{% endcomment %}
+<style>
+@page { size: A4; margin: 14mm 14mm 18mm 14mm;
+  @bottom-right { content: "Page " counter(page) " of " counter(pages);
+    font-family: "DejaVu Sans", sans-serif; font-size: 6.8pt; color: #6B7280; } }
+body { font-family: "DejaVu Sans", sans-serif; font-size: 9pt; color: #1a1a1a; margin: 0; }
+table { border-collapse: collapse; width: 100%; }
+.n { text-align: right; white-space: nowrap; }
+.b { font-weight: bold; }
+.head td { vertical-align: top; padding: 0; }
+.co { border: 1.2pt solid #1a1a1a; padding: 6pt 8pt; }
+.co .nm { font-size: 12pt; font-weight: bold; }
+.doctitle { border: 1.2pt solid #9AA3AF; color: #6B7280; font-size: 15pt; letter-spacing: 3pt; padding: 8pt 10pt; text-align: center; }
+.meta { border: 1.2pt solid #1a1a1a; margin-top: 8pt; }
+.meta td { border: 0.6pt solid #1a1a1a; padding: 3pt 7pt; font-size: 8.5pt; }
+.meta td.k { width: 40%; color: #444; }
+.meta td.v { font-weight: bold; }
+.party { margin-top: 10pt; }
+.party td { border: 0.8pt solid #1a1a1a; padding: 6pt 8pt; vertical-align: top; width: 50%; }
+.party .lbl { font-size: 7pt; letter-spacing: 1pt; color: #6B7280; }
+.lines { margin-top: 12pt; }
+.lines th { border: 0.8pt solid #1a1a1a; background: #EEF1F5; padding: 4pt 6pt; font-size: 8pt; text-align: left; }
+.lines th.n { text-align: right; }
+.lines td { border: 0.6pt solid #1a1a1a; padding: 4pt 6pt; }
+.tot td { padding: 3pt 6pt; }
+.tot td.k { text-align: right; color: #444; }
+.tot tr.grand td { border-top: 1.2pt solid #1a1a1a; font-weight: bold; font-size: 10pt; }
+.status { margin-top: 12pt; }
+.status td { padding: 3pt 6pt; border: 0.6pt solid #9AA3AF; }
+.sign { margin-top: 30pt; }
+.sign td { width: 50%; vertical-align: bottom; padding-top: 24pt; }
+.sysline { font-size: 6.8pt; color: #6B7280; margin-top: 14pt; }
+</style>
+</head>
+<body>
+
+<table class="head">
+  <tr>
+    <td style="width:62%">
+      <div class="co">
+        <div class="nm">{{ company.name|upper }}</div>
+        {% if company.address %}<div>{{ company.address|linebreaksbr }}</div>{% endif %}
+        {% if company.email %}<div>{{ company.email }}</div>{% endif %}
+        {% if company.gst_number %}<div>GSTIN {{ company.gst_number }}</div>{% endif %}
+      </div>
+    </td>
+    <td style="width:3%"></td>
+    <td>
+      <div class="doctitle">DEMAND LETTER</div>
+      <table class="meta">
+        <tr><td class="k">Demand no.</td><td class="v">{{ demand.number }}</td></tr>
+        <tr><td class="k">Date</td><td class="v">{{ demand.raised_on|date:"d/m/Y" }}</td></tr>
+        <tr><td class="k">Due by</td><td class="v">{{ demand.due_on|date:"d/m/Y" }}</td></tr>
+        <tr><td class="k">Booking</td><td class="v">{{ booking.number }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="party">
+  <tr>
+    <td>
+      <div class="lbl">TO</div>
+      <b>{{ customer.name }}</b><br>
+      {% if customer.address %}{{ customer.address|linebreaksbr }}<br>{% endif %}
+      Phone {{ customer.phone }}{% if customer.email %} &middot; {{ customer.email }}{% endif %}
+      {% if customer.pan %}<br>PAN {{ customer.pan }}{% endif %}
+    </td>
+    <td>
+      <div class="lbl">PROPERTY</div>
+      <b>{{ project.name }}</b><br>
+      Unit {{ unit.number }} &middot; {{ unit.get_kind_display }}{% if unit.block %} &middot; Block {{ unit.block }}{% endif %} &middot; Floor {{ unit.floor }}<br>
+      {% if project.site_address %}{{ project.site_address|linebreaksbr }}{% endif %}
+    </td>
+  </tr>
+</table>
+
+<p style="margin-top:12pt">Dear {{ customer.name }},</p>
+<p>As per the payment schedule of your booking {{ booking.number }} for unit {{ unit.number }},
+  the following instalment has become due{% if demand.milestone %} on completion of <b>{{ demand.milestone.name|lower }}</b>{% endif %}.
+  Kindly remit the amount below on or before <b>{{ demand.due_on|date:"d/m/Y" }}</b>.</p>
+
+<table class="lines">
+  <thead><tr><th>Particulars</th><th class="n">Basic (Rs)</th><th class="n">GST %</th><th class="n">GST (Rs)</th><th class="n">Amount (Rs)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>{% if demand.milestone %}{{ demand.milestone.name }} — {{ demand.milestone.percent|qty }}% of agreement value Rs {{ booking_figures.agreement|rupees }}{% else %}{{ demand.note|default:"Instalment" }}{% endif %}</td>
+      <td class="n">{{ demand.amount|rupees2 }}</td>
+      <td class="n">{{ demand.gst_percent|qty }}</td>
+      <td class="n">{{ figures.gst|rupees2 }}</td>
+      <td class="n b">{{ figures.total|rupees2 }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="tot" style="width:55%;margin-left:45%;margin-top:8pt">
+  <tr><td class="k">Amount demanded</td><td class="n">Rs {{ figures.total|rupees2 }}</td></tr>
+  <tr><td class="k">Received against this demand</td><td class="n">Rs {{ figures.paid|rupees2 }}</td></tr>
+  <tr class="grand"><td class="k">Balance payable</td><td class="n">Rs {{ figures.balance|rupees2 }}</td></tr>
+</table>
+<p class="b" style="margin-top:4pt">{{ figures.balance|rupees_words }}</p>
+
+<table class="status">
+  <tr>
+    <td>Agreement value Rs {{ booking_figures.agreement|rupees2 }} + GST Rs {{ booking_figures.gst|rupees2 }} = Rs {{ booking_figures.total|rupees2 }}</td>
+    <td>Received to date Rs {{ booking_figures.collected|rupees2 }}</td>
+    <td>Outstanding Rs {{ booking_figures.outstanding|rupees2 }}</td>
+    <td>This demand: {{ status_word }}</td>
+  </tr>
+</table>
+
+{% if demand.note and demand.milestone %}<p style="margin-top:10pt">{{ demand.note }}</p>{% endif %}
+<p style="margin-top:10pt">Payments by cheque, NEFT/RTGS or UPI in favour of {{ company.name }}. Please quote {{ demand.number }} with your payment.
+  Where TDS under section 194-IA applies, kindly share Form 16B for the amount deposited.</p>
+
+<table class="sign">
+  <tr>
+    <td></td>
+    <td class="n">For {{ company.name }}<br><br><br>Authorised signatory</td>
+  </tr>
+</table>
+
+<div class="sysline">System-generated demand letter &middot; {{ company.name }} &middot; {{ demand.number }}</div>
+</body>
+</html>

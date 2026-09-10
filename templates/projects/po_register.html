@@ -104,7 +104,7 @@ The cross-project document register — the Purchase orders tile.
       <input type="search" name="q" value="{{ applied.q|default:'' }}"
              placeholder="Document number — type any part of it, e.g. 0007">
       <button class="sec sm" type="submit">Apply</button>
-      {% if applied %}<a href="{% url 'po_register' %}" style="font-size:11.5px">clear filters</a>{% endif %}
+      {% if applied %}<a href="{% url 'po_register' %}" style="font-size:13px">clear filters</a>{% endif %}
     </div>
   </form>
 
@@ -119,23 +119,21 @@ The cross-project document register — the Purchase orders tile.
             <th style="width:28px"><input type="checkbox" id="all" title="Select every row on this page"></th>
             <th>Document</th><th>Type</th><th>Date</th><th>Project</th><th>Vendor</th><th>Status</th>
             <th class="num">Lines</th><th class="num">Basic</th><th class="num">GST</th>
-            <th class="num">Order value</th><th></th>
+            <th class="num">Order value</th>
           </tr>
         </thead>
         <tbody>
           {% for row in rows %}
             <tr>
               <td><input type="checkbox" class="pick" name="ids" value="{{ row.order.id }}"></td>
-              <td class="code">{{ row.order.number }}</td>
+              <td class="code"><a href="{% url 'po_detail' row.order.project_id row.order.id %}?from=register" style="text-decoration:none">{{ row.order.number }}</a></td>
               <td>{% if row.order.document_type == 'WO' %}
                     <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
                   {% else %}
                     <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
                   {% endif %}</td>
               <td>{{ row.order.raised_on|date:"d/m/Y" }}</td>
-              <td class="code">{{ row.order.project.code }}
-                <div style="font-weight:400;color:var(--muted);font-size:11px">{{ row.order.project.name }}</div>
-              </td>
+              <td>{{ row.order.project.name }}</td>
               <td>{{ row.order.vendor.name }}</td>
               {% comment %}
               status_word, not the raw status: a work order reads "Completed"
@@ -152,7 +150,6 @@ The cross-project document register — the Purchase orders tile.
                 are reviewing one document, not working inside a project. The
                 crumb back to the register replaces the chain.
               {% endcomment %}
-              <td><a href="{% url 'po_detail' row.order.project_id row.order.id %}?from=register">open ▸</a></td>
             </tr>
           {% endfor %}
         </tbody>
@@ -166,7 +163,6 @@ The cross-project document register — the Purchase orders tile.
           {% endcomment %}
           <td colspan="10">THIS PAGE — {{ rows|length }} of {{ matched }} document{{ matched|pluralize }}</td>
           <td class="num">₹{{ page_value|rupees }}</td>
-          <td></td>
         </tfoot>
       </table>
     </div>

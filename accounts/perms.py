@@ -206,6 +206,29 @@ MATRIX = {
     #   what the whole company reads as instructions, in a language most of the
     #   office cannot check. Saahil's call when the two were put to him.
     "help.edit": {A},
+
+    # ---- sales — units, enquiries, bookings and collections ---------------
+    # Reading the sales book is for the people who run the company and the
+    # people who count its money. Booking a unit is a commitment and stays
+    # with Admin and the Project manager; recording money received is the
+    # accountant's act, separated for the same reason Approve and Paid are.
+    "sales.view":        {A, PM, ACC},
+    "sales.edit":        {A, PM},              # units, enquiries, bookings, cancellations
+    "sales.collect":     {A, ACC},             # demands raised, receipts recorded
+
+    # ---- finance — RA bills, retention, vendor invoices and payments ------
+    # Four acts, four keys, mirroring the purchase order chain: the engineer
+    # who measured the work certifies it, a manager approves the bill (money is
+    # committed), the accountant records the invoice and the payment.
+    "finance.view":      {A, PM, ACC},
+    "finance.certify":   {A, PM, SITE},        # certified quantities on an RA bill
+    "finance.approve":   {A, PM},              # approve an RA bill, release retention
+    "finance.pay":       {A, ACC},             # invoices and payments recorded
+
+    # ---- drawings — the architect's drawings and who was sent which ------
+    "drawings.view":     {A, PM, PUR, SITE},
+    "drawings.edit":     {A, PM},              # register a drawing, upload a revision, approve
+    "drawings.transmit": {A, PM},              # issue a transmittal to a contractor
 }
 
 

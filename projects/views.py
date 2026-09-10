@@ -265,9 +265,11 @@ def launchpad(request):
       one — which is honest, and is exactly what a Compliance user sees until
       their module is built.
     """
-    tiles = hub.tiles_for(role_of(request.user))
+    role = role_of(request.user)
+    tiles = hub.tiles_for(role)
     return render(request, "projects/launchpad.html", {
         "tiles": tiles,
+        "stats": hub.stats_for(role),
         # ⚠ The standing note about greyed tiles disappears when there are none.
         #   Both modules that sat greyed have been built; a note explaining an
         #   absent thing is exactly the kind of yellow box that trains people to
@@ -1385,6 +1387,21 @@ def _apply_po_edits(request, order):
         typed = (request.POST.get("required_by") or "").strip() or None
         if str(order.required_by or "") != (typed or ""):
             document["required_by"] = typed
+
+    # >>> ANCHOR: WO-TERMS <<< — only a work order's form carries these inputs.
+    if order.document_type == DocumentType.WO:
+        for key, field, caption in (("retention", "retention_pct", "retention %"),
+                                    ("mobilisation_advance", "mobilisation_advance",
+                                     "mobilisation advance")):
+            typed = number(key, caption, blank_ok=True)
+            if typed is not None and getattr(order, field) != typed:
+                document[field] = typed
+        if "dlp_months" in request.POST:
+            raw = (request.POST.get("dlp_months") or "").strip()
+            if raw.isdigit() and order.dlp_months != int(raw):
+                document["dlp_months"] = int(raw)
+            elif raw and not raw.isdigit():
+                problems.append("The defect liability period must be a whole number of months.")
 
     if document:
         try:

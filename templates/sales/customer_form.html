@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load help %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block subtitle %}Customer {{ customer.phone }}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="bookings" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_customer_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_customer_form" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+<div class="toolbar"><span class="ttl">{{ customer.name }}</span></div>
+
+<form method="post" class="card sform">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="three">
+    <div><label>Name</label><input type="text" name="name" maxlength="160" required value="{{ customer.name }}"></div>
+    <div><label>Phone (digits only)</label><input type="text" name="phone" maxlength="15" required value="{{ customer.phone }}"></div>
+    <div><label>Email</label><input type="email" name="email" value="{{ customer.email }}"></div>
+  </div>
+  <div class="two">
+    <div><label>PAN</label><input type="text" name="pan" maxlength="10" value="{{ customer.pan }}" style="text-transform:uppercase"></div>
+  </div>
+  <div><label>Address</label><textarea name="address" rows="3">{{ customer.address }}</textarea></div>
+  <div class="foot">
+    <button type="submit">Save customer</button>
+    {% if next %}<a href="{% url 'sales_booking' next %}"><button type="button" class="sec">Back</button></a>{% else %}<a href="{% url 'sales_bookings' %}"><button type="button" class="sec">Back</button></a>{% endif %}
+  </div>
+</form>
+{% endblock %}

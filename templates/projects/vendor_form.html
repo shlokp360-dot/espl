@@ -34,7 +34,7 @@ CREATE OR CHANGE A VENDOR.
     <span class="ttl">
       {% if vendor.pk %}{{ vendor.code }} — {{ vendor.name }}{% else %}New vendor{% endif %}</span>
     <span class="sp"></span>
-    <a href="{% url 'vendor_list' %}" style="font-size:12px;margin-right:6px">Cancel</a>
+    <a href="{% url 'vendor_list' %}" style="font-size:13px;margin-right:6px">Cancel</a>
     <button type="submit">{% if vendor.pk %}Save{% else %}Create vendor{% endif %}</button>
   </div>
 
@@ -64,7 +64,7 @@ CREATE OR CHANGE A VENDOR.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Phone</b>
-          <div style="font-size:11px;color:var(--muted)">This is the identity. Never two vendors
+          <div style="font-size:13px;color:var(--muted)">This is the identity. Never two vendors
             with the same number</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="phone" value="{{ vendor.phone|default:'' }}"
@@ -73,7 +73,7 @@ CREATE OR CHANGE A VENDOR.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>WhatsApp</b>
-          <div style="font-size:11px;color:var(--muted)">Leave blank and it fills itself from the
+          <div style="font-size:13px;color:var(--muted)">Leave blank and it fills itself from the
             phone number. Type one and yours is kept</div></td>
         <td style="border:0;padding:8px 0">
           <input class="cell" name="whatsapp_number" value="{{ vendor.whatsapp_number|default:'' }}"
@@ -101,7 +101,7 @@ CREATE OR CHANGE A VENDOR.
       category and link them to Vendor Activities."
     {% endcomment %}
     <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">What they are, and what they do</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>Group</b> is what this vendor is, and it is how somebody searches for them.
       <b>Serves</b> is which construction activity they work in, and it is what decides whether they are offered on
       a BOM line. A hardware merchant is one group and may serve two construction activities. Both optional.
@@ -138,7 +138,7 @@ CREATE OR CHANGE A VENDOR.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Document type</b>
-          <div style="font-size:11px;color:var(--muted)">Which a new draft starts as. Switchable on
+          <div style="font-size:13px;color:var(--muted)">Which a new draft starts as. Switchable on
             the preview before anything is written</div></td>
         <td style="border:0;padding:8px 0">
           <select class="cell" name="default_document_type" style="max-width:260px">
@@ -151,7 +151,7 @@ CREATE OR CHANGE A VENDOR.
     </table>
 
     <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Tax and terms</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;max-width:860px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>A purchase order cannot be approved without a GSTIN</b>, unless the vendor is marked
       unregistered — in which case no GST is charged at all. The first two digits also decide
       whether a document prints CGST and SGST or IGST.
@@ -166,7 +166,7 @@ CREATE OR CHANGE A VENDOR.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Unregistered</b>
-          <div style="font-size:11px;color:var(--muted)">No GSTIN and none expected — 0% GST on
+          <div style="font-size:13px;color:var(--muted)">No GSTIN and none expected — 0% GST on
             their documents</div></td>
         <td style="border:0;padding:8px 0">
           <label style="font-size:12.5px"><input type="checkbox" name="is_unregistered"
@@ -187,7 +187,7 @@ CREATE OR CHANGE A VENDOR.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top">
           <b>Active</b>
-          <div style="font-size:11px;color:var(--muted)">Turn off instead of deleting. Every
+          <div style="font-size:13px;color:var(--muted)">Turn off instead of deleting. Every
             historical order still resolves</div></td>
         <td style="border:0;padding:8px 0">
           <label style="font-size:12.5px"><input type="checkbox" name="is_active"

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% block title %}Enquiries{% endblock %}
+{% block subtitle %}Who asked, and where each one stands{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="enquiries" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_enquiries" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_enquiries" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Enquiries</span>
+  <span class="sp"></span>
+  {% if user|can:"sales.edit" %}
+    <a href="{% url 'sales_enquiry_new' %}"><button type="button">Add enquiry</button></a>
+  {% endif %}
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0;margin-bottom:13px">
+  <div class="srow">
+    <select name="project" title="Which project">
+      <option value="">Every project</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if applied.project == p.pk %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="stage" title="Stage">
+      <option value="">Every stage</option>
+      <option value="open" {% if applied.stage == 'open' %}selected{% endif %}>Open — new, visited, negotiating</option>
+      {% for value, label in stages %}<option value="{{ value }}" {% if applied.stage == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="assigned" title="Assigned to">
+      <option value="">Anybody</option>
+      {% for person in people %}<option value="{{ person.pk }}" {% if applied.assigned == person.pk %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ applied.q|default:'' }}" placeholder="Name, phone or broker">
+    <button class="sec sm" type="submit">Apply</button>
+    {% if applied %}<a href="{% url 'sales_enquiries' %}" style="font-size:13px">clear filters</a>{% endif %}
+  </div>
+</form>
+
+<table>
+  <thead><tr>
+    <th>Name</th><th>Phone</th><th>Project</th><th>Source</th><th>Wants</th><th class="num">Budget</th>
+    <th>Assigned</th><th class="num">Visits</th><th>Stage</th><th>Since</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td>{% if user|can:"sales.edit" %}<a href="{% url 'sales_enquiry_form' row.pk %}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}</td>
+      <td class="code">{{ row.phone }}</td>
+      <td>{{ row.project.code }}</td>
+      <td>{{ row.get_source_display }}{% if row.broker_name %} · {{ row.broker_name }}{% endif %}</td>
+      <td>{{ row.get_interested_in_display|default:"—" }}</td>
+      <td class="num">{% if row.budget %}₹{{ row.budget|rupees }}{% else %}—{% endif %}</td>
+      <td>{% if row.assigned_to %}{{ row.assigned_to.get_full_name|default:row.assigned_to.username }}{% else %}—{% endif %}</td>
+      <td class="num">{{ row.visit_count }}</td>
+      <td><span class="pill {{ row.pill }}">{{ row.get_stage_display }}</span></td>
+      <td>{{ row.created_at|date:"d/m/Y" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="10">No enquiries match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

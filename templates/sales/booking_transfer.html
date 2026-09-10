@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load help %}
+{% block title %}Transfer {{ booking.number }}{% endblock %}
+{% block subtitle %}{{ booking.unit.number }} · now {{ booking.customer.name }}{% endblock %}
+{% block nav %}{% include "sales/_nav.html" with here="bookings" %}{% endblock %}
+{% block headerinfo %}{% infobutton "sales_booking_transfer" %}{% endblock %}
+{% block infopanel %}{% infopanel "sales_booking_transfer" %}{% endblock %}
+{% block content %}
+{% include "sales/_style.html" %}
+<div class="toolbar"><span class="ttl">Transfer {{ booking.number }} to another customer</span></div>
+
+<form method="post" class="card sform">
+  {% csrf_token %}
+  <div class="three">
+    <div><label>New customer's phone (digits only)</label><input type="text" name="phone" maxlength="15" required value="{{ form.phone }}"></div>
+    <div><label>Name (if new)</label><input type="text" name="name" maxlength="160" value="{{ form.name }}"></div>
+    <div><label>Email</label><input type="email" name="email" value="{{ form.email }}"></div>
+  </div>
+  <div class="two">
+    <div><label>PAN</label><input type="text" name="pan" maxlength="10" value="{{ form.pan }}" style="text-transform:uppercase"></div>
+    <div><label>Address</label><input type="text" name="address" value="{{ form.address }}"></div>
+  </div>
+  <div><label>Note</label><input type="text" name="note" maxlength="200" value="{{ form.note }}"></div>
+  <div class="note tight">Every demand and receipt on {{ booking.number }} stays with the booking and moves to the new customer's name.</div>
+  <div class="foot">
+    <button type="submit">Transfer</button>
+    <a href="{% url 'sales_booking' booking.pk %}"><button type="button" class="sec">Back</button></a>
+  </div>
+</form>
+{% endblock %}

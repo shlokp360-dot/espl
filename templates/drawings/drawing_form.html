@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load help %}
+{% comment %}
+REGISTER OR EDIT ONE DRAWING. The number is the architect's, typed as printed.
+
+⚠ NO DELETE. Active is the way out once a revision has been filed against it.
+{% endcomment %}
+
+{% block title %}Drawings{% endblock %}
+{% block subtitle %}{{ project.code }} — {% if drawing %}{{ drawing.number }}{% else %}register a drawing{% endif %}{% endblock %}
+{% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "drawings_form" %}{% endblock %}
+{% block infopanel %}{% infopanel "drawings_form" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">{% if drawing %}Edit {{ drawing.number }}{% else %}Register a drawing{% endif %}</span>
+  <span class="sp"></span>
+  <a href="{% if drawing %}{% url 'drawings_detail' project.pk drawing.pk %}{% else %}{% url 'drawings_register' project.pk %}{% endif %}"><button type="button" class="sec">Back</button></a>
+</div>
+
+<form method="post" class="card" style="max-width:640px;display:grid;gap:10px">
+  {% csrf_token %}
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+    <label>Number<br><input class="cell" name="number" maxlength="40" required value="{{ drawing.number|default:'' }}"></label>
+    <label>Title<br><input class="cell" name="title" maxlength="200" required value="{{ drawing.title|default:'' }}"></label>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <label>Group<br>
+      <select class="cell" name="group" required>
+        <option value="">choose…</option>
+        {% for option in groups %}
+          <option value="{{ option.pk }}" {% if drawing and drawing.group_id == option.pk %}selected{% endif %}>{{ option.code }} — {{ option.name }}</option>
+        {% endfor %}
+      </select></label>
+    <label>Architect<br>
+      <select class="cell" name="architect">
+        <option value="">—</option>
+        {% for option in architects %}
+          <option value="{{ option.pk }}" {% if drawing and drawing.architect_id == option.pk %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select></label>
+    <label>Required by<br><input class="cell" type="date" name="required_by" value="{{ drawing.required_by|date:'Y-m-d' }}"></label>
+  </div>
+  {% if drawing %}
+    <label style="font-size:13px"><input type="checkbox" name="is_active" {% if drawing.is_active %}checked{% endif %}> Active</label>
+    <div class="note tight"><b>A drawing is never deleted.</b> Untick Active to take it off the register; its revisions stay on file.</div>
+  {% endif %}
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button type="submit">{% if drawing %}Save{% else %}Register{% endif %}</button>
+  </div>
+</form>
+
+{% endblock %}
