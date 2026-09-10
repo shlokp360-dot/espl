@@ -62,6 +62,11 @@ SCREENS = [
     ("compliance_home",            False, {A, PM, ACC, SITE, COMP}),
     ("compliance_project_default", False, {A, PM, ACC, SITE, COMP}),
     ("compliance_timeline",        False, {A, PM, ACC, SITE, COMP}),
+    # ⚠ THE FILE ITSELF, saved or opened in a tab. There is no document with id
+    #   1 here, so an allowed role gets a 404 — the right answer, and not a 403.
+    #   This asks only who is refused; compliance/tests.py serves a real file.
+    ("compliance_download",        True,  {A, PM, ACC, SITE, COMP}),
+    ("compliance_view",            True,  {A, PM, ACC, SITE, COMP}),
     # ⚠ EDITING THE CHECKLIST IS NOT READING IT. One new line makes every project
     #   non-compliant at once, so the master is Admin and Compliance only.
     ("compliance_master",          False, {A, COMP}),
@@ -123,6 +128,21 @@ SCREENS = [
     ("drawings_download",          True,  {A, PM, PUR, SITE}),
     ("drawings_new",               True,  {A, PM}),
     ("drawings_bulk",              True,  {A, PM}),
+    # ---- analytics ---------------------------------------------------------
+    # ⚠ THE ADMIN, AND NOBODY ELSE — the one permission held by a single role.
+    #   `analytics_sales` is the single exception: it opens on sales.view too
+    #   (requires_any), because the sales desk reads its own speed.
+    ("analytics_home",             False, {A}),
+    ("analytics_g2n",              False, {A}),
+    ("analytics_budget",           False, {A}),
+    ("analytics_bom",              False, {A}),
+    ("analytics_payments",         False, {A}),
+    ("analytics_tasks",            False, {A}),
+    ("analytics_documents",        False, {A}),
+    ("analytics_cost_to_complete", False, {A}),
+    ("analytics_rates",            False, {A}),
+    ("analytics_vendors",          False, {A}),
+    ("analytics_sales",            False, {A, PM, ACC}),
     ("drawings_architect_new",     False, {A, PM}),
     ("drawings_transmittal_new",   True,  {A, PM}),
 ]

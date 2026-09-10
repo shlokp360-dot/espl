@@ -23,4 +23,10 @@ urlpatterns = [
     path("analytics/tasks/", views.tasks_page, name="analytics_tasks"),
     # ⚠ The drill target. Every clickable figure in the module lands here.
     path("analytics/documents/", views.documents, name="analytics_documents"),
+    # The four later tabs — forecast, rates, vendors, and the sales desk's speed.
+    path("analytics/cost-to-complete/", views.cost_to_complete, name="analytics_cost_to_complete"),
+    path("analytics/rates/", views.rates_page, name="analytics_rates"),
+    path("analytics/vendors/", views.vendors_page, name="analytics_vendors"),
+    # ⚠ Open to sales.view as well — the only analytics page that is.
+    path("analytics/sales/", views.sales_page, name="analytics_sales"),
 ]

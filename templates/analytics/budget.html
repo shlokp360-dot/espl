@@ -21,7 +21,6 @@ BUDGET — quoted against planned against committed.
 
 <div class="toolbar">
   <span class="ttl">Budget</span>
-  <span class="hint">by {{ grain }}</span>
   <span class="sp"></span>
   {% include "analytics/_filters.html" %}
 </div>
@@ -52,11 +51,6 @@ BUDGET — quoted against planned against committed.
 <div class="card" style="margin-bottom:13px">
   <div class="grph">Budget, plan and committed</div>
   {{ chart }}
-  <div class="legend">
-    {% for entry in series %}
-      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
-    {% endfor %}
-  </div>
 </div>
 
 <div class="scroll" style="max-height:none">

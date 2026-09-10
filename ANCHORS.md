@@ -198,6 +198,8 @@ COMPLIANCE-MASTER          compliance/views.py             the template, and the
 DUMMY-GSTINS               seed_dummy_gstins.py            fake tax numbers, and how they stay fake
 PO-LINE-SHARES             bom_models.py, views.py         document money split across the lines, exactly
 HOME-SCREEN                projects/home.py, launchpad.html  the first screen: money band, cards, attention, sites
+BOM-COLUMNS                bom.html, base.html             ten columns by default, the rest behind one switch
+PO-REGISTER-STEP           projects/views.py, po_register.html  one next step per register row, through po_advance
 ANCHOR                     Lives in                        What it governs
 SALES-MODEL                sales/models.py                 the chain Unit→Booking→Customer, derived statuses
 SALES-ONE-BOOKING          sales/models.py, services.py    one live booking per unit, three ways
@@ -867,6 +869,16 @@ staggered again. The chart still rendered perfectly and the labels sat on top of
 each other. **A unit change is not a cosmetic change.** If you retune the scale,
 retune this with it.
 
+**The labels are now TAGS in ONE strip along the top edge**, not three stacked
+"MILESTONES" rows. A tag hangs off its line at `left`, sits `tag_top` down the
+strip (`lane × TAG_LANE_PX`), and is clipped to `TAG_MAX_PX`, which is narrower
+than `LABEL_CLEARANCE` — so two tags in one lane can never touch. The strip is
+`tag_strip_px` deep, one lane per lane in use. The "Today" tag lives in the same
+strip on a solid navy line. **The milestone's name is also printed inside its
+band**, white on navy, clipped with an ellipsis; the tag is there for the line,
+which runs down every row and would otherwise be unnamed. All of it is
+arithmetic in `schedule.py` and tested there; the template reads strings.
+
 ---
 
 ## Analytics
@@ -1017,6 +1029,25 @@ a filter is on, rather than leaving it to be noticed.
 *Out of scope, noted in the review:* the task board filters by project only. Left
 alone unless he asks.
 
+### The four later tabs — `analytics/budget.py`, `rates.py`, `vendors.py`, `velocity.py`
+**Each one reads a calculator that already exists and re-derives nothing.**
+
+| tab | url name | the rule it reuses |
+|---|---|---|
+| Cost to complete | `analytics_cost_to_complete` | `budget.by_trade/by_project`; forecast = committed + max(plan − committed, 0), **per row** — the floor is per row, so the footer adds rows rather than re-deriving from totals |
+| Rates | `analytics_rates` | `PurchaseOrderLine.taxable / quantity` — the frozen line rate after discount; approved onward only; top 15 by committed |
+| Vendors | `analytics_vendors` | `PurchaseOrder.totals()` via `money`, `money.days_to_pay`, `bom_calc.planning_rate`; late = local `delivered_at` − `required_by`, and a document with no `required_by` is **counted, never given a date** |
+| Sales velocity | `analytics_sales` | `sales.calc` — `demand_total`, `receipt_credit`, `bulk_unit_status`; `requires_any("analytics.view", "sales.view")`, the one analytics page open to the sales desk, and the tab strip shows it alone to them |
+
+**The assumption on Cost to complete is in the screen title and nowhere else.**
+Every list is bulk-fetched and a 3-vs-23-row query-shape test guards each.
+
+**⚠ `.legend` AND `.hint` ARE GONE FROM THE ANALYTICS TEMPLATES.** A series key is
+drawn inside the SVG (`charts._key`); a donut or stacked bar prints its key as
+`.keys/.key` rows from base.html — name truncating with a `title`, figure
+right-aligned in tabular numerals. Bar SVGs are `width:100%;height:auto` so they
+fill the card at any width; the two-card rows are `.grid2` (auto-fit, `min-width:0`).
+
 ---
 
 ## Compliance
@@ -1127,6 +1158,12 @@ that brought back rows without the media folder must not take every screen down.
 Upload: Admin and Compliance.** This supersedes the original matrix row —
 *"a site engineer in front of an inspector needs the labour licence on their
 phone"*, and that is a read.
+
+**"View" is the same door as "Download".** `view_inline` (`…/document/<id>/view/`)
+runs the same lookup, the same permission and the same 404, and differs only in
+the header: inline, with the content type for pdf/png/jpg so the browser opens it
+in a tab. Anything else falls back to an attachment. Both rows are in
+`test_matrix.SCREENS`.
 
 **⚠ THE BACKUP MUST COVER THE MEDIA FOLDER.** `pg_dump` alone silently misses
 every document.
@@ -1864,3 +1901,19 @@ wrong number there.
 **⚠ FILTERED BLOCK BY BLOCK BY THE PERMISSION THAT OPENS THE MODULE** — the tile rule applied to
 numbers. A site engineer sees no money band. `projects/test_home.py` renders it for every role
 and pins the Admin query count.
+
+### `BOM-COLUMNS` — `templates/projects/bom.html`, `templates/base.html`
+**Ten columns a buyer touches daily; everything else behind "Show all columns".** Material (name,
+code and unit stacked), Plan qty, Stock, Approved, Received, Order qty, Vendor, Rate, Value. Remark,
+Min, In draft, Plan rate, Var %, GST % and the two value columns carry `class="xtra"` and are hidden by
+CSS until the switch is ticked (remembered per browser in localStorage — a convenience, nothing depends
+on it). **The inputs are still in the form when hidden**, so `bom_save` reads exactly what it always
+did. The KPI strip shows Budget, Planned, Committed, Received; Variance, Below threshold and To order
+now join the hidden set.
+
+### `PO-REGISTER-STEP` — `projects/views.py`, `templates/projects/po_register.html`
+**One row, one next step, through `po_advance`.** The register's bulk box still never approves; this
+button acts on a single document whose totals are printed beside it, and the approval itself is the
+same `po_service.approve` — the GSTIN block, the RA-bill guard and the permission per step
+(`TRANSITION_PERMS`) all hold, and a refusal comes back as a message on the register. `back=register`
+in the POST sends the person back to the register with its filters rather than to the document.

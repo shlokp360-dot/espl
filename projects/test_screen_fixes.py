@@ -24,6 +24,7 @@ from django.utils.html import escape
 
 from accounts.models import Role, UserProfile
 from masters import sheets
+from accounts.testing import AuthedTestCase
 from masters.models import Activity, Material, MaterialGroup, UnitOfMeasure
 from projects.models import Project
 from tasks.models import Subtask, TaskHeader
@@ -271,3 +272,50 @@ class AWindowNowhereNearItsWork(TestCase):
             follow=True).content.decode()
 
         self.assertNotIn("no longer covers", page)
+
+
+class TheRegisterStep(AuthedTestCase):
+    """
+    >>> ANCHOR: PO-REGISTER-STEP <<<
+    A row offers the one next step its reader may take, and taking it comes back
+    to the register with every rule of po_advance still enforced.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from masters.models import Activity, Material, MaterialGroup, Vendor
+        from projects.bom_models import Bom, BomLine, PurchaseOrder, PurchaseOrderLine
+        from projects.models import Project
+        activity = Activity.objects.filter(is_active=True).first()
+        group = MaterialGroup.objects.create(code="ZQRS", name="ZQ register step")
+        material = Material.objects.create(name="ZQ STEP BAG", group=group, uom="Bag",
+                                           home_activity=activity, estimation_rate=10, gst_percent=18)
+        self.vendor = Vendor.objects.create(code="VEN-ZQRS", name="ZQ Step Vendor", phone="9111100011")
+        self.project = Project.objects.create(name="ZQ Step site", bua_sqft=1000, status=Project.Status.WON)
+        bom = Bom.objects.create(project=self.project)
+        line = BomLine.objects.create(bom=bom, activity=activity, material=material, planned_qty=10)
+        self.order = PurchaseOrder.objects.create(number="PO-ZQRS01", project=self.project, vendor=self.vendor)
+        PurchaseOrderLine.objects.create(purchase_order=self.order, bom_line=line, quantity=5, rate=10)
+
+    def test_an_admin_is_offered_approve_on_a_draft(self):
+        html = self.client.get(reverse("po_register")).content.decode()
+        self.assertIn('name="to" value="approved"', html)
+
+    def test_a_purchase_manager_is_not_offered_approve(self):
+        from accounts.models import Role
+        self.client.force_login(self.make_user("zq.pur", role=Role.PURCHASE))
+        html = self.client.get(reverse("po_register")).content.decode()
+        self.assertNotIn('name="to" value="approved"', html)
+
+    def test_the_gstin_block_still_refuses_from_the_register(self):
+        response = self.client.post(reverse("po_advance", args=[self.project.id, self.order.id]),
+                                    {"to": "approved", "back": "register", "q": "status=draft"})
+        self.assertRedirects(response, reverse("po_register") + "?status=draft", fetch_redirect_response=False)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "draft")          # no GSTIN, so it stayed a draft
+
+    def test_approving_with_a_gstin_from_the_register_works(self):
+        self.client.post(reverse("po_advance", args=[self.project.id, self.order.id]),
+                         {"to": "approved", "back": "register", "gstin": "24ZZDMY0007Z1Z5"})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "approved")

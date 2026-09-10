@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+SALES VELOCITY — how fast units move this fiscal year, and how the money follows.
+
+⚠ OPEN TO sales.view AS WELL AS analytics.view — the one analytics page that
+  is. The tab strip shows only this page to somebody holding sales.view alone.
+
+⚠ THE FISCAL YEAR, NOT A CHOSEN MONTH. Velocity is a run of months read
+  together, so the only filter here is the project. Month and document type
+  mean nothing to a booking and are not offered.
+
+⚠ EVERY RUPEE IS sales.calc's: a demand is its total with GST, a receipt is
+  its credit with the buyer's TDS. See analytics/velocity.py.
+{% endcomment %}
+
+{% block title %}Sales velocity{% endblock %}
+{% block subtitle %}{{ view.months.0.1|default:"" }} onward{% if view.project %} · {{ view.project.code }}{% endif %}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="sales" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_sales" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Sales velocity</span>
+  <span class="sp"></span>
+  <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
+    <select name="project" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <option value="">All projects</option>
+      {% for option in view.projects %}
+        <option value="{{ option.pk }}" {% if view.project.pk == option.pk %}selected{% endif %}>
+          {{ option.code }} — {{ option.name }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="sec sm">Apply</button></noscript>
+  </form>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Bookings this year</div><div class="v">{{ bookings }}</div></div>
+  <div class="kpi"><div class="l">Enquiry to booking</div>
+    <div class="v">{% if measured %}{{ days_to_book }} d{% else %}—{% endif %}</div></div>
+  <div class="kpi"><div class="l">Measured on</div><div class="v">{{ measured }} of {{ bookings }}</div></div>
+  <div class="kpi warn"><div class="l">Demanded</div><div class="v">{{ demanded|rupees }}</div></div>
+  <div class="kpi good"><div class="l">Collected</div><div class="v">{{ collected|rupees }}</div></div>
+  <div class="kpi"><div class="l">Available</div><div class="v">{{ units.available }}</div></div>
+  <div class="kpi"><div class="l">Booked</div><div class="v">{{ units.booked }}</div></div>
+  <div class="kpi"><div class="l">Registered</div><div class="v">{{ units.registered }}</div></div>
+</div>
+
+<div class="grid2" style="margin-bottom:13px">
+  <div class="card">
+    <div class="grph">Bookings, by month</div>
+    {{ bookings_chart }}
+  </div>
+  <div class="card">
+    <div class="grph">Demanded against collected, by month</div>
+    {{ money_chart }}
+  </div>
+</div>
+
+<div class="scroll" style="max-height:none;margin-bottom:13px">
+  <table>
+    <thead><tr class="hd">
+      <th>Month</th>
+      <th class="num">Demanded</th>
+      <th class="num">Collected</th>
+    </tr></thead>
+    <tbody>
+      {% for row in flows %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td class="num">{{ row.demanded|rupees }}</td>
+          <td class="num">{{ row.collected|rupees }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>Project</th>
+      <th class="num">Units</th>
+      <th class="num">Available</th>
+      <th class="num">Booked</th>
+      <th class="num">Registered</th>
+      <th class="num">Sold</th>
+    </tr></thead>
+    <tbody>
+      {% for row in unit_rows %}
+        <tr>
+          <td><a href="{% url 'sales_units' %}?project={{ row.project.pk }}">{{ row.project.code }} — {{ row.project.name }}</a></td>
+          <td class="num">{{ row.units }}</td>
+          <td class="num">{{ row.available }}</td>
+          <td class="num">{{ row.booked }}</td>
+          <td class="num">{{ row.registered }}</td>
+          <td class="num">{{ row.sold_pct }}%</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="padding:14px">No Won project yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_sales" %}{% endblock %}

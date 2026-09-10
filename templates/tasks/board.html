@@ -40,16 +40,19 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 .addform p{margin:0;color:var(--muted);font-size:13px;white-space:normal;line-height:1.5}
 
 .hdr{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px}
-.hdr .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 13px;
-          border-bottom:1px solid var(--line);background:#FAFBFD}
-.hdr .top .nm{font-size:13.5px;font-weight:600;color:var(--navy)}
+/* ⚠ ONE STRIP, ONE LINE, 44px. Name · activity · owner · dates · progress, and
+   the amber pill only when the plan no longer fits. */
+.hdr .top{display:flex;align-items:center;gap:12px;height:44px;padding:0 13px;overflow:hidden;
+          border-bottom:1px solid var(--line);background:#FAFBFD;white-space:nowrap}
+.hdr .top .nm{font-size:13.5px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;min-width:0}
 .hdr .top .sp{flex:1}
-.hdr .win{font-size:13px;color:var(--muted);white-space:nowrap}
-.hdr .prog{width:130px}
-.hdr .prog .n{font-size:13px;color:var(--muted);text-align:right}
+.hdr .top .who,.hdr .top .win,.hdr .top .n{font-size:13px;color:var(--text)}
+.hdr .top .win{font-variant-numeric:tabular-nums}
 .hdr .body{padding:0}
 .hdr table{font-size:13px}
-.hdr .none{padding:11px 13px;font-size:13px;color:var(--muted)}
+.hdr .none{padding:11px 13px;font-size:13px;color:var(--text)}
+.hdr td .st{display:block;font-size:13px;color:var(--red);margin-top:3px;white-space:nowrap}
+.hdr td.act{text-align:right;white-space:nowrap;overflow:visible}
 .mstones{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px}
 .mstone{border:1px solid #C3CEE0;background:var(--pale);border-radius:5px;padding:6px 11px;font-size:13px}
 .mstone b{color:var(--navy);display:block;font-size:13px}
@@ -144,9 +147,6 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
         <button type="submit" name="action" value="reassign" class="sec sm">Reassign</button>
       </span>
 
-      <span class="sp" style="flex:1"></span>
-      <span style="color:var(--muted);font-size:13px">
-        a negative number pulls work forward, and needs no reason</span>
     </form>
   {% endif %}
 
@@ -160,15 +160,17 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
           <span class="nm">{{ row.header.name }}</span>
         {% endif %}
         <span class="pill p-approved">{{ row.header.activity.abbreviation }}</span>
+        <span class="who">
+          {% if row.header.owner %}{{ row.header.owner.get_full_name|default:row.header.owner.username }}
+          {% else %}no owner{% endif %}
+        </span>
+        <span class="win">{{ row.header.start|date:"d/m" }} → {{ row.header.planned_end|date:"d/m" }}</span>
+        <span class="n">{{ row.done }} of {{ row.total }} done</span>
         {% if row.header.was_rescheduled %}
           <span class="pill p-onsheet"
                 title="First promised {{ row.header.promised_end|date:'d/m/Y' }}">rescheduled
                 {{ row.header.days_shifted }}d</span>
         {% endif %}
-        <span class="mut" style="font-size:13px;color:var(--muted)">
-          {% if row.header.owner %}{{ row.header.owner.get_full_name|default:row.header.owner.username }}
-          {% else %}no owner{% endif %}
-        </span>
 
         {% if row.over %}
           {% comment %}
@@ -181,11 +183,6 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
         {% endif %}
 
         <span class="sp"></span>
-        <span class="win">{{ row.header.start|date:"d/m/Y" }} → {{ row.header.planned_end|date:"d/m/Y" }}</span>
-        <span class="prog">
-          <span class="bar"><i style="width:{{ row.percent }}%"></i></span>
-          <span class="n">{{ row.done }} of {{ row.total }} done</span>
-        </span>
         {% comment %}
         >>> ANCHOR: TASK-DELETE <<<
         ⚠ ONLY ON AN EMPTY MILESTONE. The server refuses either way and says how
@@ -210,10 +207,10 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
             <thead>
               <tr class="hd">
                 {% if user|can:"tasks.manage" %}<th style="width:26px"></th>{% endif %}
-                <th>Task</th><th>Who</th><th style="width:70px">Priority</th>
+                <th>Task</th><th style="width:170px">Who</th>
                 <th style="width:90px">Start</th><th style="width:90px">Due</th>
-                <th style="width:110px">Status</th><th style="width:150px">Delay</th>
-                {% if user|can:"tasks.manage" %}<th style="width:135px"></th>{% endif %}
+                <th style="width:200px">Status</th>
+                {% if user|can:"tasks.manage" %}<th style="width:50px"></th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -230,76 +227,76 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
                   {% endif %}
                   <td>
                     {{ subtask.title }}
+                    {% comment %}Only High is worth a pill; Normal is the ordinary case and says nothing.{% endcomment %}
+                    {% if subtask.priority == 'H' %}<span class="pill p-nogst">High</span>{% endif %}
                     {% if subtask.was_rescheduled %}
                       <span class="pill p-onsheet"
                             title="First promised {{ subtask.promised_end|date:'d/m/Y' }}{% if subtask.shift_reason %} · {{ subtask.get_shift_reason_display }}{% endif %}">+{{ subtask.days_shifted }}d</span>
                     {% endif %}
                   </td>
                   <td>{% if subtask.assignee %}{{ subtask.assignee.get_full_name|default:subtask.assignee.username }}
-                      {% else %}<span style="color:var(--muted)">unassigned</span>{% endif %}</td>
-                  <td>
-                    {% if subtask.priority == 'H' %}<span class="pill p-nogst">High</span>
-                    {% elif subtask.priority == 'L' %}<span class="pill p-draft">Low</span>
-                    {% else %}<span style="color:var(--muted)">Normal</span>{% endif %}
-                  </td>
+                      {% else %}unassigned{% endif %}</td>
                   <td>{{ subtask.start|date:"d/m/Y" }}</td>
                   <td>{{ subtask.planned_end|date:"d/m/Y" }}</td>
                   <td>
                     {% if subtask.status == 'done' %}<span class="pill p-delivered">Done</span>
                     {% elif subtask.status == 'blocked' %}<span class="pill p-lost">Blocked</span>
                     {% else %}<span class="pill p-draft">Not started</span>{% endif %}
-                  </td>
-                  <td>
                     {% comment %}
                     ⚠ THE NUMBER OF DAYS IS ARITHMETIC AND THE REASON IS TYPED —
                       "recorded meaning, automatically captured, but the reason
                       should be entered by the user". Neither is shown on the
-                      chart; the delay log is a screen of its own.
+                      chart; the delay log is a screen of its own. Here it is
+                      one red line under the pill, and only when there is one.
                     {% endcomment %}
                     {% if subtask.days_late %}
-                      <span class="up">{{ subtask.days_late }} day{{ subtask.days_late|pluralize }} late</span>
-                      {% if subtask.delay_reason %}<br><span style="font-size:13px;color:var(--muted)">{{ subtask.get_delay_reason_display }}</span>{% endif %}
+                      <span class="st">{{ subtask.days_late }} day{{ subtask.days_late|pluralize }} late{% if subtask.delay_reason %} · {{ subtask.get_delay_reason_display }}{% endif %}</span>
                     {% elif subtask.days_overdue %}
-                      <span class="up">{{ subtask.days_overdue }} day{{ subtask.days_overdue|pluralize }} overdue</span>
-                    {% else %}
-                      <span style="color:var(--muted)">—</span>
+                      <span class="st">{{ subtask.days_overdue }} day{{ subtask.days_overdue|pluralize }} overdue</span>
                     {% endif %}
                   </td>
                   {% if user|can:"tasks.manage" %}
-                    <td style="text-align:right;white-space:nowrap">
-                      <a href="{% url 'task_subtask_edit' subtask.pk %}"><button type="button" class="sec sm">Edit</button></a>
+                    <td class="act">
                       {% comment %}
-                      ⚠ THE ONLY WAY A TICK COMES BACK, AND AN ENGINEER CANNOT DO
-                        IT. "The engineer's tick is final" cuts both ways: nobody
-                        overrules it, and nobody quietly takes it back either.
-                        Correcting a record is a manager's act.
+                      ⚠ ONE MENU, NO SCRIPT. A <details> the browser opens and
+                        closes by itself, holding the same three links with the
+                        same addresses and the same permission check as before.
                       {% endcomment %}
-                      {% if subtask.status == 'done' %}
-                        <form method="post" action="{% url 'task_subtask_reopen' subtask.pk %}"
-                              style="margin:0;display:inline"
-                              onsubmit="return confirm('Reopen this? The finish date and the delay reason are cleared.');">
-                          {% csrf_token %}
-                          <button type="submit" class="sec sm">Reopen</button>
-                        </form>
-                      {% endif %}
-                      {% comment %}
-                      >>> ANCHOR: TASK-DELETE <<<
-                      ⚠ THE ONLY CONTROL IN THIS MODULE THAT DESTROYS A RECORD, so
-                        the confirmation names the row and says what goes with it.
-                        Saahil's option B: Admin and PM may delete any task,
-                        history included, and it is their judgement.
-                      ⚠ THE DELAY LOG COUNTS FROM THE SUBTASKS THEMSELVES — there
-                        is no separate log table — so deleting a late task takes
-                        its days out of the count. Said here rather than
-                        discovered later.
-                      {% endcomment %}
-                      <form method="post" action="{% url 'task_subtask_delete' subtask.pk %}"
-                            style="margin:0;display:inline"
-                            onsubmit="return confirm('Delete “{{ subtask.title|escapejs }}”?\n\nThis cannot be undone.{% if subtask.days_late %} Its {{ subtask.days_late }} late day{{ subtask.days_late|pluralize }} will no longer be counted in the delay log.{% endif %}');">
-                        {% csrf_token %}
-                        <button type="submit" class="sec sm"
-                                style="color:var(--red);border-color:#E0B4B4">Delete</button>
-                      </form>
+                      <details class="menu">
+                        <summary title="Edit, reopen or delete">⋯</summary>
+                        <div class="pop">
+                          <a href="{% url 'task_subtask_edit' subtask.pk %}">Edit</a>
+                          {% comment %}
+                          ⚠ THE ONLY WAY A TICK COMES BACK, AND AN ENGINEER CANNOT DO
+                            IT. "The engineer's tick is final" cuts both ways: nobody
+                            overrules it, and nobody quietly takes it back either.
+                            Correcting a record is a manager's act.
+                          {% endcomment %}
+                          {% if subtask.status == 'done' %}
+                            <form method="post" action="{% url 'task_subtask_reopen' subtask.pk %}"
+                                  onsubmit="return confirm('Reopen this? The finish date and the delay reason are cleared.');">
+                              {% csrf_token %}
+                              <button type="submit">Reopen</button>
+                            </form>
+                          {% endif %}
+                          {% comment %}
+                          >>> ANCHOR: TASK-DELETE <<<
+                          ⚠ THE ONLY CONTROL IN THIS MODULE THAT DESTROYS A RECORD, so
+                            the confirmation names the row and says what goes with it.
+                            Saahil's option B: Admin and PM may delete any task,
+                            history included, and it is their judgement.
+                          ⚠ THE DELAY LOG COUNTS FROM THE SUBTASKS THEMSELVES — there
+                            is no separate log table — so deleting a late task takes
+                            its days out of the count. Said here rather than
+                            discovered later.
+                          {% endcomment %}
+                          <form method="post" action="{% url 'task_subtask_delete' subtask.pk %}"
+                                onsubmit="return confirm('Delete “{{ subtask.title|escapejs }}”?\n\nThis cannot be undone.{% if subtask.days_late %} Its {{ subtask.days_late }} late day{{ subtask.days_late|pluralize }} will no longer be counted in the delay log.{% endif %}');">
+                            {% csrf_token %}
+                            <button type="submit" class="danger">Delete</button>
+                          </form>
+                        </div>
+                      </details>
                     </td>
                   {% endif %}
                 </tr>

@@ -36,7 +36,7 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
   description; reading `.git/HEAD` and `.git/refs` is fine.
 - **Never build without an explicit "go".** He asks for the plan first and reads it.
 - **ANCHORS.md ships in the same commit as the code.** Run the drift check every time:
-  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 109.
+  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 112.
   ⚠ Exclude `.venv`, `.git` **and `__pycache__`** or the grep runs for minutes,
   times out, and counts compiled copies of the same anchor twice.
   ⚠ `BOM-CALC-` appears in the output and is NOT an anchor — it is the wildcard

@@ -24,6 +24,8 @@ urlpatterns = [
     path("compliance/project/<int:project_id>/restore/<int:item_id>/", views.restore_item,
          name="compliance_restore_item"),
     path("compliance/document/<int:document_id>/", views.download, name="compliance_download"),
+    # The same bytes, opened in a tab. Same permission, same 404, still no MEDIA_URL.
+    path("compliance/document/<int:document_id>/view/", views.view_inline, name="compliance_view"),
     path("compliance/document/<int:document_id>/correct/", views.correct, name="compliance_correct"),
     path("compliance/timeline/", views.timeline, name="compliance_timeline"),
     # The template every project is measured against.

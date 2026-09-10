@@ -31,7 +31,6 @@ GROSS TO NET — the ladder that was in the model, on every PDF, and on no scree
       {% endfor %}
     </select>
   </form>
-  <span class="hint">{{ count }} document{{ count|pluralize }}</span>
   <span class="sp"></span>
   {% include "analytics/_filters.html" %}
 </div>
@@ -56,7 +55,7 @@ GROSS TO NET — the ladder that was in the model, on every PDF, and on no scree
   {{ chart }}
 </div>
 
-<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px">
+<div class="grid2">
   <div>
     <div class="scroll" style="max-height:none">
       <table class="tot" style="width:100%">

@@ -65,7 +65,7 @@ WORK — progress and delay per construction activity, and the same chart the si
     {% endfor %}
   </div>
 
-  <div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:13px">
+  <div class="grid2" style="margin-bottom:13px">
     <div class="card">
       <div class="grph">Progress by construction activity</div>
       {{ progress_chart }}
@@ -113,13 +113,13 @@ WORK — progress and delay per construction activity, and the same chart the si
         milestone and activity filters. It is the same drawing the site team
         reads every morning, and a Gantt showing one phase out of six is a
         different picture from the one they discuss. Said on screen rather than
-        left to be noticed.
+        left to be noticed — as a one-line note, because it stops the mistake
+        of reading a whole-plan chart as a filtered one at the moment it is read.
       {% endcomment %}
-      {% if filtered %}
-        <span class="hint" style="margin-left:8px">the whole plan — the filters narrow the
-          tables above, not the chart</span>
-      {% endif %}
-      <span class="hint">{{ chart_data.span.start|date:"M Y" }} → {{ chart_data.span.end|date:"M Y" }}</span></div>
+      </div>
+    {% if filtered %}
+      <div class="note tight"><b>The chart is the whole plan</b> — the filters narrow the tables above, not the chart.</div>
+    {% endif %}
     <div class="gantt">
       <div class="gscale">
         <span class="pad">Work</span>

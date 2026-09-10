@@ -164,6 +164,49 @@ def total(rows):
     return _finish(row)
 
 
+def with_forecast(rows):
+    """
+    Cost to complete, added to rows that already carry budget, plan and committed.
+
+    ⚠ ONE ASSUMPTION, AND THE SCREEN TITLE STATES IT: forecast = committed +
+      what is still planned. "Still planned" is the plan less what has already
+      been committed, floored at zero — a construction activity bought above
+      its plan does not earn a negative remainder that would shrink the
+      forecast of the very overspend it is reporting.
+
+    ⚠ NOTHING HERE IS RE-DERIVED. Budget, plan and committed are the same three
+      figures the Budget tab prints, from `by_trade` / `by_project`; this only
+      adds the two sums and the difference. Variance is budget less forecast,
+      so a positive number is money expected to be left.
+    """
+    for row in rows:
+        row["remaining_plan"] = max(row["plan"] - row["committed"], ZERO)
+        row["forecast"] = row["committed"] + row["remaining_plan"]
+        row["variance"] = row["budget"] - row["forecast"]
+        row["forecast_pct"] = (int(round(row["forecast"] * 100 / row["budget"]))
+                               if row["budget"] else 0)
+        row["over_forecast"] = row["forecast"] > row["budget"] > ZERO
+    return rows
+
+
+def forecast_total(rows):
+    """
+    The footer of the cost-to-complete grid — the rows added, never re-queried.
+
+    ⚠ ADDED FROM THE ROWS, NOT RE-DERIVED FROM THE TOTALS. The floor at zero is
+      per row, so a total forecast worked out from total plan and total
+      committed would let one activity's overspend cancel another's remainder.
+    """
+    row = total(rows)
+    for key in ("remaining_plan", "forecast"):
+        row[key] = sum((entry[key] for entry in rows), ZERO)
+    row["variance"] = row["budget"] - row["forecast"]
+    row["forecast_pct"] = (int(round(row["forecast"] * 100 / row["budget"]))
+                           if row["budget"] else 0)
+    row["over_forecast"] = row["forecast"] > row["budget"] > ZERO
+    return row
+
+
 def live_projects():
     return Project.objects.filter(
         status__in=[Project.Status.WON, Project.Status.COMPLETED]).order_by("name")

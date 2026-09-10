@@ -62,42 +62,54 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
    closing Django tag, and the raw-template-syntax guard reads it as one that
    leaked. The semicolon separates them. The test caught it twice: once in the
    rule, once in the comment that explained the rule. Do not tidy it away. */
-.gantt .gscale,.gantt .mlab,.gantt .grow{width:max-content;min-width:100%;}
-.grow{display:flex;align-items:stretch;border-bottom:1px solid #EDEFF3;min-height:26px}
+.gantt .gscale,.gantt .gtags,.gantt .grow{width:max-content;min-width:100%;}
+.grow{display:flex;align-items:stretch;border-bottom:1px solid #EDEFF3;height:36px}
 .grow:last-child{border-bottom:none}
-.gname{flex:0 0 280px;padding:5px 10px;font-size:13px;border-right:1px solid var(--line);background:#fff;
+.gname{flex:0 0 300px;padding:0 10px;font-size:13px;border-right:1px solid var(--line);background:#fff;
        display:flex;align-items:center;gap:6px;min-width:0}
 .gname.hdr{font-weight:600;color:var(--navy);background:#FAFBFD}
 .gname.sub{padding-left:24px;color:var(--text)}
-.gname .who{color:var(--muted);font-size:13px;margin-left:auto;white-space:nowrap}
+.gname .who{color:var(--text);font-size:13px;margin-left:auto;white-space:nowrap}
 .gtrack{position:relative;flex:0 0 auto}
 /* ⚠ min-width, not a floor in the arithmetic. A single day inside a two-year
-   span is 0.14% of the track and would draw as nothing at all — and an
-   invisible bar reads as "there is no work here". Inflating the percentage
-   instead would put every bar after it in the wrong place. */
-.gbar{position:absolute;top:6px;height:13px;border-radius:3px;min-width:3px}
-.gbar.hdr{background:var(--blue);top:5px;height:15px}
-.gbar.hdrover{background:var(--amber);opacity:.55;top:5px;height:15px;border-radius:0 3px 3px 0}
+   span is 3.2px and would draw as nothing at all — and an invisible bar reads
+   as "there is no work here". Inflating the width instead would put every bar
+   after it in the wrong place. */
+.gbar{position:absolute;top:9px;height:18px;border-radius:3px;min-width:3px}
+/* The milestone band carries its own name, white on navy, clipped to the bar. */
+.gbar.hdr{background:var(--navy);top:8px;height:20px;color:#fff;font-size:13px;font-weight:600;line-height:20px;
+          padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gbar.hdrover{background:var(--amber);opacity:.55;top:8px;height:20px;border-radius:0 3px 3px 0}
 .gbar.open{background:#9BB4D8}
 .gbar.blocked{background:var(--amber)}
 .gbar.done{background:#7FA86A}
-.gbar.late{background:var(--red);border-radius:0 3px 3px 0}
+/* ⚠ THE LATE TAIL IS HATCHED RED, FULL HEIGHT, so it reads at a glance beside
+   the green or blue segment it follows. Stops are in pixels on purpose. */
+.gbar.late{background:repeating-linear-gradient(135deg,var(--red) 0 4px,#E8B4B4 4px 8px);border-radius:0 3px 3px 0}
 .gscale{display:flex;border-bottom:1px solid var(--line);background:var(--navy);color:#fff;position:sticky;top:0;z-index:5}
 .gscale .m{font-size:13px;padding:4px 0;text-align:center;border-right:1px solid #2E4A7D;
            overflow:hidden;white-space:nowrap}
-.gscale .pad{flex:0 0 280px;border-right:1px solid #2E4A7D;padding:4px 10px;font-size:13px;background:var(--navy);
+.gscale .pad{flex:0 0 300px;border-right:1px solid #2E4A7D;padding:4px 10px;font-size:13px;background:var(--navy);
              letter-spacing:.6px;text-transform:uppercase}
 .gmarks{position:absolute;inset:0;pointer-events:none}
 .gmark{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #7A5AA6}
 /* A phase whose work ran past the window it was given. Same line, warmer colour. */
 .gmark.over{border-left-color:#C55A11}
-.gtoday{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--red);opacity:.55}
-.mlab{display:flex;border-bottom:1px solid var(--line);background:#F6F3FB;position:relative;min-height:22px}
-.mlab .pad{flex:0 0 280px;border-right:1px solid var(--line);padding:3px 10px;font-size:13px;background:#F6F3FB;
-           color:#4A3B79;letter-spacing:.6px;text-transform:uppercase}
-.mlab .track{position:relative;flex:0 0 auto}
-.mlab .m{position:absolute;top:2px;font-size:13px;color:#4A3B79;white-space:nowrap;
-         transform:translateX(-50%);background:#F6F3FB;padding:0 4px}
+.gtoday{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--navy)}
+/* >>> ANCHOR: MILESTONE-LINE <<<
+   ONE strip of tags along the top edge. Each tag hangs off its line's date and
+   is clipped to the lane clearance, so two tags in one lane can never touch;
+   a tag that would collide drops a lane — decided in schedule.py, read here. */
+.gtags{display:flex;border-bottom:1px solid var(--line);background:#FAFBFD;position:relative}
+.gtags .pad{flex:0 0 300px;border-right:1px solid var(--line);background:#FAFBFD}
+.gtags .track{position:relative;flex:0 0 auto}
+.gtag{position:absolute;font-size:13px;line-height:18px;height:18px;padding:0 5px;white-space:nowrap;overflow:hidden;
+      text-overflow:ellipsis;color:#4A3B79;border-left:2px dashed #7A5AA6;background:#FAFBFD}
+.gtag.over{color:#C55A11;border-left-color:#C55A11}
+.gtag.today{color:#fff;background:var(--navy);border-left:2px solid var(--navy);border-radius:0 3px 3px 0;font-weight:600;z-index:1}
+/* The legend strip: four swatches and the one sentence the chart cannot be read without. */
+.glegend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:9px}
+.glegend .sw{display:inline-block;width:14px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:5px}
 </style>
 
 <div class="toolbar">
@@ -129,6 +141,19 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
   </div>
 {% else %}
 
+  {% comment %}
+  ⚠ FOUR SWATCHES AND ONE SENTENCE. Amber and red look like the same warning and
+    are not; the chart cannot be read without that line, so it lives here rather
+    than in a yellow box under the chart.
+  {% endcomment %}
+  <div class="glegend">
+    <span><i class="sw" style="background:#7FA86A"></i>Done</span>
+    <span><i class="sw" style="background:#9BB4D8"></i>Planned</span>
+    <span><i class="sw" style="background:repeating-linear-gradient(135deg,var(--red) 0 4px,#E8B4B4 4px 8px)"></i>Late</span>
+    <span><i class="sw" style="background:var(--navy)"></i>Milestone</span>
+    <span><i class="sw" style="background:var(--amber);opacity:.55"></i>Amber = plan no longer fits its milestone</span>
+  </div>
+
   <div class="gantt">
 
     <div class="gscale">
@@ -138,32 +163,32 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
       {% endfor %}
     </div>
 
-    {% if chart.milestones %}
-      {% comment %}
-      >>> ANCHOR: MILESTONE-LINE <<<
-      ⚠⚠ ONE LABEL STRIP PER LANE. Saahil asked what happens when two phases
-         finish days apart, and the answer was that their labels sat on top of
-         each other. A label that would collide drops to the next lane; the LINE
-         never moves, because moving a line to make a label fit would be drawing
-         a lie about the date.
+    {% comment %}
+    >>> ANCHOR: MILESTONE-LINE <<<
+    ⚠⚠ ONE STRIP OF TAGS ALONG THE TOP EDGE, replacing three stacked label rows.
+       Each tag hangs off its milestone's line at the date the phase finishes.
+       A tag that would collide with the one before it drops a lane — the LINE
+       never moves, because moving a line to make a label fit would be drawing
+       a lie about the date. The lane, the tag's offset down the strip and the
+       strip's depth are all decided in schedule.py; this reads them.
 
-      ⚠ The lane is decided in schedule.py, as arithmetic, so it can be tested.
-        This only reads `entry.lane`.
-      {% endcomment %}
-      {% for lane in chart.milestone_lanes %}
-        <div class="mlab">
-          <span class="pad">{% if forloop.first %}Milestones{% endif %}</span>
-          <span class="track" style="width:{{ chart.track_px }}px">
-            {% for entry in chart.milestones %}
-              {% if entry.lane == lane %}
-                <span class="m" style="left:{{ entry.left }}px"
-                      title="{{ entry.header.name }} — {{ entry.date|date:'d/m/Y' }}{% if entry.over %}, {{ entry.header.name }} ran past its window{% endif %}">{{ entry.header.name }}</span>
-              {% endif %}
-            {% endfor %}
-          </span>
-        </div>
-      {% endfor %}
-    {% endif %}
+    ⚠ TODAY'S TAG LIVES HERE TOO, on the same solid navy line that runs down
+      every row beneath it.
+    {% endcomment %}
+    <div class="gtags" style="height:{{ chart.tag_strip_px }}px">
+      <span class="pad"></span>
+      <span class="track" style="width:{{ chart.track_px }}px">
+        {% for entry in chart.milestones %}
+          <span class="gtag{% if entry.over %} over{% endif %}"
+                style="left:{{ entry.left }}px;top:{{ entry.tag_top }}px;max-width:{{ chart.tag_max_px }}px"
+                title="{{ entry.header.name }} — {{ entry.date|date:'d/m/Y' }}{% if entry.over %}, ran past its window{% endif %}">{{ entry.header.name }}</span>
+        {% endfor %}
+        {% if chart.today %}
+          <span class="gtag today" style="left:{{ chart.today }}px;top:0"
+                title="{{ chart.today_date|date:'d/m/Y' }}">Today</span>
+        {% endif %}
+      </span>
+    </div>
 
     {% for row in chart.rows %}
       <div class="grow">
@@ -208,7 +233,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
           {% endcomment %}
           {% if row.kind == 'milestone' %}
             <span class="gbar hdr" style="left:{{ row.bar.left }}px;width:{{ row.bar.width }}px"
-                  title="{{ row.header.start|date:'d/m/Y' }} → {{ row.header.planned_end|date:'d/m/Y' }}"></span>
+                  title="{{ row.header.name }} · {{ row.header.start|date:'d/m/Y' }} → {{ row.header.planned_end|date:'d/m/Y' }}">{{ row.header.name }}</span>
             {% if row.over_bar %}
               <span class="gbar hdrover" style="left:{{ row.over_bar.left }}px;width:{{ row.over_bar.width }}px"
                     title="{{ row.over }} day{{ row.over|pluralize }} past the window that was given"></span>
@@ -226,27 +251,6 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
       </div>
     {% endfor %}
 
-  </div>
-
-  <div class="legend">
-    <span><i class="sw" style="background:var(--blue)"></i> the window a milestone was given</span>
-    <span><i class="sw" style="background:var(--amber);opacity:.55"></i> its tasks run past that window</span>
-    <span><i class="sw" style="background:#9BB4D8"></i> planned</span>
-    <span><i class="sw" style="background:var(--amber)"></i> blocked</span>
-    <span><i class="sw" style="background:#7FA86A"></i> done</span>
-    <span><i class="sw" style="background:var(--red)"></i> past its date</span>
-    <span><i class="sw" style="border-left:2px dashed #7A5AA6;background:none"></i> milestone</span>
-    {% if chart.today %}<span><i class="sw" style="border-left:2px solid var(--red);background:none"></i> today</span>{% endif %}
-  </div>
-
-  {% comment %}
-  ⚠ ONE LINE, AND IT SURVIVES BECAUSE THE CHART CANNOT BE READ WITHOUT IT. Amber
-    and red look like the same warning and are not. Everything else about this
-    screen went behind the ⓘ.
-  {% endcomment %}
-  <div class="note tight" style="margin-bottom:0">
-    <b>Red is late. Amber is not.</b> Amber means the plan no longer fits the window — a warning that
-    arrives before anything has slipped.
   </div>
 
 {% endif %}

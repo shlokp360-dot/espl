@@ -289,6 +289,78 @@ class DocumentsAreNotOnAPublicAddress(ComplianceCase):
         document.file.storage.delete(document.file.name)
         self.assertEqual(self.client.get(
             reverse("compliance_download", args=[document.pk])).status_code, 404)
+        self.assertEqual(self.client.get(
+            reverse("compliance_view", args=[document.pk])).status_code, 404)
+
+
+class ViewingIsTheSameDoorAsDownloading(ComplianceCase):
+    """
+    ⚠ "View" opens the file in a tab instead of saving it. It is the same view
+      with a different header, and every rule that guards the download guards it
+      too — the permission, the 404 for a missing file, and no MEDIA_URL.
+    """
+
+    def test_a_pdf_is_served_inline_with_its_content_type(self):
+        self.upload()
+        document = ComplianceDocument.objects.get()
+        response = self.client.get(reverse("compliance_view", args=[document.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response["Content-Disposition"].startswith("inline"))
+        self.assertIn("approval.pdf", response["Content-Disposition"])
+        response.close()
+
+    def test_an_image_is_served_inline_too(self):
+        self.client.post(
+            reverse("compliance_upload", args=[self.project.pk, self.item.pk]),
+            {"file": SimpleUploadedFile("licence.png", b"\x89PNG not really", content_type="image/png")})
+        document = ComplianceDocument.objects.get()
+        response = self.client.get(reverse("compliance_view", args=[document.pk]))
+        self.assertEqual(response["Content-Type"], "image/png")
+        self.assertTrue(response["Content-Disposition"].startswith("inline"))
+        response.close()
+
+    def test_anything_else_falls_back_to_an_attachment(self):
+        # The whitelist refuses this at upload time; a row restored from an older
+        # backup might still carry one, and the browser must not try to render it.
+        self.upload()
+        document = ComplianceDocument.objects.get()
+        document.original_name = "scan.tiff"
+        document.save(update_fields=["original_name"])
+        response = self.client.get(reverse("compliance_view", args=[document.pk]))
+        self.assertTrue(response["Content-Disposition"].startswith("attachment"))
+        response.close()
+
+    def test_purchase_is_refused(self):
+        self.upload()
+        document = ComplianceDocument.objects.get()
+        self.client.force_login(self.make_user("pur.viewer", role=Role.PURCHASE))
+        self.assertEqual(self.client.get(
+            reverse("compliance_view", args=[document.pk])).status_code, 403)
+
+    def test_a_site_engineer_may_view(self):
+        self.upload()
+        document = ComplianceDocument.objects.get()
+        self.client.force_login(self.make_user("site.viewer", role=Role.SITE))
+        response = self.client.get(reverse("compliance_view", args=[document.pk]))
+        self.assertEqual(response.status_code, 200)
+        response.close()
+
+    def test_a_document_that_does_not_exist_is_a_404(self):
+        self.assertEqual(self.client.get(
+            reverse("compliance_view", args=[999999])).status_code, 404)
+
+    def test_there_is_still_no_media_url_route(self):
+        from django.conf import settings
+        self.assertIn(getattr(settings, "MEDIA_URL", ""), ("", "/"))
+
+    def test_the_view_button_is_on_the_project_screen_and_opens_a_new_tab(self):
+        self.upload()
+        document = ComplianceDocument.objects.get()
+        body = self.client.get(
+            reverse("compliance_project", args=[self.project.pk])).content.decode()
+        self.assertIn(reverse("compliance_view", args=[document.pk]), body)
+        self.assertIn('target="_blank"', body)
 
 
 class TheScreens(ComplianceCase):

@@ -25,7 +25,6 @@ DOCUMENTS — where every clickable figure in the module lands.
   {% if stage %}<span class="pill p-approved">{{ stage }}</span>{% endif %}
   {% if status %}<span class="pill p-quoted">{{ status }}</span>{% endif %}
   {% if vendor %}<span class="pill p-onsheet">{{ vendor.name }}</span>{% endif %}
-  <span class="hint">{{ rows|length }} document{{ rows|length|pluralize }}</span>
   <span class="sp"></span>
   {% include "analytics/_filters.html" %}
 </div>

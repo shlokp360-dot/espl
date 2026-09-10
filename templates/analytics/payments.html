@@ -26,7 +26,6 @@ paid and how much has been paid to understand their books better."
 
 <div class="toolbar">
   <span class="ttl">Payments</span>
-  <span class="hint">as at {{ view.end|date:"j F Y" }}</span>
   <span class="sp"></span>
   {% include "analytics/_filters.html" %}
 </div>
@@ -34,11 +33,6 @@ paid and how much has been paid to understand their books better."
 <div class="card" style="margin-bottom:13px">
   <div class="grph">Where the money stands</div>
   {{ bar }}
-  <div class="legend" style="margin-top:9px">
-    <span><i class="sw" style="background:#107e3e"></i> Settled — money paid</span>
-    <span><i class="sw" style="background:#C55A11"></i> Payable now — delivered, not paid</span>
-    <span><i class="sw" style="background:#6a6d70"></i> Not yet payable — approved, not delivered</span>
-  </div>
 </div>
 
 <div class="kpis">
@@ -78,40 +72,25 @@ paid and how much has been paid to understand their books better."
   <b>Settled + payable now + not yet payable = total.</b> Vendors invoice more by exactly the TDS.
 </div>
 
-<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px">
+<div class="grid2">
   <div class="card">
     <div class="grph">Ageing</div>
     {{ ageing_chart }}
-    <div style="font-size:13px;color:var(--muted);margin-top:9px">
-      From the due date — delivery plus terms.
-    </div>
   </div>
 
   <div class="card">
     <div class="grph">Owed, by vendor</div>
     {{ vendor_chart }}
-    <div style="font-size:13px;color:var(--muted);margin-top:9px">
-      Delivered and unpaid.
-    </div>
   </div>
 </div>
 
 <div class="card" style="margin-top:12px">
   <div class="grph">Invoiced against paid, by month</div>
   {{ by_month }}
-  <div class="legend">
-    {% for entry in series %}
-      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
-    {% endfor %}
-  </div>
-  <div style="font-size:13px;color:var(--muted);margin-top:8px">
-    A month where invoiced beats paid is a month that added to what you owe.
-  </div>
 </div>
 
 <div class="toolbar" style="margin-top:16px">
   <span class="ttl" style="font-size:13px">Delivered and unpaid</span>
-  <span class="hint">{{ vendors|length }} vendor{{ vendors|length|pluralize }}</span>
 </div>
 
 <div class="scroll" style="max-height:none">

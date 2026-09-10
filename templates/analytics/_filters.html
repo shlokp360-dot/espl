@@ -65,5 +65,20 @@ The filter bar, identical on every analytics page.
     </select>
   {% endif %}
 
+  {% comment %}
+  The Rates tab's one extra control, on the same terms as the two above: in
+  this form, only where the view supplies the choices, and the choices are the
+  groups that actually appear on committed lines.
+  {% endcomment %}
+  {% if group_choices %}
+    <select name="group" onchange="this.form.submit()"
+            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <option value="">All material groups</option>
+      {% for pk, name in group_choices %}
+        <option value="{{ pk }}" {% if group_id == pk %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+
   <noscript><button type="submit" class="sec sm">Apply</button></noscript>
 </form>

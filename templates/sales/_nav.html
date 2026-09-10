@@ -13,4 +13,9 @@ collections, receipts.
   <a class="{% if here == 'bookings' %}on{% endif %}" href="{% url 'sales_bookings' %}">Bookings</a>
   <a class="{% if here == 'collections' %}on{% endif %}" href="{% url 'sales_collections' %}">Collections</a>
   <a class="{% if here == 'receipts' %}on{% endif %}" href="{% url 'sales_receipts' %}">Receipts</a>
+  {% comment %}
+  ⚠ The one analytics page open to sales.view. Reached from here because the
+    analytics tile itself is the Admin's alone.
+  {% endcomment %}
+  <a href="{% url 'analytics_sales' %}">Sales velocity</a>
 </nav>

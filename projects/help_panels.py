@@ -180,10 +180,13 @@ PANELS = {
                  "from the list. On-time work is never asked for one."),
             step("Moving", "Move several dates at once",
                  "Tick the rows, type the number of days, choose a reason and press "
-                 "[[Shift]]. The first promised date is kept and stays visible.", perm="tasks.manage"),
-            step("Delete", "Remove a row that should not exist",
-                 "Press [[Delete]] on the task. It cannot be undone, and a late task "
-                 "takes its days out of the delay log with it.", perm="tasks.manage"),
+                 "[[Shift]]. A negative number pulls work forward and needs no reason.", perm="tasks.manage"),
+            step("Reading", "What a row shows",
+                 "A red [[High]] pill marks priority; Normal shows nothing. Under the "
+                 "status pill, one red line says how many days late or overdue."),
+            step("Menu", "Edit, reopen or delete a row",
+                 "Press [[⋯]] at the end of the row. [[Delete]] cannot be undone, and "
+                 "a late task takes its days out of the delay log with it.", perm="tasks.manage"),
         ],
     },
 
@@ -211,14 +214,15 @@ PANELS = {
         "title": "Reading the schedule",
         "steps": [
             step("Bars", "What a bar shows",
-                 "Each bar is the span a task was planned for. A second segment in a "
-                 "different colour is the time it ran past that date."),
+                 "Each bar is the span a task was planned for. A red hatched segment "
+                 "is the time it ran past that date; the solid navy line is today."),
             step("Colours", "Red and amber are different warnings",
                  "Red means a task finished late, or is open and overdue. Amber means "
                  "the plan no longer fits the window — nothing has slipped yet."),
-            step("Milestones", "The dotted lines",
-                 "Each dotted line is a milestone, drawn at the date its work actually "
-                 "finishes. It moves when a task under it slips."),
+            step("Milestones", "The navy bars and dotted lines",
+                 "Each milestone is a navy bar with its name inside, and a dotted line "
+                 "at the date its work actually finishes, tagged at the top. It moves "
+                 "when a task slips."),
             step("Scrolling", "Long projects scroll sideways",
                  "A month is the same width whatever the length of the job. Scroll "
                  "sideways; the task names stay fixed on the left."),
@@ -242,7 +246,7 @@ PANELS = {
                  "The [[not paid yet]] shortcut shows everything approved or "
                  "delivered but not yet paid — what the business still owes."),
             step("Open", "Look at one document",
-                 "Press [[open ▸]]. Arriving from here you see the document alone; "
+                 "Press the [[Document]] number. Arriving from here you see the document alone; "
                  "arriving through a project you also get that project's tabs."),
         ],
     },
@@ -281,13 +285,19 @@ PANELS = {
             step("Upload", "File a document against a line",
                  "Press [[Upload]] on the line and choose the file. Type the expiry "
                  "date from the paper itself — the suggestion is only a suggestion.", perm="compliance.upload"),
+            step("Open", "Look at the paper",
+                 "Press [[View]] to open the document in a new tab, or [[Download]] "
+                 "to save it. A site engineer needs the licence on their phone."),
             step("Versions", "Nothing is ever overwritten",
                  "Press [[Replace]] and the new document becomes the current one, "
                  "while every earlier version stays underneath it, dated and still "
                  "downloadable.", perm="compliance.upload"),
             step("Correct", "Fix a typo without a new file",
-                 "[[Correct details]] changes the reference or the dates typed beside "
-                 "a document. Use [[Replace]] when the paper itself changed.", perm="compliance.upload"),
+                 "[[Correct]] changes the reference or the dates typed beside a "
+                 "document. Use [[Replace]] when the paper itself changed.", perm="compliance.upload"),
+            step("Kinds", "What the small pills mean",
+                 "[[One-time]] is held for good once filed. [[Has expiry]] needs a "
+                 "date and will be chased. [[Quarterly]] falls due again after 92 days."),
             step("Prune", "Drop a line this site does not need",
                  "Press [[Not needed here]]. It goes from this project only; the "
                  "master and every other project keep it. Put it back at any time.", perm="compliance.master"),
@@ -325,8 +335,8 @@ PANELS = {
                  "A certificate replaced last month is not a problem and is not "
                  "listed. Only the current version of each line appears here."),
             step("Act", "Renew before the date",
-                 "Press [[Download]] to see the paper, then upload the renewal on "
-                 "that project's compliance screen. The new one becomes current."),
+                 "Press [[View]] to read the paper in a new tab, then upload the "
+                 "renewal on that project's compliance screen. The new one becomes current."),
         ],
     },
 
@@ -739,6 +749,75 @@ PANELS = {
             step("Excel", "Send it to the accountant",
                  "Download what is on screen as a spreadsheet. It is the same rows "
                  "in the same order, so the two cannot disagree."),
+        ],
+    },
+
+    "analytics_cost_to_complete": {
+        "title": "Cost to complete",
+        "steps": [
+            step("Forecast", "What forecast means here",
+                 "Forecast is committed plus what is still planned — the plan less "
+                 "what has already been ordered, never below zero. That is the one assumption."),
+            step("Variance", "Read the variance",
+                 "Budget less forecast. A red figure means the site is expected to "
+                 "finish over what was quoted, before any more money moves."),
+            step("Choose", "Narrow to one site",
+                 "Choose a project at the top and the rows become construction "
+                 "activities, so the activity carrying the overrun is visible on its own line."),
+            step("Basis", "Every figure excludes GST",
+                 "Budget, committed and plan are all before tax, as on the Budget tab. "
+                 "Money paid is not here; it lives on Payments."),
+        ],
+    },
+
+    "analytics_rates": {
+        "title": "Material rates over time",
+        "steps": [
+            step("Rate", "Where a rate comes from",
+                 "The rate frozen on each approved order line, after its discount — "
+                 "the line's basic value over its quantity. Drafts are not prices and are left out."),
+            step("Read", "Read the row",
+                 "First, lowest, average and latest sit beside the trend. Change is "
+                 "latest against first: what it cost when you started, what it costs now."),
+            step("Filter", "Narrow to a group or a site",
+                 "Choose a project or a material group at the top. The fifteen "
+                 "shown are the fifteen carrying the most committed money within that choice."),
+        ],
+    },
+
+    "analytics_vendors": {
+        "title": "Vendor performance",
+        "steps": [
+            step("Price", "Price against plan",
+                 "What the vendor's lines came to against the same quantities at "
+                 "the rate this project planned. A red percentage means you bought above plan."),
+            step("Paying", "Days to pay measures you",
+                 "Approval to payment, averaged over the paid documents. It is on "
+                 "the row so a slow vendor and a slow desk are not confused."),
+            step("Late", "Late delivery counts from the required-by date",
+                 "Delivered date against [[Required by]] on the order, where one was set. "
+                 "Documents without one cannot be late and are counted instead."),
+            step("Sort", "Sort by any heading",
+                 "Press a heading to sort by it, and again to reverse. The order is "
+                 "in the address, so the sorted view can be sent to somebody."),
+        ],
+    },
+
+    "analytics_sales": {
+        "title": "Sales velocity",
+        "steps": [
+            step("Bookings", "Bookings a month this year",
+                 "Every live booking from 1 April, by the month it was booked. A "
+                 "cancelled booking is not a sale and does not appear anywhere here."),
+            step("Speed", "Enquiry to booking",
+                 "Average days from the enquiry being raised to the booking, only "
+                 "where the booking names its enquiry. The count measured is beside it."),
+            step("Money", "Demanded against collected",
+                 "Demands raised in a month with GST, against receipts in that month "
+                 "with the buyer's TDS. A month where demanded beats collected added to what is owed."),
+            step("Units", "Units per project",
+                 "Available, booked and registered come from the bookings and are "
+                 "never typed. Press a project's name to open its unit grid and see who holds what."),
         ],
     },
 

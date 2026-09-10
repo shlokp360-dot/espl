@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+VENDORS — one row per vendor over the documents committed in the period.
+
+⚠ THREE MEASURES THAT BELONG TO THREE DIFFERENT PEOPLE, on one row so they are
+  read together: price against plan (the buyer), days to pay (us), delivery
+  against the required-by date (the vendor). See analytics/vendors.py.
+
+⚠ SORTABLE BY HEADING, THROUGH THE ADDRESS. `?sort=paid&dir=asc` can be
+  bookmarked and sent; the heading you sorted by is marked.
+
+⚠ A DOCUMENT WITH NO REQUIRED-BY DATE CANNOT BE LATE. It is counted at the
+  top rather than given an invented date.
+{% endcomment %}
+
+{% block title %}Vendors{% endblock %}
+{% block subtitle %}{{ view.label }}{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="vendors" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_vendors" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Vendors</span>
+  <span class="pill {% if view.kind == 'PTD' %}p-approved{% else %}p-quoted{% endif %}">{{ view.kind }}</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Vendors</div><div class="v">{{ rows|length }}</div></div>
+  <div class="kpi"><div class="l">Documents</div><div class="v">{{ count }}</div></div>
+  <div class="kpi {% if no_due_date %}warn{% endif %}"><div class="l">No due dates set</div><div class="v">{{ no_due_date }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">Committed, by vendor — before GST</div>
+  {{ chart }}
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      {% for heading in headings %}
+        <th class="{% if heading.key != 'vendor' %}num{% endif %}">
+          <a href="?{{ heading.query }}" style="text-decoration:none;color:inherit;white-space:nowrap">
+            {{ heading.label }}{% if heading.on %} {% if heading.dir == 'desc' %}▼{% else %}▲{% endif %}{% endif %}
+          </a>
+        </th>
+      {% endfor %}
+      <th class="num">Late on</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            {% if row.vendor %}
+              <a href="{% url 'analytics_documents' %}?stage=committed&vendor={{ row.vendor.pk }}&month={{ view.month }}&project={{ view.project.pk|default:'' }}&type={{ view.doc_type }}">{{ row.name }}</a>
+            {% else %}—{% endif %}
+            {% if row.no_due_date %}<span class="pill p-onsheet">{{ row.no_due_date }} without a due date</span>{% endif %}
+          </td>
+          <td class="num">{{ row.documents }}</td>
+          <td class="num">{{ row.committed|rupees }}</td>
+          <td class="num">{{ row.paid|rupees }}</td>
+          <td class="num">{% if row.paid_count %}{{ row.days_to_pay }} d{% else %}—{% endif %}</td>
+          {% comment %}
+          ⚠ ABOVE PLAN IS A RED NUMBER, BELOW A GREEN ONE — never a banner.
+          {% endcomment %}
+          <td class="num">
+            {% if row.price_pct is None %}—
+            {% elif row.price_pct > 0 %}<span class="up">+{{ row.price_pct }}%</span>
+            {% elif row.price_pct < 0 %}<span class="down">{{ row.price_pct }}%</span>
+            {% else %}0%{% endif %}
+          </td>
+          <td class="num">
+            {% if row.late_days is None %}—
+            {% elif row.late_days > 0 %}<span class="up">{{ row.late_days }} d</span>
+            {% else %}<span class="down">{{ row.late_days }} d</span>{% endif %}
+          </td>
+          <td class="num">{{ row.late_count }} of {{ row.documents }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" style="padding:14px">Nothing committed in this period.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_vendors" %}{% endblock %}

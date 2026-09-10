@@ -20,11 +20,19 @@ ONE SITE'S COMPLIANCE FILE.
 {% block content %}
 
 <style>
-.citem{display:flex;align-items:flex-start;gap:10px;padding:7px 11px;border-bottom:1px solid #EDEFF3}
+/* ⚠ EVERY ROW IS THE SAME SHAPE: pill · name · a second line only where there
+   is something to say · the actions in a fixed-width column, so the buttons
+   line up down the page whatever the row holds. */
+.citem{display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid #EDEFF3;min-height:40px}
 .citem:last-child{border-bottom:none}
-.citem .nm{flex:1;min-width:0;font-size:12.5px}
-.citem .sub{font-size:13px;color:var(--muted);margin-top:2px}
-.citem .act{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.citem>.pill{flex:0 0 84px;text-align:center}
+.citem .nm{flex:1;min-width:0;font-size:13px}
+.citem .nm b{font-weight:600;color:var(--text)}
+.citem .sub{font-size:13px;color:var(--text);margin-top:2px}
+.citem .act{flex:0 0 330px;display:flex;gap:6px;align-items:center;justify-content:flex-end;white-space:nowrap}
+.citem .act form{margin:0;display:inline}
+.citem .act a{text-decoration:none}
+.citem.old{padding-left:34px;background:#FCFCFD}
 .ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
         font-size:13px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
 .cblock{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px;overflow:hidden}
@@ -85,40 +93,31 @@ ONE SITE'S COMPLIANCE FILE.
           <div class="citem">
             <span class="pill {{ row.pill }}">{{ row.label }}</span>
             <span class="nm">
-              {{ row.item.name }}
-              {% if not row.item.is_compulsory %}<span class="mut" style="color:var(--muted)">· optional</span>{% endif %}
-              <div class="sub">
-                {% if row.latest %}
-                  {{ row.latest.original_name }}
-                  {% if row.latest.reference %}· {{ row.latest.reference }}{% endif %}
-                  {% if row.latest.expires_on %}· valid to {{ row.latest.expires_on|date:"d/m/Y" }}
-                    {% if row.days != None and row.state != 'valid' %}({{ row.days }} days){% endif %}
-                  {% endif %}
-                  {% if row.count > 1 %}· {{ row.count }} versions{% endif %}
-                {% else %}
-                  {{ row.item.get_kind_display|lower }}{% if row.item.note %} · {{ row.item.note }}{% endif %}
+              <b>{{ row.item.name }}</b>
+              {% if not row.item.is_compulsory %}<span class="pill p-draft">Optional</span>{% endif %}
+              {% if row.latest %}
+                {% comment %}
+                ⚠ THE SECOND LINE EXISTS ONLY WHERE THERE IS SOMETHING TO SAY.
+                  The filename and who uploaded it live in the version history
+                  underneath; here is what an inspector asks for.
+                {% endcomment %}
+                {% if row.latest.reference or row.latest.expires_on or row.count > 1 %}
+                  <div class="sub">
+                    {% if row.latest.reference %}{{ row.latest.reference }}{% endif %}
+                    {% if row.latest.expires_on %}{% if row.latest.reference %} · {% endif %}expires {{ row.latest.expires_on|date:"d/m/Y" }}{% endif %}
+                    {% if row.count > 1 %}{% if row.latest.reference or row.latest.expires_on %} · {% endif %}{{ row.count }} versions{% endif %}
+                  </div>
                 {% endif %}
-              </div>
+              {% else %}
+                <span class="pill p-draft">{% if row.item.kind == 'valid' %}Has expiry{% elif row.item.kind == 'repeat' %}Quarterly{% else %}One-time{% endif %}</span>
+              {% endif %}
             </span>
             <span class="act">
               {% if row.latest %}
+                <a href="{% url 'compliance_view' row.latest.pk %}" target="_blank" rel="noopener">
+                  <button type="button" class="sec sm">View</button></a>
                 <a href="{% url 'compliance_download' row.latest.pk %}">
                   <button type="button" class="sec sm">Download</button></a>
-                {% if user|can:"compliance.upload" %}
-                  {% comment %}
-                  ⚠ TWO DIFFERENT ACTS, AND THIS IS THE ONE PEOPLE ASK FOR.
-                    Replace = the paper is superseded. Correct details = the
-                    paper is right and the typing beside it was wrong.
-                  {% endcomment %}
-                  <button type="button" class="sec sm"
-                          data-doc="{{ row.latest.pk }}"
-                          data-name="{{ row.item.name }}"
-                          data-ref="{{ row.latest.reference }}"
-                          data-issued="{{ row.latest.issued_on|date:'Y-m-d' }}"
-                          data-expires="{{ row.latest.expires_on|date:'Y-m-d' }}"
-                          data-kind="{{ row.item.kind }}"
-                          onclick="askCorrect(this)">Correct details</button>
-                {% endif %}
               {% endif %}
               {% if user|can:"compliance.upload" %}
                 <button type="button" class="sec sm"
@@ -127,6 +126,21 @@ ONE SITE'S COMPLIANCE FILE.
                         data-kind="{{ row.item.kind }}"
                         data-validity="{{ row.item.validity_days|default:'' }}"
                         onclick="askUpload(this)">{% if row.latest %}Replace{% else %}Upload{% endif %}</button>
+                {% if row.latest %}
+                  {% comment %}
+                  ⚠ TWO DIFFERENT ACTS, AND THIS IS THE ONE PEOPLE ASK FOR.
+                    Replace = the paper is superseded. Correct = the paper is
+                    right and the typing beside it was wrong.
+                  {% endcomment %}
+                  <button type="button" class="link"
+                          data-doc="{{ row.latest.pk }}"
+                          data-name="{{ row.item.name }}"
+                          data-ref="{{ row.latest.reference }}"
+                          data-issued="{{ row.latest.issued_on|date:'Y-m-d' }}"
+                          data-expires="{{ row.latest.expires_on|date:'Y-m-d' }}"
+                          data-kind="{{ row.item.kind }}"
+                          onclick="askCorrect(this)">Correct</button>
+                {% endif %}
               {% endif %}
               {% comment %}
               >>> ANCHOR: COMPLIANCE-PRUNING <<<
@@ -154,13 +168,26 @@ ONE SITE'S COMPLIANCE FILE.
           ⚠ EVERY EARLIER VERSION STAYS DOWNLOADABLE — "the superseded one is
             often the one an inspector asks about".
           {% endcomment %}
+          {% if row.history %}
+            <div class="citem old">
+              <span class="pill p-draft">Current</span>
+              <span class="nm">
+                {{ row.latest.original_name }} · uploaded {{ row.latest.uploaded_at|date:"d/m/Y" }}
+                {% if row.latest.uploaded_by %}by {{ row.latest.uploaded_by.get_full_name|default:row.latest.uploaded_by.username }}{% endif %}
+              </span>
+              <span class="act"></span>
+            </div>
+          {% endif %}
           {% for old in row.history %}
-            <div class="citem" style="padding-left:34px;background:#FCFCFD">
-              <span class="nm" style="color:var(--muted);font-size:13px">
+            <div class="citem old">
+              <span class="pill p-draft">Earlier</span>
+              <span class="nm">
                 {{ old.original_name }} · uploaded {{ old.uploaded_at|date:"d/m/Y" }}
                 {% if old.uploaded_by %}by {{ old.uploaded_by.get_full_name|default:old.uploaded_by.username }}{% endif %}
               </span>
               <span class="act">
+                <a href="{% url 'compliance_view' old.pk %}" target="_blank" rel="noopener">
+                  <button type="button" class="sec sm">View</button></a>
                 <a href="{% url 'compliance_download' old.pk %}">
                   <button type="button" class="sec sm">Download</button></a>
               </span>

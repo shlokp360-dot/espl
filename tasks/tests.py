@@ -1041,3 +1041,52 @@ class MilestoneLabelsStaggerAndLinesDoNot(BoardCase):
         self.milestone("Finishing", date(2027, 1, 1), 30)
         chart = schedule.build(self.bhudarpura, today=date(2026, 4, 1))
         self.assertEqual(chart["milestone_lanes"], [0])
+
+    def test_a_tag_sits_one_lane_height_down_for_each_lane(self):
+        """
+        >>> ANCHOR: MILESTONE-LINE <<<
+        The tags share ONE strip along the top edge instead of three stacked
+        rows. A tag in lane 1 sits one lane's height below one in lane 0 — the
+        offset is arithmetic here, so the template only reads it.
+        """
+        self.milestone("Foundation", date(2026, 4, 1), 30)      # → 30 April
+        self.milestone("Superstructure", date(2026, 4, 2), 32)  # → 3 May
+        by_lane = {line["lane"]: line for line in self.lines()}
+        self.assertEqual(set(by_lane), {0, 1})
+        self.assertAlmostEqual(float(by_lane[0]["tag_top"]), 0, places=2)
+        self.assertAlmostEqual(float(by_lane[1]["tag_top"]), schedule.TAG_LANE_PX, places=2)
+
+    def test_the_strip_is_only_as_deep_as_the_deepest_lane(self):
+        self.milestone("Foundation", date(2026, 4, 1), 30)
+        chart = schedule.build(self.bhudarpura, today=date(2026, 4, 1))
+        self.assertAlmostEqual(float(chart["tag_strip_px"]), schedule.TAG_LANE_PX, places=2)
+
+        self.milestone("Superstructure", date(2026, 4, 2), 32)
+        chart = schedule.build(self.bhudarpura, today=date(2026, 4, 1))
+        self.assertAlmostEqual(float(chart["tag_strip_px"]), 2 * schedule.TAG_LANE_PX, places=2)
+
+    def test_a_tag_can_never_be_wider_than_the_clearance_between_lanes(self):
+        # Two tags that share a lane are at least LABEL_CLEARANCE apart, so a tag
+        # clipped narrower than that can never touch the next one.
+        chart = schedule.build(self.bhudarpura, today=date(2026, 4, 1)) if self.milestone(
+            "Foundation", date(2026, 4, 1), 30) else None
+        self.assertLess(float(chart["tag_max_px"]), schedule.LABEL_CLEARANCE)
+
+    def test_every_measurement_is_a_string_with_a_decimal_point(self):
+        # ⚠ A float through locale formatting can become "12,5" and draw every
+        #   tag at zero. Strings, always.
+        self.milestone("Foundation", date(2026, 4, 1), 30)
+        chart = schedule.build(self.bhudarpura, today=date(2026, 4, 1))
+        for key in ("tag_strip_px", "tag_max_px"):
+            self.assertIsInstance(chart[key], str)
+            self.assertNotIn(",", chart[key])
+        for line in chart["milestones"]:
+            self.assertIsInstance(line["tag_top"], str)
+
+    def test_the_screen_draws_the_tag_strip_and_the_name_inside_the_bar(self):
+        self.milestone("Foundation", date(2026, 4, 1), 30)
+        body = self.client.get(
+            f"{reverse('task_schedule')}?project={self.bhudarpura.pk}").content.decode()
+        self.assertIn('class="gtags"', body)
+        self.assertIn('class="gbar hdr"', body)
+        self.assertNotIn('class="mlab"', body)

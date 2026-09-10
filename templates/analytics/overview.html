@@ -23,7 +23,7 @@ THE ANALYTICS OVERVIEW.
 <div class="toolbar">
   <span class="ttl">Analytics</span>
   <span class="pill {% if view.kind == 'PTD' %}p-approved{% else %}p-quoted{% endif %}">{{ view.kind }}</span>
-  <span class="hint">{{ view.label }}</span>
+  <span class="sp"></span>
 
   {% include "analytics/_filters.html" %}
 </div>
@@ -76,76 +76,55 @@ THE ANALYTICS OVERVIEW.
 <div class="card" style="margin-bottom:13px">
   <div class="grph">Where the money stands</div>
   {{ settlement_bar }}
-  <div class="legend" style="margin-top:9px">
-    <span><i class="sw" style="background:#107e3e"></i> Settled {{ split.settled.net_payable|rupees }}</span>
-    <span><i class="sw" style="background:#C55A11"></i> Payable now {{ split.payable_now.net_payable|rupees }}</span>
-    <span><i class="sw" style="background:#6a6d70"></i> Not yet payable {{ split.not_yet_payable.net_payable|rupees }}</span>
-    <span class="sp" style="flex:1"></span>
-    <span><a href="{% url 'analytics_payments' %}?{{ request.GET.urlencode }}">Open settlement →</a></span>
-  </div>
+  <div style="margin-top:8px"><a href="{% url 'analytics_payments' %}?{{ request.GET.urlencode }}">Open settlement →</a></div>
 </div>
 
-<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:13px">
+{% comment %}
+⚠ THE TWO CHARTS SHARE A ROW UNTIL THE ROW IS TOO NARROW, THEN STACK. `.grid2`
+  and `.chart2` are both auto-fit grids from base.html — no fixed widths — so
+  the donut's key can never be clipped beside the ring: when the card is too
+  narrow for the two of them the ring takes a row of its own. Each key row is a
+  grid whose name column truncates and whose figure column never wraps.
+{% endcomment %}
+<div class="grid2" style="margin-bottom:13px">
   <div class="card">
-    <div class="grph">Paid, by construction activity</div>
-    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <div class="grph">Paid, by construction activity — before GST</div>
+    <div class="chart2">
       {{ activity_donut }}
-      <div style="flex:1;min-width:160px;display:grid;gap:4px;font-size:13px">
+      <div class="keys" style="margin:0">
         {% for row in activity_rows %}
-          <div style="display:flex;align-items:center;gap:7px">
+          <div class="key">
             <i class="sw" style="background:{{ row.colour }}"></i>
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }}</span>
-            <span style="color:var(--muted)">{{ row.pct }}%</span>
-            <span style="font-variant-numeric:tabular-nums">{{ row.value|rupees }}</span>
+            <span class="k" title="{{ row.label }}">{{ row.label }}</span>
+            <span class="p">{{ row.pct }}%</span>
+            <span class="n">{{ row.value|rupees }}</span>
           </div>
         {% empty %}
-          <span style="color:var(--muted)">Nothing paid in this period.</span>
+          <span>Nothing paid in this period.</span>
         {% endfor %}
       </div>
     </div>
     {% comment %}
-    ⚠ EX-GST, AND IT SAYS SO ON THE SCREEN. A document's deduction, round-off
-      and TDS belong to the whole document; there is no non-arbitrary way to
-      split them across construction activities, so this uses the line-level basic value —
-      the same basis the BOQ reserve uses. It will not add up to money paid.
+    ⚠ EX-GST, AND THE HEADING SAYS SO. A document's deduction, round-off and
+      TDS belong to the whole document; there is no non-arbitrary way to split
+      them across construction activities, so this uses the line-level basic
+      value — the same basis the BOQ reserve uses. It will not add up to money
+      paid. The ⓘ panel explains it; nothing grey under the chart does.
     {% endcomment %}
-    <div style="font-size:13px;color:var(--muted);margin-top:9px">Before GST. See ⓘ.</div>
   </div>
 
   <div class="card">
     <div class="grph">Committed against paid, by month</div>
     {{ by_month }}
-  <div class="legend">
-    {% for entry in series %}
-      <span><i class="sw" style="background:{{ entry.colour }}"></i> {{ entry.label }}</span>
-    {% endfor %}
   </div>
-  <div style="font-size:13px;color:var(--muted);margin-top:8px">
-    The gap is money still to leave the bank.
-  </div>
-</div>
 </div>
 
 {% comment %}
-⚠ THE TILES THAT USED TO SIT HERE ARE GONE. Saahil: "I still see tiles in the
-  overview page, what is the purpose here" — and he is right. They were written
-  before the tab strip existed and became a second copy of it: six clicks to the
-  same six places, taking the space where the page should have been saying
-  something. The launchpad's greyed-tile argument does not carry over, because
-  the tabs already show the shape of the module.
-
-  What survives is the one thing the tabs cannot say: which pages are not built.
-  One line.
+⚠ THE TILES THAT USED TO SIT HERE ARE GONE, AND SO ARE THE TWO AMBER NOTES
+  THAT FOLLOWED THEM. "Still to come" listed screens that have since been
+  built; "drafts counted nowhere" is a rule, not a warning at the moment of
+  acting, and lives in the ⓘ panel's Drafts step — the yellow-box rule.
 {% endcomment %}
-<div class="note tight">
-  <b>Still to come:</b> GST and TDS for the CA, and the vendor scorecard.
-</div>
-
-{% if drafts %}
-  <div class="note tight" style="margin-bottom:0">
-    <b>{{ drafts }} draft{{ drafts|pluralize }} counted nowhere on this page.</b>
-  </div>
-{% endif %}
 
 {% endblock %}
 

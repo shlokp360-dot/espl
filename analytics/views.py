@@ -20,7 +20,7 @@ from datetime import timedelta
 from django.shortcuts import render
 from django.utils import timezone
 
-from accounts.perms import requires
+from accounts.perms import requires, requires_any
 from analytics import budget, charts, money, periods
 from masters.models import Vendor
 from projects.bom_models import PurchaseOrder
@@ -105,14 +105,7 @@ def overview(request):
         "view": view,
         "paid": paid_totals,
         "split": split,
-        "settlement_bar": charts.stacked([
-            {"label": "Settled", "value": split["settled"]["net_payable"],
-             "colour": charts.PALETTE[5]},
-            {"label": "Payable now", "value": split["payable_now"]["net_payable"],
-             "colour": charts.PALETTE[3]},
-            {"label": "Not yet payable", "value": split["not_yet_payable"]["net_payable"],
-             "colour": charts.PALETTE[4]},
-        ]),
+        "settlement_bar": charts.stacked(_settlement_parts(split)),
         "activity_donut": charts.donut([
             {"label": row["label"], "value": row["value"], "colour": charts.colour(index)}
             for index, row in enumerate(activity_split)]),
@@ -132,12 +125,22 @@ def overview(request):
             {"label": "Committed", "colour": charts.PALETTE[0]},
             {"label": "Paid", "colour": charts.PALETTE[5]},
         ]),
-        "series": [
-            {"label": "Committed", "colour": charts.PALETTE[0]},
-            {"label": "Paid", "colour": charts.PALETTE[5]},
-        ],
-        "drafts": PurchaseOrder.objects.filter(status=PurchaseOrder.Status.DRAFT).count(),
     })
+
+
+def _settlement_parts(split):
+    """The three buckets as one bar, each carrying the figure its key prints."""
+    return [
+        {"label": "Settled", "value": split["settled"]["net_payable"],
+         "display": f"Rs {intcomma_in(split['settled']['net_payable'])}",
+         "colour": charts.PALETTE[5]},
+        {"label": "Payable now", "value": split["payable_now"]["net_payable"],
+         "display": f"Rs {intcomma_in(split['payable_now']['net_payable'])}",
+         "colour": charts.PALETTE[3]},
+        {"label": "Not yet payable", "value": split["not_yet_payable"]["net_payable"],
+         "display": f"Rs {intcomma_in(split['not_yet_payable']['net_payable'])}",
+         "colour": charts.PALETTE[4]},
+    ]
 
 
 # ------------------------------------------------------------- gross to net
@@ -293,11 +296,6 @@ def budget_page(request):
             {"label": "Plan", "colour": charts.PALETTE[0]},
             {"label": "Committed", "colour": charts.PALETTE[3]},
         ]),
-        "series": [
-            {"label": "Budget", "colour": charts.PALETTE[4]},
-            {"label": "Plan", "colour": charts.PALETTE[0]},
-            {"label": "Committed", "colour": charts.PALETTE[3]},
-        ],
     })
 
 
@@ -496,14 +494,7 @@ def settlement(request):
             "display": f"Rs {intcomma_in(row['net'])}",
             "colour": charts.PALETTE[2],
         } for row in vendors[:8]]),
-        "bar": charts.stacked([
-            {"label": "Settled", "value": split["settled"]["net_payable"],
-             "colour": charts.PALETTE[5]},
-            {"label": "Payable now", "value": split["payable_now"]["net_payable"],
-             "colour": charts.PALETTE[3]},
-            {"label": "Not yet payable", "value": split["not_yet_payable"]["net_payable"],
-             "colour": charts.PALETTE[4]},
-        ]),
+        "bar": charts.stacked(_settlement_parts(split)),
         "ageing_chart": charts.hbars([{
             "label": bucket["label"],
             "value": bucket["total"],
@@ -516,10 +507,6 @@ def settlement(request):
             {"label": "Invoiced", "colour": charts.PALETTE[0]},
             {"label": "Paid", "colour": charts.PALETTE[5]},
         ]),
-        "series": [
-            {"label": "Invoiced", "colour": charts.PALETTE[0]},
-            {"label": "Paid", "colour": charts.PALETTE[5]},
-        ],
         "unpaid_count": len(unpaid),
     })
 
@@ -578,3 +565,172 @@ def _days_lost(project=None):
     late = sum(row.days_late for row in rows.filter(finished_on__isnull=False))
     shifted = sum(row.days_shifted for row in rows.filter(original_start__isnull=False))
     return late + shifted
+
+
+# ------------------------------------------------------- the four later tabs
+#
+# ⚠ EACH ONE READS A CALCULATOR THAT ALREADY EXISTS — analytics.money,
+#   analytics.budget, projects.bom_calc, sales.calc — and adds nothing to the
+#   arithmetic beyond sums and averages. The views below fetch in bulk, hand
+#   the rows to the module that knows the rule, and draw.
+
+
+@requires("analytics.view")
+def cost_to_complete(request):
+    """
+    Forecast at completion, per project or per construction activity.
+
+    The one assumption is in the title: forecast = committed + what is still
+    planned. See `budget.with_forecast`.
+    """
+    today = timezone.localdate()
+    view = _filters(request, today)
+    project = view["project"]
+
+    rows = budget.with_forecast(
+        budget.by_trade(project) if project else budget.by_project(budget.live_projects()))
+    rows = sorted(rows, key=lambda row: row["forecast"], reverse=True)
+
+    return render(request, "analytics/cost_to_complete.html", {
+        "view": view,
+        "rows": rows,
+        "total": budget.forecast_total(rows),
+        "grain": "construction activity" if project else "project",
+        "chart": charts.hbars_paired([{
+            "label": _short(row["label"], 28),
+            "values": [row["budget"], row["forecast"]],
+            "displays": [f"Rs {intcomma_in(row['budget'])}", f"Rs {intcomma_in(row['forecast'])}"],
+        } for row in rows[:12]], [
+            {"label": "Budget", "colour": charts.PALETTE[4]},
+            {"label": "Forecast", "colour": charts.PALETTE[0]},
+        ]),
+    })
+
+
+@requires("analytics.view")
+def rates_page(request):
+    """The rate on every committed line, for the fifteen materials carrying the money."""
+    from analytics import rates
+
+    today = timezone.localdate()
+    view = _filters(request, today)
+    every = rates.lines(view["project"])
+    group_choices = rates.groups_in(every)
+    group_id = (request.GET.get("group") or "").strip()
+    group_id = int(group_id) if group_id.isdigit() else None
+
+    rows = rates.trend(every, group_id)
+    for row in rows:
+        row["spark"] = charts.sparkline(
+            row["rates"], colour=charts.PALETTE[6] if (row["change_pct"] or 0) > 0
+            else charts.PALETTE[5] if (row["change_pct"] or 0) < 0 else charts.PALETTE[4])
+
+    return render(request, "analytics/rates.html", {
+        "view": view,
+        "rows": rows,
+        "group_choices": group_choices,
+        "group_id": group_id,
+        "line_count": len(every),
+        "rising": sum(1 for row in rows if (row["change_pct"] or 0) > 0),
+        "falling": sum(1 for row in rows if (row["change_pct"] or 0) < 0),
+    })
+
+
+@requires("analytics.view")
+def vendors_page(request):
+    """Vendor performance over the documents committed in the period."""
+    from analytics import vendors
+
+    today = timezone.localdate()
+    view = _filters(request, today)
+    orders = money.documents("committed", view["start"], view["end"],
+                             view["project"], view["doc_type"])
+    sort = request.GET.get("sort") if request.GET.get("sort") in vendors.SORTS else "committed"
+    direction = request.GET.get("dir") if request.GET.get("dir") in ("asc", "desc") else None
+    rows = vendors.sort(vendors.scorecard(orders), sort, direction)
+    shown = direction or vendors.SORTS[sort][2]
+
+    # The query string each heading links to: the same filters, its own key,
+    # and the opposite direction when it is already the sort.
+    base = request.GET.copy()
+    headings = []
+    for key, (heading, _field, default) in vendors.SORTS.items():
+        query = base.copy()
+        query["sort"] = key
+        query["dir"] = ("asc" if shown == "desc" else "desc") if key == sort else default
+        headings.append({"key": key, "label": heading, "query": query.urlencode(),
+                         "on": key == sort, "dir": shown if key == sort else ""})
+
+    return render(request, "analytics/vendors.html", {
+        "view": view,
+        "rows": rows,
+        "headings": headings,
+        "sort": sort,
+        "direction": shown,
+        "count": len(orders),
+        "no_due_date": sum(row["no_due_date"] for row in rows),
+        "chart": charts.hbars([{
+            "label": row["name"], "value": row["committed"],
+            "display": f"Rs {intcomma_in(row['committed'])}",
+            "colour": charts.PALETTE[2],
+        } for row in sorted(rows, key=lambda row: row["committed"], reverse=True)[:8]]),
+    })
+
+
+@requires_any("analytics.view", "sales.view")
+def sales_page(request):
+    """
+    Sales velocity for the fiscal year: bookings a month, days from enquiry
+    to booking, demands against collections, and units per project.
+
+    ⚠ OPEN TO `sales.view` AS WELL AS `analytics.view`. The sales desk reads
+      its own speed; the rest of the analytics module stays the Admin's, and
+      the tab strip shows this page alone to anybody who holds only sales.view.
+    """
+    from analytics import velocity
+    from sales.models import Booking, CustomerReceipt, Demand, Unit
+
+    today = timezone.localdate()
+    view = _filters(request, today)
+    project = view["project"]
+    projects = list(view["projects"].filter(pk=project.pk) if project else view["projects"])
+    start = periods.fiscal_start(today)
+    months = view["months"]
+
+    bookings = list(Booking.objects
+                    .filter(unit__project__in=projects, booked_on__gte=start, booked_on__lte=today)
+                    .exclude(status=Booking.Status.CANCELLED)
+                    .select_related("enquiry", "unit"))
+    demands = list(Demand.objects.filter(booking__unit__project__in=projects,
+                                         raised_on__gte=start, raised_on__lte=today))
+    receipts = list(CustomerReceipt.objects.filter(booking__unit__project__in=projects,
+                                                   received_on__gte=start, received_on__lte=today))
+    units = list(Unit.objects.filter(project__in=projects, is_active=True))
+
+    by_month = velocity.bookings_by_month(bookings, months)
+    flows = velocity.money_by_month(demands, receipts, months)
+    days, measured = velocity.days_to_book(bookings)
+    unit_rows = velocity.units_by_project(projects, units)
+
+    return render(request, "analytics/sales.html", {
+        "view": view,
+        "bookings": len(bookings),
+        "days_to_book": days,
+        "measured": measured,
+        "demanded": sum((row["demanded"] for row in flows), money.ZERO),
+        "collected": sum((row["collected"] for row in flows), money.ZERO),
+        "unit_rows": unit_rows,
+        "units": {
+            "available": sum(row["available"] for row in unit_rows),
+            "booked": sum(row["booked"] for row in unit_rows),
+            "registered": sum(row["registered"] for row in unit_rows),
+        },
+        "bookings_chart": charts.bars(
+            [{"label": row["label"], "values": [row["count"]]} for row in by_month],
+            [{"label": "Bookings", "colour": charts.PALETTE[0]}]),
+        "money_chart": charts.bars(
+            [{"label": row["label"], "values": [row["demanded"], row["collected"]]} for row in flows],
+            [{"label": "Demanded", "colour": charts.PALETTE[3]},
+             {"label": "Collected", "colour": charts.PALETTE[5]}]),
+        "flows": flows,
+    })

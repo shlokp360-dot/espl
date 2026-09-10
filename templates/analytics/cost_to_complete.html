@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+COST TO COMPLETE — what each site, or each construction activity, will have
+cost when it is finished, on one stated assumption.
+
+⚠ THE ASSUMPTION IS IN THE TITLE AND NOWHERE ELSE: forecast = committed +
+  what is still planned. Remaining plan is plan less committed, floored at
+  zero, per row — see budget.with_forecast. Nothing here is re-derived.
+
+⚠ ROWS ARE PROJECTS UNTIL YOU CHOOSE ONE, THEN CONSTRUCTION ACTIVITIES — the
+  same grain rule as the Budget tab, and the same `grain` string.
+{% endcomment %}
+
+{% block title %}Cost to complete{% endblock %}
+{% block subtitle %}Forecast = committed + what is still planned{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="cost" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_cost_to_complete" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Cost to complete — forecast = committed + what is still planned</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi">
+    <div class="l">Budget</div><div class="v">{{ total.budget|rupees }}</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Committed</div><div class="v">{{ total.committed|rupees }}</div>
+  </div>
+  <div class="kpi">
+    <div class="l">Still planned</div><div class="v">{{ total.remaining_plan|rupees }}</div>
+  </div>
+  <div class="kpi {% if total.over_forecast %}bad{% endif %}">
+    <div class="l">Forecast</div><div class="v">{{ total.forecast|rupees }}</div>
+  </div>
+  <div class="kpi {% if total.variance < 0 %}bad{% else %}good{% endif %}">
+    <div class="l">Variance</div><div class="v">{{ total.variance|rupees }}</div>
+  </div>
+  <div class="kpi {% if total.over_forecast %}bad{% endif %}">
+    <div class="l">Forecast of budget</div><div class="v">{{ total.forecast_pct }}%</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:13px">
+  <div class="grph">Budget against forecast, by {{ grain }}</div>
+  {{ chart }}
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th>{% if grain == 'construction activity' %}Construction activity{% else %}Project{% endif %}</th>
+      <th class="num">Budget</th>
+      <th class="num">Committed</th>
+      <th class="num">Still planned</th>
+      <th class="num">Forecast</th>
+      <th class="num">Variance</th>
+      <th class="num">Of budget</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            {% if grain == 'project' and row.project %}
+              <a href="?project={{ row.project.pk }}&month={{ view.month }}&type={{ view.doc_type }}">{{ row.label }}</a>
+            {% else %}{{ row.label }}{% endif %}
+            {% if not row.lines and row.budget %}
+              <span class="pill p-onsheet">not planned yet</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.budget|rupees }}</td>
+          <td class="num">{{ row.committed|rupees }}</td>
+          <td class="num">{{ row.remaining_plan|rupees }}</td>
+          {% comment %}
+          ⚠ OVER BUDGET IS A RED NUMBER, NEVER A RED BANNER — the standing rule.
+          {% endcomment %}
+          <td class="num">{% if row.over_forecast %}<span class="up">{{ row.forecast|rupees }}</span>
+                          {% else %}{{ row.forecast|rupees }}{% endif %}</td>
+          <td class="num">{% if row.variance < 0 %}<span class="up">{{ row.variance|rupees }}</span>
+                          {% else %}{{ row.variance|rupees }}{% endif %}</td>
+          <td class="num">{{ row.forecast_pct }}%</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:14px">No Won project has an estimate yet.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+      <tfoot><tr>
+        <td>All</td>
+        <td class="num">{{ total.budget|rupees }}</td>
+        <td class="num">{{ total.committed|rupees }}</td>
+        <td class="num">{{ total.remaining_plan|rupees }}</td>
+        <td class="num">{{ total.forecast|rupees }}</td>
+        <td class="num">{{ total.variance|rupees }}</td>
+        <td class="num">{{ total.forecast_pct }}%</td>
+      </tr></tfoot>
+    {% endif %}
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_cost_to_complete" %}{% endblock %}

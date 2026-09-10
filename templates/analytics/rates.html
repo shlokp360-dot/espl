@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load inr help %}
+{% comment %}
+RATES — what the materials carrying the money have actually cost, order by order.
+
+⚠ THE RATE IS THE ONE FROZEN ON THE DOCUMENT, AFTER THE LINE DISCOUNT — the
+  line's basic value over its quantity. Drafts are not prices and are not here.
+
+⚠ THE SPARKLINE IS THE SHAPE, THE COLUMNS ARE THE NUMBERS. It has no axis on
+  purpose; min, average and latest sit beside it.
+{% endcomment %}
+
+{% block title %}Rates{% endblock %}
+{% block subtitle %}Top {{ rows|length }} materials by committed value{% endblock %}
+{% block nav %}{% include "analytics/_nav.html" with here="rates" %}{% endblock %}
+
+{% block headerinfo %}{% infobutton "analytics_rates" %}{% endblock %}
+
+{% block content %}
+
+<div class="toolbar">
+  <span class="ttl">Rates</span>
+  <span class="sp"></span>
+  {% include "analytics/_filters.html" %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Materials shown</div><div class="v">{{ rows|length }}</div></div>
+  <div class="kpi"><div class="l">Committed lines</div><div class="v">{{ line_count }}</div></div>
+  <div class="kpi {% if rising %}bad{% endif %}"><div class="l">Rising</div><div class="v">{{ rising }}</div></div>
+  <div class="kpi {% if falling %}good{% endif %}"><div class="l">Falling</div><div class="v">{{ falling }}</div></div>
+</div>
+
+<div class="scroll" style="max-height:none">
+  <table>
+    <thead><tr class="hd">
+      <th style="width:120px">Code</th>
+      <th>Material</th>
+      <th>Group</th>
+      <th class="num">Orders</th>
+      <th class="num">Committed</th>
+      <th style="width:130px">Trend</th>
+      <th class="num">First</th>
+      <th class="num">Lowest</th>
+      <th class="num">Average</th>
+      <th class="num">Latest</th>
+      <th class="num">Change</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="code">{{ row.code }}</td>
+          <td title="{{ row.label }}">{{ row.label }} <span style="white-space:nowrap">/ {{ row.uom }}</span></td>
+          <td>{{ row.group }}</td>
+          <td class="num">{{ row.orders }}</td>
+          <td class="num">{{ row.committed|rupees }}</td>
+          <td>{{ row.spark }}</td>
+          <td class="num">{{ row.first|rupees2 }}</td>
+          <td class="num">{{ row.low|rupees2 }}</td>
+          <td class="num">{{ row.average|rupees2 }}</td>
+          <td class="num"><b>{{ row.latest|rupees2 }}</b></td>
+          {% comment %}
+          ⚠ A RISE IS A RED NUMBER, A FALL A GREEN ONE — never a banner.
+          {% endcomment %}
+          <td class="num">
+            {% if row.change_pct is None %}—
+            {% elif row.change_pct > 0 %}<span class="up">+{{ row.change_pct }}%</span>
+            {% elif row.change_pct < 0 %}<span class="down">{{ row.change_pct }}%</span>
+            {% else %}0%{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" style="padding:14px">No committed document has a line yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block infopanel %}{% infopanel "analytics_rates" %}{% endblock %}

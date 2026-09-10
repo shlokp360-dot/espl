@@ -342,6 +342,35 @@ def download(request, document_id):
                         filename=document.original_name or os.path.basename(document.file.name))
 
 
+#: What the browser may open in a tab rather than save. Anything not listed
+#: here goes back to an attachment — the whitelist above allows nothing else,
+#: but a row restored from an older backup might.
+INLINE_TYPES = {".pdf": "application/pdf", ".png": "image/png",
+                ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+
+
+@requires("compliance.view")
+def view_inline(request, document_id):
+    """
+    Open the file in the browser instead of saving it — the same permission
+    check, the same 404 rule and the same lookups as `download`, and the bytes
+    still never leave through a URL. The one difference is the header: inline,
+    with the content type the browser needs to render it.
+    """
+    document = get_object_or_404(
+        ComplianceDocument.objects.select_related("project", "item"), pk=document_id)
+    try:
+        handle = document.file.open("rb")
+    except (FileNotFoundError, ValueError):
+        raise Http404("The file for this document is not on the server.")
+
+    name = document.original_name or os.path.basename(document.file.name)
+    content_type = INLINE_TYPES.get(os.path.splitext(name)[1].lower())
+    if content_type is None:
+        return FileResponse(handle, as_attachment=True, filename=name)
+    return FileResponse(handle, as_attachment=False, filename=name, content_type=content_type)
+
+
 # ------------------------------------------------------- correcting a typing
 @require_POST
 @requires("compliance.upload")

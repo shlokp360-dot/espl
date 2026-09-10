@@ -105,50 +105,37 @@ HOW EDITING WORKS
   <div class="panel">
 
     {# ---------------- the KPI strip. Every value from bom_calc.activity_totals ---- #}
+    {# >>> ANCHOR: BOM-COLUMNS <<< four figures by default; the rest behind More. #}
     <div class="kpis">
       <div class="kpi">
-        <div class="l">Reserve</div>
+        <div class="l">Budget</div>
         <div class="v">₹{{ totals.reserve|rupees }}</div>
-        <div class="s">from the estimate line · ex-GST base</div>
       </div>
       <div class="kpi {% if totals.percent_used > 1 %}bad{% elif totals.percent_used > 0.9 %}warn{% endif %}">
-        <div class="l">Planned value <span style="font-size:9.5px">ex-GST</span></div>
+        <div class="l">Planned</div>
         <div class="v">₹{{ totals.planned_value|rupees }}</div>
         <div class="bar"><i class="{% if totals.percent_used > 1 %}bad{% elif totals.percent_used > 0.9 %}warn{% endif %}"
                             style="width:{{ totals.percent_used|bar_width }}%"></i></div>
       </div>
-      <div class="kpi {% if totals.percent_used > 1 %}bad{% else %}good{% endif %}">
-        <div class="l">Variance vs reserve</div>
-        <div class="v">₹{{ totals.variance|rupees }}</div>
-        <div class="s">{{ totals.percent_used|pct }} of reserve used</div>
-      </div>
-      {% comment %}
-      COMMITTED vs PO VALUE NOW — two different questions, and the labels have to
-      keep them apart or somebody will read one as the other.
-
-        Committed    what has ALREADY been ordered, at the rate on the document.
-        PO value now what pressing Post POs would order, which drops to zero the
-                     moment you press it, because posting consumes the quantity.
-      {% endcomment %}
       <div class="kpi">
         <div class="l">Committed</div>
         <div class="v">₹{{ totals.committed_value|rupees }}</div>
-        <div class="s">on approved orders · ex-GST</div>
       </div>
       <div class="kpi">
-        <div class="l">Used value</div>
+        <div class="l">Received</div>
         <div class="v">₹{{ totals.used_value|rupees }}</div>
-        <div class="s">received × plan rate, ex-GST</div>
       </div>
-      <div class="kpi {% if totals.below_threshold %}bad{% endif %}">
+      <div class="kpi xtra {% if totals.percent_used > 1 %}bad{% else %}good{% endif %}">
+        <div class="l">Variance</div>
+        <div class="v">₹{{ totals.variance|rupees }}</div>
+      </div>
+      <div class="kpi xtra {% if totals.below_threshold %}bad{% endif %}">
         <div class="l">Below threshold</div>
         <div class="v">{{ totals.below_threshold }}</div>
-        <div class="s">of {{ totals.line_count }} line{{ totals.line_count|pluralize }}</div>
       </div>
-      <div class="kpi">
-        <div class="l">PO value now</div>
+      <div class="kpi xtra">
+        <div class="l">To order now</div>
         <div class="v">₹{{ totals.po_value_now|rupees }}</div>
-        <div class="s">{{ totals.to_order_count }} line{{ totals.to_order_count|pluralize }} to order · ex-GST</div>
       </div>
     </div>
 
@@ -179,24 +166,32 @@ HOW EDITING WORKS
     {% endif %}
 
     {# ---------------- the grid ---------------------------------------------------- #}
+    {# >>> ANCHOR: BOM-COLUMNS <<< ten columns a buyer touches daily; the rest behind this switch. #}
+    <div class="colsw">
+      <label><input type="checkbox" id="morecols" onchange="try{localStorage.setItem('bom-more',this.checked?'1':'')}catch(e){}"> Show all columns</label>
+    </div>
+    <script>try{if(localStorage.getItem('bom-more'))document.getElementById('morecols').checked=true;}catch(e){}</script>
     <div class="scroll">
       <table>
         <thead>
-          <tr class="grp">
-            <th class="gM" colspan="4">Material</th>
-            <th class="gO" colspan="7">What to order — and from whom</th>
-            <th class="gS" colspan="2">Site stock</th>
-            <th class="gP" colspan="6">Planned vs actual</th>
-            <th class="gM"></th>
-          </tr>
           <tr class="hd">
-            <th>Code</th><th>Material</th><th>Remark</th><th>UOM</th>
-            <th class="num">Order Qty</th><th>Vendor</th><th class="num">Vend Rate</th>
-            <th class="num">Plan Rate</th><th class="num">Var %</th><th class="num">GST%</th>
-            <th class="num">PO Value</th>
-            <th class="num">Stock</th><th class="num">Min</th>
-            <th class="num">Plan Qty</th><th class="num">Approved</th><th class="num">In Draft</th>
-            <th class="num">Recd Qty</th><th class="num">Est Value (ex-GST)</th><th class="num">Used Value (ex-GST)</th>
+            <th style="min-width:200px">Material</th>
+            <th class="xtra">Remark</th>
+            <th class="num">Plan qty</th>
+            <th class="num">Stock</th>
+            <th class="num xtra">Min</th>
+            <th class="num">Approved</th>
+            <th class="num xtra">In draft</th>
+            <th class="num">Received</th>
+            <th class="num ordcol">Order qty</th>
+            <th class="ordcol">Vendor</th>
+            <th class="num ordcol">Rate</th>
+            <th class="num xtra">Plan rate</th>
+            <th class="num xtra">Var %</th>
+            <th class="num xtra">GST %</th>
+            <th class="num">Value</th>
+            <th class="num xtra">Planned value</th>
+            <th class="num xtra">Received value</th>
             <th></th>
           </tr>
         </thead>
@@ -204,109 +199,20 @@ HOW EDITING WORKS
         {% for row in rows %}
           {% with line=row.line %}
           <tr>
-            <td class="code">{{ line.material.code }}</td>
-            <td>{{ line.material.name }}
-              <div style="font-size:13px;color:var(--muted)">{{ line.material.specification }}</div>
+            <td><div style="font-weight:600">{{ line.material.name }}</div>
+              <div style="font-size:13px;color:var(--muted)"><span class="code" style="font-family:Consolas,monospace;font-weight:600;color:var(--navy)">{{ line.material.code }}</span> · {{ line.material.uom }}{% if line.material.specification %} · {{ line.material.specification }}{% endif %}</div>
               {% if row.discontinued_reason %}
-                {# The same rule po_service refuses on, so the flag and the refusal agree. #}
-                <div><span class="pill p-nogst" title="Post POs will refuse while this is true">
-                  ⛔ {{ row.discontinued_reason }}</span></div>
+                <div><span class="pill p-nogst" title="Post POs will refuse while this is true">⛔ {{ row.discontinued_reason }}</span></div>
               {% endif %}</td>
-            <td>{% if may_edit %}<input class="cell" name="remark-{{ line.id }}" value="{{ line.remark }}" placeholder="—">{% else %}{{ line.remark|default:"—" }}{% endif %}</td>
-            <td>{{ line.material.uom }}</td>
-
-            <td class="gO">
-              {# ⚠ BLANK ORDERS NOTHING. The figure below is advice, not an instruction. #}
-              {% if may_edit %}<input class="cell num ord" id="ord-{{ line.id }}" name="ord-{{ line.id }}"
-                     value="{{ line.order_qty_override|qty }}" placeholder="0">
-              {% else %}<span class="accrue">{{ line.order_qty_override|qty|default:"—" }}</span>{% endif %}
-              <div class="sugg">
-                still to buy {{ row.suggested_order_qty|qty }}
-                {% if row.suggested_order_qty > 0 %}
-                  <button type="button" class="link"
-                          onclick="document.getElementById('ord-{{ line.id }}').value='{{ row.suggested_order_qty|qty }}';"
-                          title="Fill this box with the suggested quantity">use</button>
-                {% endif %}
-              </div>
-            </td>
-
-            {% comment %}
-            The flag sits against the field that disagrees, the same way the
-            stock triangle sits against Stock. A live draft was raised to a
-            different vendor than this line now names — the document has not
-            been touched, and the panel above offers to lift this one line off it.
-            {% endcomment %}
-            <td class="gO"><div class="flagcell">
-              {% comment %}
-              THE FLAG IS THE LINK. Clicking it opens the document that no longer
-              agrees with this line, where removing the line is one button — the
-              same operation, one material off one draft, everything else on that
-              order untouched. Warn and offer, in the space of a triangle.
-              {% endcomment %}
-              {% for clash in row.conflict.vendor %}<a class="lowflag"
-                   href="{% url 'po_detail' project.id clash.order_id %}"
-                   title="{{ clash.number }} was raised to {{ clash.vendor_name }} for {{ clash.quantity|qty }} {{ line.material.uom }}, but this line now says {% if line.vendor %}{{ line.vendor.name }}{% else %}no vendor{% endif %}. Nothing has been changed on it. Click to open {{ clash.number }} and take this line off.">▲</a>{% endfor %}
-              {% if may_edit %}<input class="cell ven" name="vendor-{{ line.id }}" list="vendorlist"
-                     value="{% if line.vendor %}{{ line.vendor.code }} · {{ line.vendor.name }}{% endif %}"
-                     placeholder="none — will not be ordered">
-              {% else %}{% if line.vendor %}{{ line.vendor.name }}{% else %}—{% endif %}{% endif %}
+            <td class="xtra">{% if may_edit %}<input class="cell" name="remark-{{ line.id }}" value="{{ line.remark }}" placeholder="—">{% else %}{{ line.remark|default:"—" }}{% endif %}</td>
+            <td class="gP"><div class="flagcell">
+              {% if row.conflict.over_planned %}<span class="lowflag"
+                   title="Live drafts are ordering {{ row.conflict.over_planned|qty }} {{ line.material.uom }} more than this plan still needs. Reduce the quantity on the draft itself, or put the plan back up.">▲</span>{% endif %}
+              {% if may_edit %}<input class="cell num" name="plan-{{ line.id }}" value="{{ row.planned_qty|qty }}">
+              {% else %}<span class="accrue">{{ row.planned_qty|qty }}</span>{% endif %}
             </div></td>
-            {% comment %}
-            >>> ANCHOR: VENDOR-RATE-CAPTURE <<<
-            ⚠⚠ THE PLACEHOLDER IS NOT A HINT, IT IS WHAT A BLANK CELL WILL USE.
-               That is why it changes here and not only in the arithmetic: when
-               this line names a vendor we have been billed by before, the grey
-               number is the rate we last actually paid them, and leaving the
-               cell blank uses exactly that. A grey 340 over a cell that computes
-               with 20 would be the chart that contradicts its own numbers, in a
-               cell that drives PO value.
-
-            ⚠ NO NEW ELEMENT AND NO EXTRA TEXT. Saahil, shown the alternative of
-               a "last paid ₹340, PO-000031" line beside the field: "I dont wish
-               to add extra text on the BOM Line, we can keep it as grey text as
-               we do for other key fields." The provenance lives on the Vendor
-               rates screen, and here only as a hover.
-            {% endcomment %}
-            <td class="gO">{% if may_edit %}<input class="cell num" name="vrate-{{ line.id }}"
-                     value="{{ line.vendor_rate|rupees2 }}"
-                     {% if row.captured_rate %}placeholder="{{ row.captured_rate|rupees2 }}"
-                       title="The rate last paid to {{ line.vendor.name }} for this material. Leave the cell blank to use it."
-                     {% else %}placeholder="{{ row.planning_rate|rupees2 }}"{% endif %}>
-              {% else %}<span class="accrue">₹{{ row.vendor_rate|rupees2 }}</span>{% endif %}</td>
-            {% comment %}
-            THE PLANNING RATE. Blank inherits the material master's estimation
-            rate, which the placeholder shows — so a blank cell is not an empty
-            one, it is "the company figure applies here".
-
-            Type in it and this project plans at its own rate without touching
-            the master, which is what a Lumpsum material needs: quantity 1, and
-            the amount typed here.
-            {% endcomment %}
-            <td class="gO">{% if may_edit %}<input class="cell num" name="prate-{{ line.id }}"
-                     value="{{ line.planned_rate|rupees2 }}"
-                     placeholder="{{ row.planning_rate|rupees2 }}"
-                     title="Blank uses the material master's rate. Type one to plan this project differently.">
-              {% else %}<span class="accrue">₹{{ row.planning_rate|rupees2 }}</span>{% endif %}
-              {% if row.rate_is_overridden %}
-                <div class="sugg" style="color:var(--blue)">this project only</div>
-              {% endif %}</td>
-            <td class="gO num {% if row.rate_variance > 0 %}up{% elif row.rate_variance < 0 %}down{% endif %}">
-              {{ row.rate_variance|pct }}</td>
-            <td class="gO num">{{ line.material.gst_percent|qty }}%</td>
-            <td class="gO num" style="font-weight:700;color:var(--navy)">₹{{ row.po_value|rupees }}</td>
-
-            {% comment %}
-            SITE STOCK AND THE REORDER THRESHOLD.
-
-            Both are typed by a person and neither is ever calculated. Stock is
-            load-bearing: "still to buy" subtracts it, so a stock box nobody can
-            reach makes every suggestion over-order.
-
-            A material in a non-stock group — a service, transport, a lumpsum —
-            has no meaningful "how many are on site", so those two are shown
-            read-only rather than inviting a number that would mean nothing.
-            {% endcomment %}
             {% with stocked=line.material.group.is_stock_item %}
+            
             <td class="gS"><div class="flagcell">
               {% if row.below_threshold %}<span class="lowflag" title="below threshold">▲</span>{% endif %}
               {% comment %}
@@ -327,29 +233,63 @@ HOW EDITING WORKS
                      {% if not stocked %}readonly title="{{ line.material.group.name }} is not stock-tracked"{% endif %}>
               {% else %}<span class="accrue">{{ row.stock_qty|qty }}</span>{% endif %}
             </div></td>
-            <td class="gS">{% if may_stock %}<input class="cell num" name="min-{{ line.id }}" value="{{ row.min_qty|qty }}"
+            
+            <td class="gS xtra">{% if may_stock %}<input class="cell num" name="min-{{ line.id }}" value="{{ row.min_qty|qty }}"
                      {% if not stocked %}readonly title="{{ line.material.group.name }} is not stock-tracked"{% endif %}>
               {% else %}<span class="accrue">{{ row.min_qty|qty }}</span>{% endif %}</td>
             {% endwith %}
-
-            {% comment %}
-            The plan was cut below what live drafts are already ordering, so the
-            flag belongs here — against the number that moved, not against the
-            material code. Approved quantities are not counted: they are already
-            committed and are not this screen's argument to have.
-            {% endcomment %}
-            <td class="gP"><div class="flagcell">
-              {% if row.conflict.over_planned %}<span class="lowflag"
-                   title="Live drafts are ordering {{ row.conflict.over_planned|qty }} {{ line.material.uom }} more than this plan still needs. Reduce the quantity on the draft itself, or put the plan back up.">▲</span>{% endif %}
-              {% if may_edit %}<input class="cell num" name="plan-{{ line.id }}" value="{{ row.planned_qty|qty }}">
-              {% else %}<span class="accrue">{{ row.planned_qty|qty }}</span>{% endif %}
+            <td class="accrue">{{ row.approved_qty|qty }}</td>
+            <td class="accrue xtra">{{ row.draft_qty|qty }}</td>
+            <td class="accrue">{{ row.received_qty|qty }}</td>
+            <td class="gO">
+              {# ⚠ BLANK ORDERS NOTHING. The figure below is advice, not an instruction. #}
+              {% if may_edit %}<input class="cell num ord" id="ord-{{ line.id }}" name="ord-{{ line.id }}"
+                     value="{{ line.order_qty_override|qty }}" placeholder="0">
+              {% else %}<span class="accrue">{{ line.order_qty_override|qty|default:"—" }}</span>{% endif %}
+              <div class="sugg">
+                still to buy {{ row.suggested_order_qty|qty }}
+                {% if row.suggested_order_qty > 0 %}
+                  <button type="button" class="link"
+                          onclick="document.getElementById('ord-{{ line.id }}').value='{{ row.suggested_order_qty|qty }}';"
+                          title="Fill this box with the suggested quantity">use</button>
+                {% endif %}
+              </div>
+            </td>
+            <td class="gO"><div class="flagcell">
+              {% comment %}
+              THE FLAG IS THE LINK. Clicking it opens the document that no longer
+              agrees with this line, where removing the line is one button — the
+              same operation, one material off one draft, everything else on that
+              order untouched. Warn and offer, in the space of a triangle.
+              {% endcomment %}
+              {% for clash in row.conflict.vendor %}<a class="lowflag"
+                   href="{% url 'po_detail' project.id clash.order_id %}"
+                   title="{{ clash.number }} was raised to {{ clash.vendor_name }} for {{ clash.quantity|qty }} {{ line.material.uom }}, but this line now says {% if line.vendor %}{{ line.vendor.name }}{% else %}no vendor{% endif %}. Nothing has been changed on it. Click to open {{ clash.number }} and take this line off.">▲</a>{% endfor %}
+              {% if may_edit %}<input class="cell ven" name="vendor-{{ line.id }}" list="vendorlist"
+                     value="{% if line.vendor %}{{ line.vendor.code }} · {{ line.vendor.name }}{% endif %}"
+                     placeholder="none — will not be ordered">
+              {% else %}{% if line.vendor %}{{ line.vendor.name }}{% else %}—{% endif %}{% endif %}
             </div></td>
-            <td class="gP accrue">{{ row.approved_qty|qty }}</td>
-            <td class="gP accrue">{{ row.draft_qty|qty }}</td>
-            <td class="gP accrue">{{ row.received_qty|qty }}</td>
-            <td class="gP num">₹{{ row.estimated_value|rupees }}</td>
-            <td class="gP num">₹{{ row.used_value|rupees }}</td>
-
+            <td class="gO">{% if may_edit %}<input class="cell num" name="vrate-{{ line.id }}"
+                     value="{{ line.vendor_rate|rupees2 }}"
+                     {% if row.captured_rate %}placeholder="{{ row.captured_rate|rupees2 }}"
+                       title="The rate last paid to {{ line.vendor.name }} for this material. Leave the cell blank to use it."
+                     {% else %}placeholder="{{ row.planning_rate|rupees2 }}"{% endif %}>
+              {% else %}<span class="accrue">₹{{ row.vendor_rate|rupees2 }}</span>{% endif %}</td>
+            <td class="gO xtra">{% if may_edit %}<input class="cell num" name="prate-{{ line.id }}"
+                     value="{{ line.planned_rate|rupees2 }}"
+                     placeholder="{{ row.planning_rate|rupees2 }}"
+                     title="Blank uses the material master's rate. Type one to plan this project differently.">
+              {% else %}<span class="accrue">₹{{ row.planning_rate|rupees2 }}</span>{% endif %}
+              {% if row.rate_is_overridden %}
+                <div class="sugg" style="color:var(--blue)">this project only</div>
+              {% endif %}</td>
+            <td class="gO num xtra {% if row.rate_variance > 0 %}up{% elif row.rate_variance < 0 %}down{% endif %}">
+              {{ row.rate_variance|pct }}</td>
+            <td class="gO num xtra">{{ line.material.gst_percent|qty }}%</td>
+            <td class="gO num" style="font-weight:700;color:var(--navy)">₹{{ row.po_value|rupees }}</td>
+            <td class="num xtra">₹{{ row.estimated_value|rupees }}</td>
+            <td class="num xtra">₹{{ row.used_value|rupees }}</td>
             <td>{% if may_edit %}<button type="submit" class="link"
                         formaction="{% url 'bom_remove_line' project.id line.id %}"
                         onclick="return confirm('Remove {{ line.material.code|escapejs }} from {{ activity.name|escapejs }}?');"
@@ -357,20 +297,21 @@ HOW EDITING WORKS
           </tr>
           {% endwith %}
         {% empty %}
-          <tr><td colspan="20" style="color:var(--muted);padding:14px">
+          <tr><td colspan="18" style="color:var(--muted);padding:14px">
             Nothing on {{ activity.name }} yet. Search below and add materials.</td></tr>
         {% endfor %}
         </tbody>
         {% if rows %}
         <tfoot>
           <tr>
-            <td colspan="4">TOTAL — {{ totals.line_count }} line{{ totals.line_count|pluralize }}</td>
+            <td>TOTAL — {{ totals.line_count }} line{{ totals.line_count|pluralize }}</td>
+            <td class="xtra"></td><td></td><td></td><td class="xtra"></td><td></td><td class="xtra"></td><td></td>
             <td class="num">{{ totals.order_qty_total|qty }}</td>
-            <td colspan="5"></td>
+            <td></td><td></td>
+            <td class="xtra"></td><td class="xtra"></td><td class="xtra"></td>
             <td class="num">₹{{ totals.po_value_now|rupees }}</td>
-            <td colspan="6"></td>
-            <td class="num">₹{{ totals.planned_value|rupees }}</td>
-            <td class="num">₹{{ totals.used_value|rupees }}</td>
+            <td class="num xtra">₹{{ totals.planned_value|rupees }}</td>
+            <td class="num xtra">₹{{ totals.used_value|rupees }}</td>
             <td></td>
           </tr>
         </tfoot>

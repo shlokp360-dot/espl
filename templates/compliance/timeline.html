@@ -37,7 +37,7 @@ THE EXPIRY TIMELINE — everything with a validity, across every site, in date o
       <th>Document</th>
       <th style="width:150px">Project</th>
       <th style="width:80px">Regime</th>
-      <th style="width:110px"></th>
+      <th style="width:170px"></th>
     </tr></thead>
     <tbody>
       {% for row in rows %}
@@ -48,14 +48,19 @@ THE EXPIRY TIMELINE — everything with a validity, across every site, in date o
             {% if row.days < 0 %}<span class="up">{{ row.days }}</span>
             {% else %}{{ row.days }}{% endif %}
           </td>
-          <td>{{ row.item.name }}
-            <div class="mut" style="font-size:13px;color:var(--muted)">
-              {{ row.latest.original_name }}{% if row.latest.reference %} · {{ row.latest.reference }}{% endif %}</div>
+          <td><b>{{ row.item.name }}</b>
+            {% if row.latest.reference or row.count > 1 %}
+              <div style="font-size:13px;margin-top:2px">
+                {% if row.latest.reference %}{{ row.latest.reference }}{% endif %}{% if row.count > 1 %}{% if row.latest.reference %} · {% endif %}{{ row.count }} versions{% endif %}</div>
+            {% endif %}
           </td>
           <td><a href="{% url 'compliance_project' row.project.pk %}">{{ row.project.code }}</a></td>
           <td>{{ row.type.code }}</td>
-          <td><a href="{% url 'compliance_download' row.latest.pk %}">
-            <button type="button" class="sec sm">Download</button></a></td>
+          <td style="white-space:nowrap;text-align:right">
+            <a href="{% url 'compliance_view' row.latest.pk %}" target="_blank" rel="noopener" style="text-decoration:none">
+              <button type="button" class="sec sm">View</button></a>
+            <a href="{% url 'compliance_download' row.latest.pk %}" style="text-decoration:none">
+              <button type="button" class="sec sm">Download</button></a></td>
         </tr>
       {% empty %}
         <tr><td colspan="7" style="color:var(--muted);padding:14px">

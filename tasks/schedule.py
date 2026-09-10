@@ -139,6 +139,30 @@ LABEL_CLEARANCE = 90.0
 #: cluster without pushing the strip so deep it needs its own scroll.
 LABEL_LANES = 3
 
+#: The milestone tags sit in ONE strip along the top edge of the chart, one lane
+#: this tall, rather than three stacked "MILESTONES" rows. A tag in lane 1 sits
+#: one lane's height below a tag in lane 0; the strip is as deep as the deepest
+#: lane in use. Pixels, like everything else here.
+TAG_LANE_PX = 20
+
+#: The tag never grows wider than the clearance that separates two lanes, so two
+#: tags that share a lane can never touch. The template clips it to this.
+TAG_MAX_PX = LABEL_CLEARANCE - 4
+
+
+def _tag_top(lane):
+    """Where a tag in this lane sits, measured down from the top of the strip."""
+    return f"{lane * TAG_LANE_PX:.2f}"
+
+
+def _tag_strip_px(lanes):
+    """
+    How deep the tag strip has to be: one lane per lane in use, and never less
+    than one, because the "Today" tag lives in the same strip.
+    """
+    deepest = max(lanes) if lanes else 0
+    return f"{(deepest + 1) * TAG_LANE_PX:.2f}"
+
 
 def _milestone_lines(headers, span_start, total):
     """
@@ -186,6 +210,7 @@ def _milestone_lines(headers, span_start, total):
         else:
             # Every lane is crowded. Better a collision than a label hidden.
             line["lane"] = LABEL_LANES - 1
+        line["tag_top"] = _tag_top(line["lane"])
     return lines
 
 
@@ -289,14 +314,17 @@ def build(project, today=None):
                                   span_start, total) if tail_end else None),
             })
 
+    lanes = sorted({line["lane"] for line in lines})
     return {
         "span": {"start": span_start, "end": span_end, "days": total},
         "months": months,
         "rows": rows,
         "milestones": lines,
-        # ⚠ THE LANES ACTUALLY IN USE, so the template draws one label strip per
-        #   lane rather than three whether or not they are needed.
-        "milestone_lanes": sorted({line["lane"] for line in lines}),
+        # ⚠ THE LANES ACTUALLY IN USE. The tags share one strip along the top
+        #   edge, and the strip is only as deep as the deepest lane needs.
+        "milestone_lanes": lanes,
+        "tag_strip_px": _tag_strip_px(lanes),
+        "tag_max_px": f"{TAG_MAX_PX:.2f}",
         # ⚠ THE WHOLE TRACK'S WIDTH, so the scrolling container knows how far it
         #   has to reach. Everything inside is positioned against this.
         "track_px": _px(total),

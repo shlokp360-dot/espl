@@ -111,6 +111,7 @@ The cross-project document register — the Purchase orders tile.
   {% if rows %}
   <form method="post" id="bulk">
     {% csrf_token %}
+    <input type="hidden" name="back" value="register"><input type="hidden" name="q" value="{{ querystring }}">
 
     <div class="scroll">
       <table>
@@ -119,7 +120,7 @@ The cross-project document register — the Purchase orders tile.
             <th style="width:28px"><input type="checkbox" id="all" title="Select every row on this page"></th>
             <th>Document</th><th>Type</th><th>Date</th><th>Project</th><th>Vendor</th><th>Status</th>
             <th class="num">Lines</th><th class="num">Basic</th><th class="num">GST</th>
-            <th class="num">Order value</th>
+            <th class="num">Order value</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -150,6 +151,13 @@ The cross-project document register — the Purchase orders tile.
                 are reviewing one document, not working inside a project. The
                 crumb back to the register replaces the chain.
               {% endcomment %}
+              <td>{% if row.step %}
+                {# ANCHOR: PO-REGISTER-STEP — one row, one step, every rule still enforced by po_advance. #}
+                <button type="submit" class="sm {% if row.step.to != 'approved' %}sec{% endif %}"
+                        formaction="{% url 'po_advance' row.order.project_id row.order.id %}"
+                        name="to" value="{{ row.step.to }}"
+                        {% if row.step.to == 'approved' %}onclick="return confirm('Approve {{ row.order.number }} for ₹{{ row.totals.order_value|rupees }}? It locks permanently.');"{% endif %}>{{ row.step.label }}</button>
+              {% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -163,6 +171,7 @@ The cross-project document register — the Purchase orders tile.
           {% endcomment %}
           <td colspan="10">THIS PAGE — {{ rows|length }} of {{ matched }} document{{ matched|pluralize }}</td>
           <td class="num">₹{{ page_value|rupees }}</td>
+          <td></td>
         </tfoot>
       </table>
     </div>

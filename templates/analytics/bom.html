@@ -39,9 +39,6 @@ BUYING — one site's bill of materials: construction activities, then the mater
   <div class="card" style="margin-bottom:13px">
     <div class="grph">Budget used, by construction activity</div>
     {{ chart }}
-    <div style="font-size:13px;color:var(--muted);margin-top:9px">
-      Committed against that construction activity's own budget. A full bar is 100% — red is over.
-    </div>
   </div>
 
   <div class="toolbar" style="margin-top:16px">
@@ -81,7 +78,6 @@ BUYING — one site's bill of materials: construction activities, then the mater
   {% if materials %}
     <div class="toolbar" style="margin-top:16px">
       <span class="ttl" style="font-size:13px">Where the money is going</span>
-      <span class="hint">top {{ materials|length }} by committed</span>
     </div>
     <div class="scroll" style="max-height:none">
       <table>

@@ -2029,6 +2029,11 @@ def po_advance(request, project_id, po_id):
     except po_service.POError as refusal:
         messages.error(request, str(refusal))
 
+    # ⚠ ANCHOR: PO-REGISTER-STEP — a step taken from the register goes back to
+    #   the register, with its filters, so a run of approvals stays on one screen.
+    if request.POST.get("back") == "register":
+        query = request.POST.get("q", "")
+        return redirect(reverse("po_register") + (f"?{query}" if query else ""))
     return redirect(reverse("po_detail", args=[project.id, order.id]))
 
 
@@ -2273,7 +2278,8 @@ def po_register(request):
     page = paginator.get_page(request.GET.get("page"))
     matched = paginator.count
 
-    rows = [{"order": order, "totals": order.totals()} for order in page.object_list]
+    rows = [{"order": order, "totals": order.totals(), "step": _next_step(request.user, order)}
+            for order in page.object_list]
 
     # ⚠ THE FOOTER TOTALS THIS PAGE, AND SAYS SO ON THE SCREEN.
     #   order_value comes out of totals(), which walks a document's lines in
@@ -2295,6 +2301,36 @@ def po_register(request):
         "querystring": request.GET.urlencode(),
         "zip_limit": ZIP_LIMIT,
     })
+
+
+# >>> ANCHOR: PO-REGISTER-STEP <<<
+# The one next step a document can take, as a button on its register row.
+#
+# ⚠ ONE DOCUMENT AT A TIME, THROUGH po_advance, SO EVERY RULE STILL HOLDS. The
+#   register's bulk box deliberately never approves (see po_register_advance);
+#   this button does, because it acts on ONE row whose totals are printed beside
+#   it, and the approval itself still runs po_service.approve — the GSTIN block
+#   refuses exactly as it does on the document screen, and the refusal comes
+#   back as a message on this page. A WO with RA bills is refused by the same
+#   guard as always. Nothing is bypassed; only the walk to the document is.
+_STEP_WORD = {
+    PurchaseOrder.Status.APPROVED: "Approve",
+    PurchaseOrder.Status.DELIVERED: "Mark delivered",
+    PurchaseOrder.Status.PAID: "Mark paid",
+}
+
+
+def _next_step(user, order):
+    """(target status, button label) when this person may take it, else None."""
+    target = order.next_status
+    if target is None:
+        return None
+    if not perms.can(user, TRANSITION_PERMS[target]):
+        return None
+    label = _STEP_WORD[target]
+    if target == PurchaseOrder.Status.DELIVERED and order.document_type == DocumentType.WO:
+        label = "Mark completed"
+    return {"to": target, "label": label}
 
 
 def _register_redirect(request):
