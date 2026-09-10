@@ -26,37 +26,66 @@ clicking anything.
 {% block eyebrow %}{% endblock %}
 {% block content %}
 
-<div class="hello">
-  <span class="big">Good day, {{ user.first_name|default:user.get_username }}</span>
+{% comment %}
+>>> ANCHOR: HOME-SCREEN <<<
+Money band → attention list beside the module cards → one card per live site.
+Every figure comes from projects/home.py; this template prints and links.
+{% endcomment %}
+
+<div class="band">
+  <div class="hello">
+    <span class="big">Good day, {{ user.first_name|default:user.get_username }}</span>
+    <span class="when">{% now "l j F" %}{% if home.sites %} · {{ home.sites|length }} live site{{ home.sites|length|pluralize }}{% endif %}</span>
+  </div>
+  {% if home.money %}
+  <div class="money">
+    {% for label, value, url, kind in home.money %}
+      <a class="m {{ kind }}" href="{{ url }}"><span class="l">{{ label }}</span><span class="v">{{ value }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
-{% if stats %}
-<div class="stats">
-  {% for label, n, url, color in stats %}
-    <a class="st" href="{{ url }}" style="text-decoration:none;color:inherit">
-      <div class="l">{{ label }}</div>
-      <div class="v" style="color:{{ color }}">{{ n }}</div>
-    </a>
+<div class="homegrid">
+  <div class="cards">
+    {% for card in home.cards %}
+      <a class="hcard" href="{{ card.url }}" style="--tc:{{ card.color }}">
+        <span class="t">{{ card.title }}</span>
+        {% for label, n, kind in card.rows %}
+          <span class="row"><span>{{ label }}</span><b class="{{ kind }}">{{ n }}</b></span>
+        {% endfor %}
+      </a>
+    {% endfor %}
+  </div>
+  {% if home.attention %}
+  <div class="attn">
+    <div class="t">Needs your attention</div>
+    {% for color, text, action, url in home.attention %}
+      <div class="row"><i style="background:{{ color }}"></i><span>{{ text }}</span><a href="{{ url }}">{{ action }}</a></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if home.sites %}
+<div class="grph" style="margin-top:22px">Your sites</div>
+<div class="sites">
+  {% for site in home.sites %}
+    <div class="site">
+      <div class="hd"><span class="n">{{ site.project.name }}</span><span class="pill p-won">{{ site.project.get_status_display }}</span></div>
+      <div class="meta">{{ site.project.code }} · {{ site.meta }}</div>
+      {% for label, pct, color in site.bars %}
+        <div class="kv"><span>{{ label }}</span><b>{{ pct }}%</b></div>
+        <div class="bar"><i style="width:{{ pct }}%;background:{{ color }}"></i></div>
+      {% endfor %}
+      <div class="links">{% for label, url in site.links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}</div>
+    </div>
   {% endfor %}
 </div>
 {% endif %}
 
-<div class="tiles">
-  {% for tile in tiles %}
-    {% if tile.live %}
-      <a class="tile" href="{{ tile.url }}" style="--tc:{{ tile.color }}">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="{{ tile.icon }}"/></svg></span>
-        <span class="t">{{ tile.title }}</span>
-        <span class="s">{{ tile.subtitle }}</span>
-      </a>
-    {% else %}
-      <div class="tile soon" style="--tc:#C3C9D4">
-        <span class="t">{{ tile.title }}</span>
-        <span class="s">{{ tile.subtitle }}</span>
-        <span class="later"><span class="pill p-draft">Coming later</span></span>
-      </div>
-    {% endif %}
-  {% endfor %}
-</div>
+{% for tile in tiles %}{% if not tile.live %}
+  <div class="note tight"><b>{{ tile.title }}</b> is not built yet.</div>
+{% endif %}{% endfor %}
 
 {% endblock %}

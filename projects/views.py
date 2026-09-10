@@ -267,9 +267,10 @@ def launchpad(request):
     """
     role = role_of(request.user)
     tiles = hub.tiles_for(role)
+    from projects.home import home_for
     return render(request, "projects/launchpad.html", {
         "tiles": tiles,
-        "stats": hub.stats_for(role),
+        "home": home_for(role, request.user),
         # ⚠ The standing note about greyed tiles disappears when there are none.
         #   Both modules that sat greyed have been built; a note explaining an
         #   absent thing is exactly the kind of yellow box that trains people to

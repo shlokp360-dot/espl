@@ -197,6 +197,7 @@ COMPLIANCE-SCREENS         compliance/views.py             who reads, who upload
 COMPLIANCE-MASTER          compliance/views.py             the template, and the blast radius
 DUMMY-GSTINS               seed_dummy_gstins.py            fake tax numbers, and how they stay fake
 PO-LINE-SHARES             bom_models.py, views.py         document money split across the lines, exactly
+HOME-SCREEN                projects/home.py, launchpad.html  the first screen: money band, cards, attention, sites
 ANCHOR                     Lives in                        What it governs
 SALES-MODEL                sales/models.py                 the chain Unit→Booking→Customer, derived statuses
 SALES-ONE-BOOKING          sales/models.py, services.py    one live booking per unit, three ways
@@ -1849,3 +1850,17 @@ per-project object is fetched scoped to the project
 
 **The transmittal PDF imports WeasyPrint inside the view**, the same as
 `po_pdf`, and the test stubs the module in `sys.modules`.
+
+### `HOME-SCREEN` — `projects/home.py`, `templates/projects/launchpad.html`
+**The first screen, as a morning briefing rather than a menu.** A money band (committed, paid,
+owed, collected, buyers overdue), one card per module with its two or three most-asked numbers,
+a "needs your attention" list, and one card per live site with budget used, work done and
+collected of booked.
+
+**⚠ EVERY FIGURE IS BORROWED.** `analytics.money`, `analytics.budget`, `sales.calc` and the task
+model already own these numbers; `home.py` only picks which to show. A wrong number here is a
+wrong number there.
+
+**⚠ FILTERED BLOCK BY BLOCK BY THE PERMISSION THAT OPENS THE MODULE** — the tile rule applied to
+numbers. A site engineer sees no money band. `projects/test_home.py` renders it for every role
+and pins the Admin query count.
