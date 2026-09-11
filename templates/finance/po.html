@@ -7,14 +7,14 @@ invoice carries no quantities to match.
 {% endcomment %}
 {% block title %}{{ po.number }} — invoices &amp; payments{% endblock %}
 {% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
-{% block nav %}{% include "finance/_nav.html" with here="invoices" %}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="bills" %}{% endblock %}
 {% block headerinfo %}{% infobutton "finance_po" %}{% endblock %}
 {% block infopanel %}{% infopanel "finance_po" %}{% endblock %}
 {% block content %}
 {% include "finance/_style.html" %}
 
 <div class="crumb" style="margin-bottom:10px;font-size:12.5px">
-  <a href="{% url 'finance_invoices' %}">Vendor invoices</a> &nbsp;▸&nbsp;
+  <a href="{% url 'finance_bills' %}?project={{ po.project.id }}">Bills</a> &nbsp;▸&nbsp;
   <a href="{% url 'po_detail' po.project.id po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>Settlement</b>
 </div>
 
@@ -25,7 +25,7 @@ invoice carries no quantities to match.
   {% if s.settled %}<span class="pill p-paid">SETTLED</span>{% endif %}
   <span class="sp"></span>
   {% if user|can:"finance.pay" and po.status != 'draft' %}
-    <a href="{% url 'finance_invoice_new' po.id %}"><button type="button" class="sec">Record invoice</button></a>
+    <a href="{% url 'finance_invoice_new' po.id %}"><button type="button" class="sec">Record a bill</button></a>
     <a href="{% url 'finance_po_pay' po.id %}?kind=advance"><button type="button" class="sec">Record advance</button></a>
     <a href="{% url 'finance_po_pay' po.id %}"><button type="button">Record payment</button></a>
   {% endif %}
@@ -40,7 +40,7 @@ invoice carries no quantities to match.
   <div class="card"><div class="k">Balance to pay</div><div class="v">₹{{ s.balance|rupees }}</div></div>
 </div>
 
-<h3 class="sec">Invoices</h3>
+<h3 class="sec">Bills (vendor invoices)</h3>
 <table>
   <thead><tr><th>Our ref</th><th>Vendor invoice</th><th>Date</th><th>Status</th>
     <th class="num">Taxable</th><th class="num">GST</th><th class="num">Total</th><th class="num">Settled</th><th class="num">Balance</th><th></th></tr></thead>
@@ -57,7 +57,7 @@ invoice carries no quantities to match.
       <td>{% if row.f.balance and user|can:"finance.pay" %}<a href="{% url 'finance_po_pay' po.id %}?invoice={{ row.invoice.id }}">pay</a>{% endif %}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="10">No invoice recorded on this order yet.</td></tr>
+    <tr><td colspan="10">No bill recorded on this order yet.</td></tr>
   {% endfor %}
   </tbody>
   <tfoot><tr><td colspan="4">Invoiced vs order value ₹{{ s.order_value|rupees }}</td>

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+"RECORD A BILL" — step one, pick the purchase order. The invoice form itself is
+finance_invoice_new, reached from the row here or from the PO's own screen.
+{% endcomment %}
+{% block title %}Record a bill — Finance &amp; Accounting{% endblock %}
+{% block subtitle %}Pick the purchase order the vendor's bill is against{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_bill_pick" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_bill_pick" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="crumb" style="margin-bottom:10px;font-size:13px">
+  <a href="{% url 'finance_bills' %}">Bills</a> &nbsp;▸&nbsp; <b>Record a bill</b>
+</div>
+
+<div class="toolbar">
+  <span class="ttl">Record a bill</span>
+  <span class="sp"></span>
+  <form method="get" style="margin:0;display:flex;gap:8px;align-items:center">
+    <select name="project" class="cell">
+      <option value="">All projects</option>
+      {% for p in projects %}<option value="{{ p.id }}" {% if p.id == project %}selected{% endif %}>{{ p.code }} · {{ p.name }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="sec sm">Filter</button>
+  </form>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Purchase order</th><th>Status</th><th>Project</th><th>Vendor</th><th>Approved</th>
+    <th class="num">Order value</th><th class="num">Invoiced</th><th class="num">Paid</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td><a href="{% url 'finance_po' row.po.id %}"><span class="code">{{ row.po.number }}</span></a></td>
+      <td><span class="pill p-{{ row.po.status }}">{{ row.po.status_word }}</span></td>
+      <td>{{ row.po.project.name }}</td>
+      <td>{{ row.po.vendor.name }}</td>
+      <td>{{ row.po.approved_at|date:"d/m/Y"|default:"—" }}</td>
+      <td class="num">₹{{ row.s.order_value|rupees }}</td>
+      <td class="num">{% if row.s.invoiced_total %}₹{{ row.s.invoiced_total|rupees }}{% else %}—{% endif %}
+          {% if row.s.over_invoiced %}<span class="pill p-lost">over</span>{% endif %}</td>
+      <td class="num">{% if row.s.paid_total %}₹{{ row.s.paid_total|rupees }}{% else %}—{% endif %}</td>
+      <td><a href="{% url 'finance_invoice_new' row.po.id %}"><button type="button" class="sec sm">Record bill on {{ row.po.number }}</button></a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9">No approved purchase order{% if project %} on this project{% endif %}. A bill is recorded against an approved order; work orders are billed through RA bills.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

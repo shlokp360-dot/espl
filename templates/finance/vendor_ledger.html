@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE VENDOR LEDGER — one vendor, every order, bill and payment in date order
+with a running balance. calc.vendor_ledger holds the convention (bills credit,
+payments and TDS debit, orders move nothing); this template only prints.
+{% endcomment %}
+{% block title %}Vendor ledger — Finance &amp; Accounting{% endblock %}
+{% block subtitle %}Every order, bill and payment of one vendor, with the running balance{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="ledger" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_vendor_ledger" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_vendor_ledger" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Vendor ledger{% if vendor %} · {{ vendor.name }}{% endif %}</span>
+  <span class="sp"></span>
+  {% if vendor %}
+  <form method="post" action="{% url 'finance_vendor_ledger_excel' %}" style="margin:0">
+    {% csrf_token %}
+    <input type="hidden" name="vendor" value="{{ vendor.id }}">
+    <input type="hidden" name="from" value="{{ chosen.from|date:'Y-m-d' }}">
+    <input type="hidden" name="to" value="{{ chosen.to|date:'Y-m-d' }}">
+    <button type="submit" class="sec">⤓ Excel for Tally</button>
+  </form>
+  {% endif %}
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <select name="vendor" class="cell">
+      <option value="">— pick a vendor —</option>
+      {% for v in vendors %}<option value="{{ v.id }}" {% if v.id == chosen.vendor %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+    </select>
+    <input class="cell" type="date" name="from" value="{{ chosen.from|date:'Y-m-d' }}" style="flex:0 1 160px;min-width:150px">
+    <input class="cell" type="date" name="to" value="{{ chosen.to|date:'Y-m-d' }}" style="flex:0 1 160px;min-width:150px">
+    <button type="submit" class="sec sm">Open ledger</button>
+  </div>
+</form>
+
+{% if ledger %}
+<div class="kpis">
+  <div class="kpi"><div class="l">Opening balance{% if chosen.from %} on {{ chosen.from|date:"d/m/Y" }}{% endif %}</div><div class="v">₹{{ ledger.opening.balance|rupees }}</div></div>
+  <div class="kpi"><div class="l">Billed</div><div class="v">₹{{ ledger.totals.bill|rupees }}</div></div>
+  <div class="kpi"><div class="l">Paid · TDS</div><div class="v">₹{{ ledger.totals.paid|rupees }} · ₹{{ ledger.totals.tds|rupees }}</div></div>
+  <div class="kpi {% if ledger.closing > 0 %}warn{% endif %}"><div class="l">Closing balance{% if chosen.to %} on {{ chosen.to|date:"d/m/Y" }}{% endif %}</div><div class="v">₹{{ ledger.closing|rupees }}</div></div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Date</th><th>Kind</th><th>Number</th><th>Particulars</th><th>Project</th>
+    <th class="num">Order value</th><th class="num">Bill</th><th class="num">Paid</th><th class="num">TDS</th><th class="num">Balance</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td>{% if chosen.from %}{{ chosen.from|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+      <td><span class="pill p-draft">Opening</span></td><td></td>
+      <td>Opening balance · {{ ledger.opening.count }} earlier entr{{ ledger.opening.count|pluralize:"y,ies" }}</td><td></td>
+      <td></td>
+      <td class="num">{% if ledger.opening.bill %}₹{{ ledger.opening.bill|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if ledger.opening.paid %}₹{{ ledger.opening.paid|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if ledger.opening.tds %}₹{{ ledger.opening.tds|rupees }}{% else %}—{% endif %}</td>
+      <td class="num"><b>₹{{ ledger.opening.balance|rupees }}</b></td>
+    </tr>
+  {% for row in ledger.rows %}
+    <tr>
+      <td>{{ row.date|date:"d/m/Y" }}</td>
+      <td>{% if row.kind == 'order' %}<span class="pill p-approved">Order</span>{% elif row.kind == 'bill' %}<span class="pill p-onsheet">Bill</span>{% else %}<span class="pill p-paid">Payment</span>{% endif %}</td>
+      <td>{% if row.kind == 'order' %}<a href="{% if row.po.document_type == 'WO' %}{% url 'finance_wo' row.po.id %}{% else %}{% url 'finance_po' row.po.id %}{% endif %}"><span class="code">{{ row.number }}</span></a>
+          {% elif row.kind == 'bill' and row.po.document_type == 'WO' %}<a href="{% url 'finance_ra_bill' row.id %}"><span class="code">{{ row.number }}</span></a>
+          {% else %}<span class="code">{{ row.number }}</span>{% endif %}</td>
+      <td>{{ row.label }}</td>
+      <td>{{ row.project.code }}</td>
+      <td class="num">{% if row.order_value %}₹{{ row.order_value|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if row.bill %}₹{{ row.bill|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if row.paid %}₹{{ row.paid|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if row.tds %}₹{{ row.tds|rupees }}{% else %}—{% endif %}</td>
+      <td class="num"><b>₹{{ row.balance|rupees }}</b></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="10">Nothing on this vendor{% if chosen.from or chosen.to %} in these dates{% endif %}.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="5">Closing · {{ ledger.rows|length }} entr{{ ledger.rows|length|pluralize:"y,ies" }}</td>
+    <td class="num">₹{{ ledger.totals.order_value|rupees }}</td>
+    <td class="num">₹{{ ledger.totals.bill|rupees }}</td>
+    <td class="num">₹{{ ledger.totals.paid|rupees }}</td>
+    <td class="num">₹{{ ledger.totals.tds|rupees }}</td>
+    <td class="num"><b>₹{{ ledger.closing|rupees }}</b></td>
+  </tr></tfoot>
+</table>
+{% else %}
+<table>
+  <thead><tr><th>Date</th><th>Kind</th><th>Number</th><th>Particulars</th><th>Project</th>
+    <th class="num">Order value</th><th class="num">Bill</th><th class="num">Paid</th><th class="num">TDS</th><th class="num">Balance</th></tr></thead>
+  <tbody><tr><td colspan="10">Pick a vendor and press Open ledger.</td></tr></tbody>
+</table>
+{% endif %}
+{% endblock %}

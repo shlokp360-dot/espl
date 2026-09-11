@@ -18,13 +18,19 @@ THE FIXTURE
       L2   40 Nos @ 1249.99  GST 12%  5.5% discount
       L3   10 Nos @ 2000.00  GST 5%   no discount
     Order taxable 100,582.62. Deduction 2.35% post-tax, TDS 1.75% (194C),
-    retention 10%, mobilisation advance 10,000, DLP 12 months.
+    retention 0% (SWITCHED OFF — customer, 11 Sep 2026), mobilisation advance
+    10,000, DLP 12 months.
 
     Bill 1: 50 / 20 / 4.5 certified.  Bill 2 (final): 50 / 20 / 5 certified.
+
+⚠ ONE TEST KEEPS THE RETENTION RUNG HONEST: `TheLadderStillHandlesRetention`
+  raises the same order at 10% and checks the rung, its base and the held
+  figure. The feature is off; the arithmetic is not allowed to rot.
 """
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal as D
 
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Role
@@ -36,7 +42,7 @@ from projects import po_service
 from projects.po_service import POError
 
 from finance import calc, services
-from finance.models import RABill, RetentionRelease, VendorPayment
+from finance.models import RABill, VendorPayment
 from finance.services import FinanceError
 
 
@@ -66,12 +72,13 @@ class LadderFixture(AuthedTestCase):
         super().setUp()
         self.wo = self.make_wo()
 
-    def make_wo(self, number="ZQF-0001", doc_type=DocumentType.WO, approve=True):
+    def make_wo(self, number="ZQF-0001", doc_type=DocumentType.WO, approve=True,
+                retention="0", tds_section="194C", vendor=None, project=None):
         order = PurchaseOrder.objects.create(
-            number=number, project=self.project, vendor=self.vendor, document_type=doc_type,
-            created_by=self.user, deduction_pct=D("2.35"), tds_pct=D("1.75"),
-            tds_section="194C", retention_pct=D("10"), mobilisation_advance=D("10000"),
-            dlp_months=12)
+            number=number, project=project or self.project, vendor=vendor or self.vendor,
+            document_type=doc_type, created_by=self.user, deduction_pct=D("2.35"),
+            tds_pct=D("1.75"), tds_section=tds_section, retention_pct=D(retention),
+            mobilisation_advance=D("10000"), dlp_months=12)
         for index, (qty, rate, gst, disc) in enumerate([
                 ("100", "333.33", "18", "0"),
                 ("40", "1249.99", "12", "5.5"),
@@ -126,17 +133,13 @@ class TheFirstBill(LadderFixture):
         self.assertEqual(ladder["sgst"], D("3142.47"))
         self.assertEqual(ladder["invoice_value"], D("55576.26"))
         self.assertEqual(ladder["deduction"], D("1306.04"))          # 2.35% of invoice value
-        self.assertEqual(ladder["retention"], D("4929.13"))          # 10% of TAXABLE, not invoice
+        self.assertEqual(ladder["retention"], D("0.00"))             # switched off
         self.assertEqual(ladder["advance_outstanding"], D("10000.00"))
         self.assertEqual(ladder["advance_recovery"], D("4900.58"))   # 49291.31 × 10000 ÷ 100582.62
-        self.assertEqual(ladder["payable"], D("44441"))
-        self.assertEqual(ladder["round_off"], D("0.49"))
+        self.assertEqual(ladder["payable"], D("49370"))              # 49369.64 to the rupee
+        self.assertEqual(ladder["round_off"], D("0.36"))
         self.assertEqual(ladder["tds"], D("862.60"))                 # 1.75% of taxable
-        self.assertEqual(ladder["net_payable"], D("43578.40"))
-
-    def test_retention_is_on_the_work_value_not_the_invoice(self):
-        self.assertEqual(self.ladder["retention"], calc._money(self.ladder["taxable"] / 10))
-        self.assertNotEqual(self.ladder["retention"], calc._money(self.ladder["invoice_value"] / 10))
+        self.assertEqual(ladder["net_payable"], D("48507.40"))
 
     def test_line_figures_tie_to_the_bill(self):
         rows = self.ladder["lines"]
@@ -188,12 +191,12 @@ class TheSecondAndFinalBill(LadderFixture):
         summary = calc.cumulative(self.wo)
         self.assertEqual(summary["certified_to_date"], D("49291.31"))
         self.assertEqual(summary["billed_to_date"], D("55576.26"))
-        self.assertEqual(summary["retention_held"], D("4929.13"))
+        self.assertEqual(summary["retention_held"], D("0.00"))
         self.assertEqual(summary["advance_recovered"], D("4900.58"))
         self.assertEqual(summary["advance_outstanding"], D("5099.42"))
         self.assertEqual([row["remaining"] for row in summary["lines"]],
                          [D("50"), D("20"), D("5.5")])
-        self.assertEqual(summary["payable_now"], D("43578.40"))
+        self.assertEqual(summary["payable_now"], D("48507.40"))
         self.assertEqual(self.wo.status, PurchaseOrder.Status.APPROVED)   # not final
 
     def test_over_certification_is_refused_naming_the_line_and_the_excess(self):
@@ -214,14 +217,14 @@ class TheSecondAndFinalBill(LadderFixture):
         self.assertEqual(ladder["gst"], D("6334.95"))
         self.assertEqual(ladder["invoice_value"], D("56626.26"))
         self.assertEqual(ladder["deduction"], D("1330.72"))
-        self.assertEqual(ladder["retention"], D("5029.13"))
+        self.assertEqual(ladder["retention"], D("0.00"))
         self.assertEqual(ladder["advance_outstanding"], D("5099.42"))
         # Pro rata would be 5000.00; a final bill takes whatever is left.
         self.assertEqual(ladder["advance_recovery"], D("5099.42"))
-        self.assertEqual(ladder["payable"], D("45167"))
-        self.assertEqual(ladder["round_off"], D("0.01"))
+        self.assertEqual(ladder["payable"], D("50196"))              # 50196.12 to the rupee
+        self.assertEqual(ladder["round_off"], D("-0.12"))
         self.assertEqual(ladder["tds"], D("880.10"))
-        self.assertEqual(ladder["net_payable"], D("44286.90"))
+        self.assertEqual(ladder["net_payable"], D("49315.90"))
 
     def test_the_final_bill_flips_the_work_order_to_completed_then_paid(self):
         second = self.bill(self.wo, ["50", "20", "5"], ["50", "20", "5"], is_final=True)
@@ -237,7 +240,7 @@ class TheSecondAndFinalBill(LadderFixture):
                          [D("100"), D("40"), D("9.5")])
 
         summary = calc.cumulative(self.wo)
-        self.assertEqual(summary["retention_held"], D("9958.26"))
+        self.assertEqual(summary["retention_held"], D("0.00"))
         self.assertEqual(summary["advance_recovered"], D("10000.00"))
         self.assertEqual(summary["dlp_end"], calc._add_months(timezone.now().date(), 12))
 
@@ -246,7 +249,7 @@ class TheSecondAndFinalBill(LadderFixture):
                                    reference="UTR1")
         self.first.refresh_from_db()
         self.assertEqual(self.first.status, RABill.Status.APPROVED)
-        services.record_ra_payment(self.first, self.user, "23578.40", paid_on=date(2026, 9, 6),
+        services.record_ra_payment(self.first, self.user, "28507.40", paid_on=date(2026, 9, 6),
                                    tds_amount="862.60")
         self.first.refresh_from_db()
         self.assertEqual(self.first.status, RABill.Status.PAID)
@@ -254,13 +257,13 @@ class TheSecondAndFinalBill(LadderFixture):
         self.assertEqual(self.wo.status, PurchaseOrder.Status.DELIVERED)    # second unpaid
 
         with self.assertRaises(FinanceError):
-            services.record_ra_payment(second, self.user, "44286.91")       # a paisa too much
-        services.record_ra_payment(second, self.user, "44286.90", tds_amount="880.10")
+            services.record_ra_payment(second, self.user, "49315.91")       # a paisa too much
+        services.record_ra_payment(second, self.user, "49315.90", tds_amount="880.10")
         self.wo.refresh_from_db()
         self.assertEqual(self.wo.status, PurchaseOrder.Status.PAID)
         self.assertEqual(self.wo.paid_by, self.user)
         summary = calc.cumulative(self.wo)
-        self.assertEqual(summary["paid_to_date"], D("87865.30"))
+        self.assertEqual(summary["paid_to_date"], D("97823.30"))
         self.assertEqual(summary["tds_withheld"], D("1742.70"))
         self.assertEqual(summary["payable_now"], D("0"))
 
@@ -280,53 +283,56 @@ class TheSecondAndFinalBill(LadderFixture):
         self.assertEqual(summary["advance_recovered"], D("4900.58"))
 
 
-class RetentionAndTheDLP(LadderFixture):
+class TheLadderStillHandlesRetention(LadderFixture):
+    """
+    ⚠ THE ONE RETENTION TEST. Retention is switched off (customer, 11 Sep
+      2026) — no screen sets it, no screen shows it when zero — but the rung is
+      still in the ladder for orders billed at 10% before that date, and this
+      test keeps its arithmetic honest: on the WORK VALUE, ex-GST, held per
+      approved bill, and shown on the bill screen only when it is not zero.
+    """
 
-    def setUp(self):
-        super().setUp()
-        first = self.bill(self.wo, ["100", "40", "10"], ["100", "40", "10"], is_final=True)
+    def test_a_non_zero_retention_flows_through_the_ladder_and_the_screens(self):
+        held = self.make_wo(number="ZQF-RET", retention="10")
+        first = self.bill(held, ["50", "20", "4.5"], ["50", "20", "4.5"])
+        ladder = calc.bill_figures(first)
+        self.assertEqual(ladder["retention"], D("4929.13"))          # 10% of TAXABLE 49291.31
+        self.assertEqual(ladder["retention"], calc._money(ladder["taxable"] / 10))
+        self.assertNotEqual(ladder["retention"], calc._money(ladder["invoice_value"] / 10))
+        self.assertEqual(ladder["payable"], D("44441"))              # 49369.64 − 4929.13 = 44440.51
+        self.assertEqual(ladder["round_off"], D("0.49"))
+        self.assertEqual(ladder["net_payable"], D("43578.40"))
         services.approve(first, self.user)
-        self.first = first
+        summary = calc.cumulative(held)
+        self.assertEqual(summary["retention_held"], D("4929.13"))
+        self.assertEqual(summary["retention_balance"], D("4929.13"))
+        # The bill screen prints the rung only because it is not zero …
+        html = self.client.get(reverse("finance_ra_bill", args=[first.pk])).content.decode()
+        self.assertIn("Less: retention @ 10", html)
+        # … and not at all on the default (0%) order.
+        zero = self.bill(self.wo, ["50", "20", "4.5"], ["50", "20", "4.5"])
+        html = self.client.get(reverse("finance_ra_bill", args=[zero.pk])).content.decode()
+        self.assertNotIn("Less: retention", html)
 
-    def test_retention_held_and_the_dlp_end(self):
-        summary = calc.cumulative(self.wo)
-        self.assertEqual(summary["retention_held"], D("10058.26"))
-        self.assertEqual(summary["retention_balance"], D("10058.26"))
-        end = summary["dlp_end"]
-        self.assertEqual(end, calc._add_months(self.first.approved_at.date(), 12))
-        self.assertFalse(summary["retention_eligible"])
 
-    def test_release_refused_before_the_dlp_and_allowed_after(self):
-        with self.assertRaises(FinanceError) as refusal:
-            services.release_retention(self.wo, self.user, "10058.26", released_on=date.today())
-        self.assertIn("defect liability", str(refusal.exception))
-
-        after = calc.dlp_end(self.wo) + timedelta(days=1)
-        with self.assertRaises(FinanceError):
-            services.release_retention(self.wo, self.user, "10058.27", released_on=after)
-        release = services.release_retention(self.wo, self.user, "6000", released_on=after,
-                                             reference="UTR9")
-        self.assertEqual(release.amount, D("6000.00"))
-        summary = calc.cumulative(self.wo, today=after)
-        self.assertEqual(summary["retention_released"], D("6000.00"))
-        self.assertEqual(summary["retention_balance"], D("4058.26"))
-        self.assertTrue(summary["retention_eligible"])
-        payment = VendorPayment.objects.get(kind=VendorPayment.Kind.RETENTION_RELEASE)
-        self.assertEqual(payment.amount, D("6000.00"))
-        self.assertTrue(payment.number.startswith("PV-"))
-
-    def test_override_needs_a_note(self):
-        with self.assertRaises(FinanceError):
-            services.release_retention(self.wo, self.user, "100", override=True, note="")
-        services.release_retention(self.wo, self.user, "100", override=True,
-                                   note="Contractor agreed to a reduced hold.")
-        self.assertEqual(RetentionRelease.objects.count(), 1)
+class MonthArithmetic(LadderFixture):
 
     def test_month_arithmetic_at_the_ends_of_months(self):
         self.assertEqual(calc._add_months(date(2026, 1, 31), 1), date(2026, 2, 28))
         self.assertEqual(calc._add_months(date(2028, 1, 31), 1), date(2028, 2, 29))
         self.assertEqual(calc._add_months(date(2026, 11, 15), 14), date(2028, 1, 15))
         self.assertEqual(calc._add_months(date(2026, 3, 31), 0), date(2026, 3, 31))
+
+    def test_fiscal_quarters_run_april_to_march(self):
+        quarters = calc.fiscal_quarters(date(2026, 9, 11))
+        self.assertEqual(quarters[0][0], "2026-2")                   # Jul–Sep 2026, current
+        self.assertEqual((quarters[0][2], quarters[0][3]), (date(2026, 7, 1), date(2026, 9, 30)))
+        self.assertEqual(quarters[1][0], "2026-1")                   # Apr–Jun 2026
+        self.assertEqual(quarters[2][0], "2025-4")                   # Jan–Mar 2026, last FY
+        self.assertEqual((quarters[2][2], quarters[2][3]), (date(2026, 1, 1), date(2026, 3, 31)))
+        self.assertEqual(len(quarters), 6)                           # 2 this FY + 4 last
+        self.assertEqual(calc.quarter_bounds(date(2026, 9, 11), "nonsense")[0], "2026-2")
+        self.assertEqual(calc.quarter_bounds(date(2026, 9, 11), "2025-4")[2], date(2026, 1, 1))
 
 
 class ServiceRules(LadderFixture):

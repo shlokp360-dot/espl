@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE BILLS REGISTER — one row per vendor bill against a document: a VB- invoice
+on a purchase order or an RA- bill on a work order, in the same columns. The
+Excel button exports exactly this selection. Nothing is added here.
+{% endcomment %}
+{% block title %}Bills — Finance &amp; Accounting{% endblock %}
+{% block subtitle %}Every vendor bill against a purchase order or a work order{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="bills" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_bills" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_bills" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">Bills</span>
+  <span class="sp"></span>
+  {% if user|can:"finance.pay" %}
+    <a href="{% url 'finance_bill_pick' %}{% if chosen.project %}?project={{ chosen.project }}{% endif %}"><button type="button">Record a bill</button></a>
+  {% endif %}
+  <form method="post" action="{% url 'finance_bills_excel' %}" style="margin:0">
+    {% csrf_token %}
+    <input type="hidden" name="project" value="{{ chosen.project|default_if_none:'' }}">
+    <input type="hidden" name="vendor" value="{{ chosen.vendor|default_if_none:'' }}">
+    <input type="hidden" name="type" value="{{ chosen.type }}">
+    <input type="hidden" name="status" value="{{ chosen.status }}">
+    <input type="hidden" name="from" value="{{ chosen.from|date:'Y-m-d' }}">
+    <input type="hidden" name="to" value="{{ chosen.to|date:'Y-m-d' }}">
+    <button type="submit" class="sec">⤓ Excel</button>
+  </form>
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <select name="project" class="cell">
+      <option value="">All projects</option>
+      {% for p in projects %}<option value="{{ p.id }}" {% if p.id == chosen.project %}selected{% endif %}>{{ p.code }} · {{ p.name }}</option>{% endfor %}
+    </select>
+    <select name="vendor" class="cell">
+      <option value="">All vendors</option>
+      {% for v in vendors %}<option value="{{ v.id }}" {% if v.id == chosen.vendor %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+    </select>
+    <select name="type" class="cell">
+      <option value="">PO and WO</option>
+      <option value="po" {% if chosen.type == 'po' %}selected{% endif %}>PO · vendor invoices</option>
+      <option value="wo" {% if chosen.type == 'wo' %}selected{% endif %}>WO · RA bills</option>
+    </select>
+    <select name="status" class="cell">
+      <option value="">Any status</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if value == chosen.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input class="cell" type="date" name="from" value="{{ chosen.from|date:'Y-m-d' }}" style="flex:0 1 160px;min-width:150px">
+    <input class="cell" type="date" name="to" value="{{ chosen.to|date:'Y-m-d' }}" style="flex:0 1 160px;min-width:150px">
+    <button type="submit" class="sec sm">Filter</button>
+  </div>
+</form>
+
+<table style="margin-top:12px">
+  <thead><tr>
+    <th>Bill no</th><th>Document</th><th>Type</th><th>Project</th><th>Vendor</th><th>Bill date</th>
+    <th class="num">Amount</th><th class="num">TDS</th><th class="num">Paid to date</th><th class="num">Balance</th><th>Status</th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td>{% if row.kind == 'wo' %}<a href="{% url 'finance_ra_bill' row.bill.id %}"><span class="code">{{ row.number }}</span></a>
+          {% else %}<a href="{% url 'finance_po' row.po.id %}"><span class="code">{{ row.number }}</span></a>{% endif %}
+          {% if row.reference %}· {{ row.reference }}{% endif %}</td>
+      <td>{% if row.kind == 'wo' %}<a href="{% url 'finance_wo' row.po.id %}">{{ row.po.number }}</a>
+          {% else %}<a href="{% url 'finance_po' row.po.id %}">{{ row.po.number }}</a>{% endif %}</td>
+      <td>{% if row.kind == 'wo' %}<span class="pill p-approved">WO</span>{% else %}<span class="pill p-delivered">PO</span>{% endif %}</td>
+      <td>{{ row.project.name }}</td>
+      <td>{{ row.vendor.name }}</td>
+      <td>{{ row.bill_date|date:"d/m/Y" }}</td>
+      <td class="num">₹{{ row.amount|rupees }}</td>
+      <td class="num">{% if row.tds %}₹{{ row.tds|rupees }}{% else %}—{% endif %}</td>
+      <td class="num">{% if row.paid %}₹{{ row.paid|rupees }}{% else %}—{% endif %}</td>
+      <td class="num"><b>{% if row.balance %}₹{{ row.balance|rupees }}{% else %}—{% endif %}</b></td>
+      <td><span class="pill {{ row.pill }}">{{ row.word }}</span></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="11">No bill matches. Vendor invoices are recorded with Record a bill or from a purchase order; RA bills are raised from a work order and appear here once approved.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="6">Total · {{ totals.count }} bill{{ totals.count|pluralize }}</td>
+    <td class="num">₹{{ totals.amount|rupees }}</td>
+    <td class="num">₹{{ totals.tds|rupees }}</td>
+    <td class="num">₹{{ totals.paid|rupees }}</td>
+    <td class="num"><b>₹{{ totals.balance|rupees }}</b></td>
+    <td></td>
+  </tr></tfoot>
+</table>
+{% endblock %}

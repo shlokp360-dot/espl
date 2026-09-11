@@ -36,7 +36,7 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
   description; reading `.git/HEAD` and `.git/refs` is fine.
 - **Never build without an explicit "go".** He asks for the plan first and reads it.
 - **ANCHORS.md ships in the same commit as the code.** Run the drift check every time:
-  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 112.
+  compare `grep -rhoE "ANCHOR: [A-Z0-9-]+"` against its table. Currently 113.
   ⚠ Exclude `.venv`, `.git` **and `__pycache__`** or the grep runs for minutes,
   times out, and counts compiled copies of the same anchor twice.
   ⚠ `BOM-CALC-` appears in the output and is NOT an anchor — it is the wildcard
@@ -51,16 +51,20 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
 
 ## The screens (slice 10 restyle)
 
-- **Option B look**: white top bar carrying the module links (from `hub.tiles_for`, via
-  `projects/context_processors.py`), a left sidebar wherever a module's `_nav.html` renders a
-  `<nav>`, 14px base, KPI figures in one ruled row, flat tables with a navy rule under the header.
+- **Option B look**: a left rail with the company logo and the module links (from
+  `hub.tiles_for`, via `projects/context_processors.py`), a horizontal tab strip under the header
+  wherever a module's `_nav.html` renders a `<nav>`, 14px base, KPI figures in one ruled row, flat
+  tables with a navy rule under the header. The launchpad is called **Dashboard** on screen
+  (`projects/home.py` → `home_for`): KPI cards with change vs last month, committed-vs-paid chart,
+  status ring, "Your work" per user, recent activity, upcoming.
 - **No grey helper text.** `.hint`, `.legend`, `.sugg` and `.kpi .s` are `display:none` in
   `base.html` and must not be reintroduced; instructions belong in the ⓘ panel. Inline font sizes
   below 13px are not allowed in templates.
-- **Modules:** `sales` (units → bookings → demands → receipts), `finance` (RA bills with 10%
-  retention and DLP on work orders, vendor invoices and payments on purchase orders), `drawings`
-  (revisions and transmittals). Each keeps its ⓘ panels in `<app>/panels.py`, merged into
-  `projects/help_panels.py`.
+- **Modules:** `sales` (units → bookings → demands → receipts), `finance` — shown as
+  "Finance & Accounting" (RA bills on work orders, vendor bills and payments on purchase
+  orders, one bills register, a vendor ledger and a TDS report; retention is switched OFF
+  since 11 Sep 2026, fields kept), `drawings` (revisions and transmittals). Each keeps its ⓘ
+  panels in `<app>/panels.py`, merged into `projects/help_panels.py`.
 
 ## Vocabulary — do not drift
 

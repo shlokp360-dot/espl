@@ -6,7 +6,8 @@ person rather than the log.
 WHAT THIS FILE IS FOR
     create_ra_bill / update_bill_lines / certify / approve / discard_draft
     record_ra_payment            money against an approved RA bill
-    release_retention            after the DLP, or overridden with a note
+    release_retention            UNUSED, KEPT FOR DATA — retention is switched
+                                 off (customer, 11 Sep 2026); no screen calls it
     record_vendor_invoice        a supplier's invoice on a material PO
     record_invoice_payment       money against that invoice
     record_advance               money before any bill or invoice
@@ -358,6 +359,12 @@ def _settle_work_order(po, user):
 @transaction.atomic
 def release_retention(po, user, amount, released_on=None, reference="", note="", override=False):
     """
+    ⚠ UNUSED, KEPT FOR DATA. Retention was switched off on the customer's
+      instruction (11 Sep 2026): the route and the screen are gone, and no new
+      order holds retention. The function stays because orders billed at 10%
+      before that date still hold a balance, and a test keeps the arithmetic
+      honest should it ever be wired back.
+
     Hand retention back. Refuses more than the balance, and refuses before the
     DLP has run unless `override` is set WITH a note saying why — that path is
     the Admin's, and the note is what the auditor reads.

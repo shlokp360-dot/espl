@@ -8,8 +8,8 @@ appears as a comment in the code at the place named.
 ```
 Something wrong with...              Search for
 -----------------------------------  -------------------------------------
-retention %, DLP months or the       ANCHOR: WO-TERMS
-  advance on a work order
+the advance on a work order, or      ANCHOR: WO-TERMS
+  retention (switched off 11 Sep 2026)
 "Mark completed" / "Mark paid"       ANCHOR: RA-BILL-OWNS-THE-WO
   refused on a work order
 what an RA bill stores, and what     ANCHOR: FIN-MODEL
@@ -20,8 +20,10 @@ a finance list screen that has       ANCHOR: FIN-CALC-BULK
   got slow
 "over the order" when certifying     ANCHOR: FIN-CUMULATIVE
 raising, certifying, approving,      ANCHOR: FIN-SERVICES
-  paying a bill; releasing retention;
-  recording an invoice or a payment
+  paying a bill; recording an
+  invoice or a payment
+the bills register, vendor ledger,   ANCHOR: FIN-CALC
+  TDS report, ageing or cash-out
 who may open which finance screen    ANCHOR: FIN-SCREENS
 ```
 
@@ -30,8 +32,8 @@ who may open which finance screen    ANCHOR: FIN-SCREENS
 ```
 ANCHOR                     Lives in                        What it governs
 -------------------------  ------------------------------  ------------------------------
-WO-TERMS                   bom_models.py, po_service.py,   retention, DLP and advance terms on a WO,
-                           views.py, po_detail.html         draft-only, never in the PO ladder
+WO-TERMS                   bom_models.py, po_service.py,   the advance term on a WO, draft-only, never
+                           views.py, po_detail.html         in the PO ladder; retention SWITCHED OFF
 RA-BILL-OWNS-THE-WO        projects/po_service.py          a billed WO is completed and paid by finance
 FIN-MODEL                  finance/models.py               bills store quantities and frozen rates, no money
 FIN-CALC                   finance/calc.py                 the RA bill ladder, ONE copy, half-up per rung
@@ -51,8 +53,14 @@ field was added for contractors. The inputs sit under the ladder on the document
 only, draft only, in the same markup as the deduction and TDS inputs; approval freezes them, so
 an approved bill's figures can never change because a term was edited afterwards.
 
-**⚠ THESE HAVE DEFAULTS, UNLIKE THE DEDUCTION AND TDS.** The customer's rule: 10% retention on
-every contractor bill, 12 months DLP, no advance unless agreed. Bounds are in
+**⚠ RETENTION IS SWITCHED OFF — the customer's instruction, 11 Sep 2026.** `retention_pct`
+defaults to 0 (migration `projects/0012_retention_switched_off` also clears the old 10% on every
+order with no approved RA bill); the retention and DLP inputs are gone from the document screen;
+the Retention tab, `finance_retention` and `finance_retention_release` are gone; the bill screen,
+PDF, register and Excel print no retention row when it is zero. The fields, the ladder rung,
+`RetentionRelease` and `services.release_retention` stay, "unused, kept for data", because orders
+billed at 10% before that date keep their figures. `test_ladder.TheLadderStillHandlesRetention` is
+the ONE test on the rung. The mobilisation advance is the one term still typed. Bounds stay in
 `update_draft_document`: retention 0–50, DLP 0–60, advance ≥ 0 and ≤ the order's taxable —
 an advance larger than the work could never be recovered from the bills.
 
@@ -123,6 +131,15 @@ ANALYTICS-MONEY. `dlp_end` = final bill's `approved_at` + `dlp_months`, None unt
 payments, Σ TDS withheld, balance = net payable − paid; `over_invoiced` when Σ invoice totals
 exceed the order value — amount level only, an invoice carries no quantities.
 
+**The bills register, the vendor ledger and the TDS report (11 Sep 2026)** — `bills_register`
+(one shape for VB- invoices and approved RA- bills: amount / tds / paid / balance / status),
+`ageing` (by bill date) and `overdue` / `cash_out` (by due date = bill date +
+`analytics.money.credit_days`), `vendor_ledger` (order rows move nothing; bill rows credit
+invoice total or RA `invoice_value − deduction + round_off`; payment rows debit paid + TDS;
+balance = Σ bill − Σ (paid + TDS)), `tds_report` (per fiscal quarter, vendor × section × rate;
+base = the bill's taxable in the proportion the payment settles). The long-form entry is under
+FIN-CALC in `ANCHORS.md`.
+
 ### `FIN-CALC-BULK` — `finance/calc.py`
 **`bulk_cumulative`, `bulk_bill_figures`, `bulk_invoice_figures`, `bulk_po_settlement` fetch
 every related row for a set of orders in a fixed number of queries.** `bulk_bill_figures`
@@ -143,16 +160,15 @@ DRAFT → CERTIFIED → APPROVED → PAID, strictly sequential. One open bill pe
 after an approved final bill; approve needs every line certified and writes receipts through
 `record_receipt` with `Source.RA_BILL` (zero lines write none); part payments allowed, PAID when
 Σ amount ≥ net payable, never more than is left; the WO turns PAID when every bill is paid and a
-final bill exists. Retention release refuses more than the balance and refuses before the DLP
-unless `override=True` WITH a note; it writes a `RetentionRelease` AND a `VendorPayment` of kind
-`retention_release`, because the money left the bank and the register goes to Tally. A PO turns
-PAID when Σ payments ≥ its net payable and it is DELIVERED. Numbers `RA-` / `VB-` / `PV-` come
-from `NumberSeries`, never from max().
+final bill exists. `release_retention` is UNUSED, KEPT FOR DATA (retention switched off, 11 Sep
+2026) — no route or screen calls it. A PO turns PAID when Σ payments ≥ its net payable and it is
+DELIVERED. Numbers `RA-` / `VB-` / `PV-` come from `NumberSeries`, never from max().
 
 ### `FIN-SCREENS` — `finance/views.py`
-**finance.view** reads everything; **finance.certify** raises bills, types certified quantities,
-discards drafts; **finance.approve** approves bills and releases retention; **finance.pay**
-records invoices and payments.
+**finance.view** reads everything — Overview, Bills, RA bills, Payments, Vendor ledger, TDS and
+every Excel; **finance.certify** raises bills, types certified quantities, discards drafts;
+**finance.approve** approves bills; **finance.pay** records bills (invoices) and payments, and
+opens `finance_bill_pick`, the "Record a bill" doorway. The tab strip carries `project` along.
 
 **⚠ TWO SCREENS OPEN TO view OR certify — `finance_wo` and `finance_ra_bill` — via
 `requires_any`.** The site engineer holds certify and not view; the bill they certify must be a

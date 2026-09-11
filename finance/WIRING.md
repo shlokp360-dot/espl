@@ -22,13 +22,18 @@ The second column is what `address()` passes: `False` = no argument, `True` = id
     ("finance_ra_bill_pay",      True,  {A, ACC}),
     ("finance_ra_bill_pdf",      True,  {A, PM, ACC}),
     ("finance_ra_bill_discard",  True,  {A, PM, SITE}),
-    ("finance_retention",        False, {A, PM, ACC}),
-    ("finance_invoices",         False, {A, PM, ACC}),
+    ("finance_bills",            False, {A, PM, ACC}),
+    ("finance_bill_pick",        False, {A, ACC}),
     ("finance_po",               True,  {A, PM, ACC}),
     ("finance_invoice_new",      True,  {A, ACC}),
     ("finance_po_pay",           True,  {A, ACC}),
     ("finance_payments",         False, {A, PM, ACC}),
+    ("finance_vendor_ledger",    False, {A, PM, ACC}),
+    ("finance_tds",              False, {A, PM, ACC}),
 ```
+
+(11 Sep 2026: `finance_retention` and `finance_retention_release` removed — retention switched
+off; `finance_invoices` replaced by `finance_bills`.)
 
 ## 2. `accounts/test_matrix.py` — `ACTIONS` (POST-only addresses)
 
@@ -38,8 +43,10 @@ The second column is what `address()` passes: `False` = no argument, `True` = id
     ("finance_ra_bill_new",        True,  {A, PM, SITE}),
     ("finance_ra_bill_save",       True,  {A, PM, SITE}),
     ("finance_ra_bill_approve",    True,  {A, PM}),
-    ("finance_retention_release",  True,  {A, PM}),
+    ("finance_bills_excel",        False, {A, PM, ACC}),
     ("finance_payments_excel",     False, {A, PM, ACC}),
+    ("finance_vendor_ledger_excel", False, {A, PM, ACC}),
+    ("finance_tds_excel",          False, {A, PM, ACC}),
 ```
 
 The GET+POST forms (`finance_ra_bill_pay`, `finance_ra_bill_discard`, `finance_invoice_new`,
@@ -53,22 +60,23 @@ from finance.panels import PANELS as FINANCE_PANELS
 PANELS.update(FINANCE_PANELS)
 ```
 
-Twelve entries: `finance_home`, `finance_ra_bills`, `finance_wo`, `finance_ra_bill`,
-`finance_ra_bill_pay`, `finance_ra_bill_discard`, `finance_retention`, `finance_invoices`,
-`finance_po`, `finance_invoice_new`, `finance_po_pay`, `finance_payments`. Every finance
+Fourteen entries: `finance_home`, `finance_bills`, `finance_bill_pick`, `finance_ra_bills`,
+`finance_wo`, `finance_ra_bill`, `finance_ra_bill_pay`, `finance_ra_bill_discard`, `finance_po`,
+`finance_invoice_new`, `finance_po_pay`, `finance_payments`, `finance_vendor_ledger`, `finance_tds`. Every finance
 template already calls `{% infobutton %}` / `{% infopanel %}`; until merged they render
 nothing. `finance/tests.py::FinancePanelsKeepTheFormat` keeps them inside the format rules
 and asserts the keys used and the keys defined match exactly.
 
 ## 4. `templates/finance/_nav.html` — the tab list (already written)
 
-| here        | url name            | label            | who sees it                |
-|-------------|---------------------|------------------|----------------------------|
-| `home`      | `finance_home`      | Overview         | everyone with finance.view |
-| `ra_bills`  | `finance_ra_bills`  | RA bills         | everyone with finance.view |
-| `retention` | `finance_retention` | Retention        | everyone with finance.view |
-| `invoices`  | `finance_invoices`  | Vendor invoices  | everyone with finance.view |
-| `payments`  | `finance_payments`  | Payments         | everyone with finance.view |
+| here        | url name                | label            | who sees it                |
+|-------------|-------------------------|------------------|----------------------------|
+| `home`      | `finance_home`          | Overview         | everyone with finance.view |
+| `bills`     | `finance_bills`         | Bills            | everyone with finance.view |
+| `ra_bills`  | `finance_ra_bills`      | RA bills         | everyone with finance.view |
+| `payments`  | `finance_payments`      | Payments         | everyone with finance.view |
+| `ledger`    | `finance_vendor_ledger` | Vendor ledger    | everyone with finance.view |
+| `tds`       | `finance_tds`           | TDS              | everyone with finance.view |
 
 The strip is wrapped in `{% if user|can:"finance.view" %}` so a site engineer on the work
 order or bill screen sees no tab that would 403. Certify / approve / pay buttons hide on
@@ -76,13 +84,14 @@ the screens themselves.
 
 ## 5. `projects/hub.py`
 
-The `finance` tile already exists (`url_name: finance_home`, `perm: finance.view`). Nothing to add.
+The `finance` tile already exists (`url_name: finance_home`, `perm: finance.view`); its title is
+"Finance & Accounting" since 11 Sep 2026.
 
 ## 6. `templates/projects/po_detail.html` and `projects/views.py` — ALREADY EDITED
 
 These two are not on the do-not-edit list and the brief asked for them:
-- three work-order term inputs (retention %, DLP months, mobilisation advance) under the
-  totals ladder, WO only, draft only — `_apply_po_edits` reads them;
+- one work-order term input (mobilisation advance) under the totals ladder, WO only, draft
+  only — `_apply_po_edits` reads it (retention and DLP inputs removed 11 Sep 2026);
 - an "RA bills" link on an approved-or-later WO (finance.view or finance.certify) and a
   "Vendor invoices & payments" link on an approved-or-later PO (finance.view).
 

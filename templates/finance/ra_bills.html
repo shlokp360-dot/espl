@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% load inr perms help %}
 {% comment %}
-THE RA BILL REGISTER — every bill on every work order, with the ladder's
-headline figures. The Excel button exports exactly what is filtered here.
+THE RA BILL TRACKER — every bill on every work order, with the ladder's
+headline figures. Project is the first control; with one chosen the tfoot adds
+that project's position. The Excel button exports exactly what is filtered here.
 {% endcomment %}
-{% block title %}RA bills{% endblock %}
+{% block title %}RA bills — Finance &amp; Accounting{% endblock %}
 {% block subtitle %}Contractor bills across every work order{% endblock %}
 {% block nav %}{% include "finance/_nav.html" with here="ra_bills" %}{% endblock %}
 {% block headerinfo %}{% infobutton "finance_ra_bills" %}{% endblock %}
@@ -45,8 +46,8 @@ headline figures. The Excel button exports exactly what is filtered here.
 <table style="margin-top:12px">
   <thead><tr>
     <th>RA bill</th><th>No.</th><th>Status</th><th>Bill date</th><th>Work order</th><th>Project</th><th>Contractor</th>
-    <th class="num">Taxable</th><th class="num">Invoice value</th><th class="num">Retention</th>
-    <th class="num">Advance rec.</th><th class="num">Net payable</th>
+    <th class="num">Taxable</th><th class="num">Invoice value</th>
+    <th class="num">Advance rec.</th><th class="num">Net payable</th><th class="num">Paid</th>
   </tr></thead>
   <tbody>
   {% for row in rows %}
@@ -61,19 +62,31 @@ headline figures. The Excel button exports exactly what is filtered here.
       <td>{{ row.bill.purchase_order.vendor.name }}</td>
       <td class="num">₹{{ row.ladder.taxable|rupees }}</td>
       <td class="num">₹{{ row.ladder.invoice_value|rupees }}</td>
-      <td class="num">₹{{ row.ladder.retention|rupees }}</td>
       <td class="num">{% if row.ladder.advance_recovery %}₹{{ row.ladder.advance_recovery|rupees }}{% else %}—{% endif %}</td>
       <td class="num"><b>₹{{ row.ladder.net_payable|rupees }}</b></td>
+      <td class="num">{% if row.paid %}₹{{ row.paid|rupees }}{% else %}—{% endif %}</td>
     </tr>
   {% empty %}
     <tr><td colspan="12">No RA bill matches. Bills are raised from a work order's RA bills screen.</td></tr>
   {% endfor %}
   </tbody>
-  <tfoot><tr>
-    <td colspan="7">Total · {{ rows|length }} bill{{ rows|length|pluralize }}</td>
-    <td class="num">₹{{ totals.taxable|rupees }}</td><td></td>
-    <td class="num">₹{{ totals.retention|rupees }}</td><td></td>
-    <td class="num">₹{{ totals.net_payable|rupees }}</td>
-  </tr></tfoot>
+  <tfoot>
+    <tr>
+      <td colspan="7">Total · {{ rows|length }} bill{{ rows|length|pluralize }}</td>
+      <td class="num">₹{{ totals.taxable|rupees }}</td><td></td><td></td>
+      <td class="num">₹{{ totals.net_payable|rupees }}</td>
+      <td class="num">₹{{ totals.paid|rupees }}</td>
+    </tr>
+    {% if subtotals %}
+    <tr>
+      <td colspan="7"><b>{{ subtotals.project.name }}</b> · approved and paid bills · certified to date ₹{{ subtotals.certified|rupees }} · billed ₹{{ subtotals.billed|rupees }}</td>
+      <td class="num">₹{{ subtotals.certified|rupees }}</td>
+      <td class="num">₹{{ subtotals.billed|rupees }}</td>
+      <td>balance</td>
+      <td class="num"><b>₹{{ subtotals.balance|rupees }}</b></td>
+      <td class="num">₹{{ subtotals.paid|rupees }}</td>
+    </tr>
+    {% endif %}
+  </tfoot>
 </table>
 {% endblock %}

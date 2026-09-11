@@ -26,7 +26,14 @@ THE RA BILL LADDER, in printed order, and why each base is what it is:
                                                       not the tax on it; GST is
                                                       paid to the contractor in
                                                       full because they owe it to
-                                                      the department this month
+                                                      the department this month.
+                                                      ⚠ SWITCHED OFF since 11 Sep
+                                                      2026: retention_pct defaults
+                                                      to 0 and no screen sets it,
+                                                      so this rung is zero on every
+                                                      new order. The arithmetic
+                                                      stays for orders billed at
+                                                      10% before that date.
   - advance_recovery     min(outstanding, taxable × advance ÷ order taxable)
                                                       pro rata to the work done;
                                                       the final bill recovers
@@ -54,11 +61,23 @@ THE RA BILL LADDER, in printed order, and why each base is what it is:
 The list screens call the `bulk_*` functions, which fetch every related row
 for a set of work orders in a fixed number of queries and hand them down.
 Calling the single-object function inside a loop would be a query per row.
+
+THE BILLS REGISTER, THE VENDOR LEDGER AND THE TDS REPORT (11 Sep 2026)
+    bills_register     one row per vendor bill — a VendorInvoice on a PO or an
+                       APPROVED/PAID RA bill on a WO — in the same shape
+    vendor_ledger      every order, bill and payment of one vendor in date
+                       order with a running balance: Σ bills − Σ (paid + TDS)
+    tds_report         one row per vendor × section × rate for a quarter
+    ageing / cash_out  open bills by age, and by when they fall due
 """
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.db.models import Q
+
+from analytics.money import credit_days
+from analytics.periods import fiscal_start
 from projects.bom_models import PurchaseOrder, _money
 
 from .models import RABill, RetentionRelease, VendorInvoice, VendorPayment
@@ -480,3 +499,366 @@ def payments_total(payments):
         "amount": _sum(p.amount for p in payments),
         "tds": _sum(p.tds_amount for p in payments),
     }
+
+
+# ------------------------------------------------------------- the bills register
+#
+# ⚠ ONE SHAPE FOR TWO FAMILIES. A vendor invoice carries the vendor's own
+#   figures; an RA bill carries the ladder's. The register puts them in one
+#   table for the accountant, so every row has the same keys and the same
+#   meaning:
+#
+#     amount    the bill as the vendor wrote it — invoice total, or the RA
+#               bill's invoice_value
+#     tds       on an RA bill the ladder's own TDS; on an invoice, what the
+#               payments against it withheld (an invoice carries no rate)
+#     paid      Σ payment.amount against the bill — what left the bank
+#     balance   RA bill: net_payable − paid.  Invoice: total − (paid + TDS)
+#     status    open / part_paid / settled, from the balance
+#
+# ⚠ ONLY APPROVED AND PAID RA BILLS ARE BILLS. A draft or certified bill is a
+#   claim under discussion and counts nowhere, as everywhere else in this file.
+
+BILL_STATUS_WORDS = {"open": "Open", "part_paid": "Part-paid", "settled": "Settled"}
+
+
+def _due(bill_date, vendor):
+    days, assumed = credit_days(vendor)
+    return bill_date + timedelta(days=days), assumed
+
+
+def bills_register(invoices=None, ra_bills=None, payments=None):
+    """
+    [{...}] one row per bill, newest first. Pass the lists to control the
+    selection; leave them None to take every bill there is. `payments` is
+    every payment against those bills, fetched in one query if not given.
+    """
+    if invoices is None:
+        invoices = list(VendorInvoice.objects.select_related(
+            "purchase_order__vendor", "purchase_order__project"))
+    if ra_bills is None:
+        ra_bills = list(RABill.objects.filter(status__in=RABill.COUNTED).select_related(
+            "purchase_order__vendor", "purchase_order__project"))
+    ra_bills = [b for b in ra_bills if b.status in RABill.COUNTED]
+    if payments is None:
+        payments = list(VendorPayment.objects.filter(
+            _against([i.id for i in invoices], [b.id for b in ra_bills])))
+    paid_invoice, tds_invoice, paid_bill = defaultdict(Decimal), defaultdict(Decimal), defaultdict(Decimal)
+    for payment in payments:
+        if payment.vendor_invoice_id:
+            paid_invoice[payment.vendor_invoice_id] += payment.amount
+            tds_invoice[payment.vendor_invoice_id] += payment.tds_amount
+        elif payment.ra_bill_id:
+            paid_bill[payment.ra_bill_id] += payment.amount
+    ladders = bulk_bill_figures(ra_bills)
+
+    rows = []
+    for invoice in invoices:
+        po = invoice.purchase_order
+        settled = _money(paid_invoice[invoice.id] + tds_invoice[invoice.id])
+        balance = max(ZERO, _money(invoice.total - settled))
+        due, assumed = _due(invoice.invoice_date, po.vendor)
+        rows.append({
+            "kind": "po", "number": invoice.number, "bill": invoice, "po": po,
+            "vendor": po.vendor, "project": po.project, "bill_date": invoice.invoice_date,
+            "reference": invoice.vendor_invoice_no, "due_date": due, "terms_assumed": assumed,
+            "taxable": invoice.taxable, "amount": invoice.total,
+            "tds": _money(tds_invoice[invoice.id]), "paid": _money(paid_invoice[invoice.id]),
+            "balance": balance, "status": invoice_status(invoice, settled),
+        })
+    for bill in ra_bills:
+        po = bill.purchase_order
+        ladder = ladders[bill.id]
+        paid = _money(paid_bill[bill.id])
+        balance = max(ZERO, _money(ladder["net_payable"] - paid))
+        due, assumed = _due(bill.bill_date, po.vendor)
+        if bill.status == RABill.Status.PAID or balance <= ZERO:
+            status = "settled"
+        elif paid > ZERO:
+            status = "part_paid"
+        else:
+            status = "open"
+        rows.append({
+            "kind": "wo", "number": bill.number, "bill": bill, "po": po,
+            "vendor": po.vendor, "project": po.project, "bill_date": bill.bill_date,
+            "reference": bill.contractor_ref, "due_date": due, "terms_assumed": assumed,
+            "taxable": ladder["taxable"], "amount": ladder["invoice_value"],
+            "tds": ladder["tds"], "paid": paid, "balance": balance, "status": status,
+            "net_payable": ladder["net_payable"],
+        })
+    rows.sort(key=lambda r: (r["bill_date"], r["number"]), reverse=True)
+    return rows
+
+
+def _against(invoice_ids, bill_ids):
+    return Q(vendor_invoice_id__in=invoice_ids) | Q(ra_bill_id__in=bill_ids)
+
+
+def bills_total(rows):
+    """tfoot figures for a register of bill rows."""
+    return {
+        "count": len(rows),
+        "amount": _sum(r["amount"] for r in rows),
+        "tds": _sum(r["tds"] for r in rows),
+        "paid": _sum(r["paid"] for r in rows),
+        "balance": _sum(r["balance"] for r in rows),
+    }
+
+
+# ------------------------------------------------------------- ageing and cash-out
+
+AGE_BUCKETS = [("d30", "0–30 days"), ("d60", "31–60 days"), ("d90", "61–90 days"),
+               ("older", "Over 90 days")]
+DUE_WINDOWS = [("w30", "Next 30 days", 30), ("w60", "31–60 days", 60), ("w90", "61–90 days", 90)]
+
+
+def _bucket(days):
+    return "d30" if days <= 30 else "d60" if days <= 60 else "d90" if days <= 90 else "older"
+
+
+def ageing(rows, today):
+    """
+    Open bills (balance > 0) by AGE — days since the bill date. This is the
+    accountant's ageing: how old the unpaid bills on the desk are.
+    """
+    out = {key: {"key": key, "label": label, "count": 0, "balance": ZERO}
+           for key, label in AGE_BUCKETS}
+    for row in rows:
+        if row["balance"] <= ZERO:
+            continue
+        bucket = out[_bucket((today - row["bill_date"]).days)]
+        bucket["count"] += 1
+        bucket["balance"] = _money(bucket["balance"] + row["balance"])
+    return [out[key] for key, _label in AGE_BUCKETS]
+
+
+def overdue(rows, today):
+    """Open balance whose due date (bill date + the vendor's credit days) has passed."""
+    late = [r for r in rows if r["balance"] > ZERO and r["due_date"] < today]
+    return {"count": len(late), "balance": _sum(r["balance"] for r in late),
+            "assumed": sum(1 for r in late if r["terms_assumed"])}
+
+
+def cash_out(rows, today):
+    """
+    Open balances falling due in the next 30 / 60 / 90 days — what the bank
+    account has to carry. Overdue bills are NOT here; they are already due.
+    """
+    out = {key: {"key": key, "label": label, "count": 0, "balance": ZERO}
+           for key, label, _days in DUE_WINDOWS}
+    for row in rows:
+        if row["balance"] <= ZERO or row["due_date"] < today:
+            continue
+        ahead = (row["due_date"] - today).days
+        for key, _label, days in DUE_WINDOWS:
+            if ahead <= days:
+                out[key]["count"] += 1
+                out[key]["balance"] = _money(out[key]["balance"] + row["balance"])
+                break
+    return [out[key] for key, _label, _days in DUE_WINDOWS]
+
+
+def top_vendors(rows, limit=10):
+    """Vendors by open balance, largest first."""
+    by_vendor = {}
+    for row in rows:
+        if row["balance"] <= ZERO:
+            continue
+        entry = by_vendor.setdefault(row["vendor"].id, {"vendor": row["vendor"], "count": 0,
+                                                        "balance": ZERO, "overdue": ZERO})
+        entry["count"] += 1
+        entry["balance"] = _money(entry["balance"] + row["balance"])
+    ranked = sorted(by_vendor.values(), key=lambda e: (-e["balance"], e["vendor"].name))
+    return ranked[:limit]
+
+
+# ------------------------------------------------------------- the vendor ledger
+#
+# ⚠ THE CONVENTION, because it is what the accountant reconciles with Tally:
+#
+#     an ORDER row     approved onwards — shows the order value, MOVES NOTHING.
+#                      An order is a commitment, not a liability.
+#     a BILL row       credits the vendor with what we owe on the bill:
+#                        invoice   total (their figure)
+#                        RA bill   invoice_value − deduction + round_off, i.e.
+#                                  BEFORE the advance recovery and retention —
+#                                  those are settled by the advance and
+#                                  release rows, not hidden inside the bill
+#     a PAYMENT row    debits paid + TDS: both discharge the vendor.
+#
+#     balance = Σ bill − Σ (paid + TDS), running in date order.
+#
+# So an advance leaves the vendor owing us (a negative balance) until the
+# bills recover it, and the ledger closes at zero when everything ties.
+
+LEDGER_ORDER = {"order": 0, "bill": 1, "payment": 2}
+
+
+def vendor_ledger(vendor, date_from=None, date_to=None):
+    """
+    {"rows": [...], "opening": {...}, "closing": {...}, "totals": {...}}.
+    Rows before `date_from` are folded into the opening line; rows after
+    `date_to` are left out. Four queries.
+    """
+    orders = list(PurchaseOrder.objects.filter(vendor=vendor)
+                  .exclude(status=PurchaseOrder.Status.DRAFT)
+                  .select_related("project").prefetch_related("lines"))
+    order_ids = [po.id for po in orders]
+    invoices = list(VendorInvoice.objects.filter(purchase_order_id__in=order_ids)
+                    .select_related("purchase_order__project"))
+    bills = list(RABill.objects.filter(purchase_order_id__in=order_ids, status__in=RABill.COUNTED)
+                 .select_related("purchase_order__project"))
+    payments = list(VendorPayment.objects.filter(purchase_order_id__in=order_ids)
+                    .select_related("purchase_order__project", "ra_bill", "vendor_invoice"))
+    ladders = bulk_bill_figures(bills)
+
+    rows = []
+    for po in orders:
+        day = po.approved_at.date() if po.approved_at else po.created_at.date()
+        rows.append({"date": day, "kind": "order", "number": po.number, "po": po,
+                     "project": po.project, "label": f"{po.get_document_type_display()} approved",
+                     "order_value": po.totals()["net_payable"], "bill": ZERO, "paid": ZERO,
+                     "tds": ZERO, "id": po.id})
+    for invoice in invoices:
+        rows.append({"date": invoice.invoice_date, "kind": "bill", "number": invoice.number,
+                     "po": invoice.purchase_order, "project": invoice.purchase_order.project,
+                     "label": f"Invoice {invoice.vendor_invoice_no} on {invoice.purchase_order.number}",
+                     "order_value": ZERO, "bill": invoice.total, "paid": ZERO, "tds": ZERO,
+                     "id": invoice.id})
+    for bill in bills:
+        ladder = ladders[bill.id]
+        owed = _money(ladder["invoice_value"] - ladder["deduction"] + ladder["round_off"])
+        rows.append({"date": bill.bill_date, "kind": "bill", "number": bill.number,
+                     "po": bill.purchase_order, "project": bill.purchase_order.project,
+                     "label": f"RA bill {bill.sequence} on {bill.purchase_order.number}",
+                     "order_value": ZERO, "bill": owed, "paid": ZERO, "tds": ZERO,
+                     "id": bill.id})
+    for payment in payments:
+        against = payment.document_number
+        rows.append({"date": payment.paid_on, "kind": "payment", "number": payment.number,
+                     "po": payment.purchase_order, "project": payment.purchase_order.project,
+                     "label": f"{payment.get_kind_display()} · {against}"
+                              + (f" · {payment.reference}" if payment.reference else ""),
+                     "order_value": ZERO, "bill": ZERO, "paid": payment.amount,
+                     "tds": payment.tds_amount, "id": payment.id})
+    rows.sort(key=lambda r: (r["date"], LEDGER_ORDER[r["kind"]], r["id"]))
+
+    balance = ZERO
+    opening = {"bill": ZERO, "paid": ZERO, "tds": ZERO, "count": 0}
+    shown = []
+    for row in rows:
+        balance = _money(balance + row["bill"] - row["paid"] - row["tds"])
+        row["balance"] = balance
+        if date_from and row["date"] < date_from:
+            opening["bill"] = _money(opening["bill"] + row["bill"])
+            opening["paid"] = _money(opening["paid"] + row["paid"])
+            opening["tds"] = _money(opening["tds"] + row["tds"])
+            opening["count"] += 1
+            opening["balance"] = balance
+            continue
+        if date_to and row["date"] > date_to:
+            continue
+        shown.append(row)
+    opening.setdefault("balance", ZERO)
+    totals = {
+        "order_value": _sum(r["order_value"] for r in shown),
+        "bill": _sum(r["bill"] for r in shown),
+        "paid": _sum(r["paid"] for r in shown),
+        "tds": _sum(r["tds"] for r in shown),
+    }
+    closing = shown[-1]["balance"] if shown else opening["balance"]
+    return {"rows": shown, "opening": opening, "closing": closing, "totals": totals,
+            "ties": closing == _money(opening["balance"] + totals["bill"] - totals["paid"]
+                                      - totals["tds"])}
+
+
+# ------------------------------------------------------------- the TDS report
+#
+# ⚠ WHAT THE CA FILES 26Q FROM: for each deductee (vendor) and section, the
+#   amount paid or credited in the quarter and the tax deducted. The base here
+#   is the BASIC value the TDS was computed on, in the proportion this payment
+#   settles of its bill — an RA bill's taxable × (paid + TDS) ÷ payable, an
+#   invoice's taxable × (paid + TDS) ÷ total. A payment against nothing (an
+#   advance) is its own base: TDS on an advance is on the advance.
+
+def fiscal_quarters(today, years=2):
+    """
+    [(key, label, start, end)] newest first — every quarter that has started
+    in this fiscal year and the `years − 1` before it. key = "2026-1" is the
+    fiscal year's April and the quarter number.
+    """
+    out = []
+    start_year = fiscal_start(today).year
+    for year in range(start_year, start_year - years, -1):
+        for number in (4, 3, 2, 1):
+            first_month = 4 + (number - 1) * 3
+            first = date(year + (1 if first_month > 12 else 0), (first_month - 1) % 12 + 1, 1)
+            if first > today:
+                continue
+            end = _add_months(first, 3) - timedelta(days=1)
+            label = (f"Q{number} FY {year}-{str(year + 1)[2:]} · "
+                     f"{first:%b} – {end:%b %Y}")
+            out.append((f"{year}-{number}", label, first, end))
+    return out
+
+
+def quarter_bounds(today, key=None):
+    """(key, label, start, end) for the chosen quarter, or the current one."""
+    quarters = fiscal_quarters(today)
+    for entry in quarters:
+        if entry[0] == key:
+            return entry
+    return quarters[0]
+
+
+def tds_report(start, end):
+    """
+    {"rows": [...], "sections": [...], "totals": {...}} for payments dated
+    within [start, end]. Rows are vendor × section × rate; `sections` groups
+    them with a subtotal each, for the screen.
+    """
+    payments = list(VendorPayment.objects.filter(paid_on__range=(start, end))
+                    .select_related("vendor", "purchase_order", "ra_bill", "vendor_invoice"))
+    bills = [p.ra_bill for p in payments if p.ra_bill_id]
+    ladders = bulk_bill_figures(bills) if bills else {}
+
+    groups = {}
+    for payment in payments:
+        po = payment.purchase_order
+        gross = _money(payment.amount + payment.tds_amount)
+        if payment.ra_bill_id:
+            ladder = ladders[payment.ra_bill_id]
+            base = (_money(ladder["taxable"] * gross / ladder["payable"])
+                    if ladder["payable"] > ZERO else gross)
+        elif payment.vendor_invoice_id:
+            invoice = payment.vendor_invoice
+            base = (_money(invoice.taxable * gross / invoice.total)
+                    if invoice.total > ZERO else gross)
+        else:
+            base = gross
+        section = po.tds_section or "—"
+        key = (section, payment.vendor_id, po.tds_pct)
+        row = groups.setdefault(key, {
+            "section": section, "vendor": payment.vendor, "rate": po.tds_pct,
+            "gstin": po.vendor_gstin or payment.vendor.gst_number,
+            "base": ZERO, "gross": ZERO, "tds": ZERO, "paid": ZERO, "count": 0,
+        })
+        row["base"] = _money(row["base"] + base)
+        row["gross"] = _money(row["gross"] + gross)
+        row["tds"] = _money(row["tds"] + payment.tds_amount)
+        row["paid"] = _money(row["paid"] + payment.amount)
+        row["count"] += 1
+
+    rows = sorted(groups.values(), key=lambda r: (r["section"], r["vendor"].name, r["rate"]))
+    sections = []
+    for row in rows:
+        if not sections or sections[-1]["section"] != row["section"]:
+            sections.append({"section": row["section"], "rows": [], "base": ZERO, "tds": ZERO,
+                             "paid": ZERO, "gross": ZERO})
+        block = sections[-1]
+        block["rows"].append(row)
+        for field in ("base", "tds", "paid", "gross"):
+            block[field] = _money(block[field] + row[field])
+    totals = {field: _sum(r[field] for r in rows) for field in ("base", "tds", "paid", "gross")}
+    totals["count"] = len(payments)
+    return {"rows": rows, "sections": sections, "totals": totals}

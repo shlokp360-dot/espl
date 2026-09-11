@@ -3495,15 +3495,19 @@ class TheLaunchpad(AuthedTestCase):
         ⚠ TWO WAYS OUT, ON EVERY SCREEN, AND BOTH IN THE HEADER: the ELEGANCE
           SKYZ wordmark and a Home link beside the ⓘ. Saahil moved Home out of
           the module tab strips — a strip is for the screens of one module, and
-          the way out of it is not one of them.
+          the way out of it is not one of them. The left rail (logo + Dashboard)
+          adds two more, but the header keeps its own pair.
         """
         home = reverse("launchpad")
         for name in ("project_list", "master_data", "po_register", "task_board",
                      "task_mine", "analytics_home", "analytics_payments"):
             body = self.client.get(reverse(name)).content.decode()
-            header = body.split("</header>")[0]
+            header = body.split("<header")[1].split("</header>")[0]
             self.assertEqual(header.count(f'href="{home}"'), 2,
                              f"{name} does not carry both ways home in its header")
+            rail = body.split('<aside class="rail"')[1].split("</aside>")[0]
+            self.assertEqual(rail.count(f'href="{home}"'), 2,
+                             f"{name} rail lost the logo or the Dashboard link")
 
     def test_the_launchpad_no_longer_warns_about_a_missing_login(self):
         """The first screen anybody sees, and now they only see it after signing in."""

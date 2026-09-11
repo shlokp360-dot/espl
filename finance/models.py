@@ -1,9 +1,11 @@
 """
-Finance: RA bills on work orders, retention, vendor invoices and payments.
+Finance & Accounting: RA bills on work orders, vendor invoices and payments.
 
 WHAT THIS FILE IS FOR
     RABill / RABillLine   a contractor's running-account bill against a work order
     RetentionRelease      retention handed back after the defect liability period
+                          — UNUSED since 11 Sep 2026 (retention switched off),
+                          kept because rows exist on orders billed before then
     VendorInvoice         a supplier's invoice against a material purchase order
     VendorPayment         money that left the bank — the one payments register
 
@@ -172,6 +174,9 @@ class RetentionRelease(models.Model):
     Retention handed back to the contractor. Normally once, after the defect
     liability period; recorded as its own ledger so the balance is a sum, never
     a stored figure.
+
+    ⚠ UNUSED, KEPT FOR DATA. Retention is switched off (customer, 11 Sep 2026):
+      no screen writes or shows a release. The table stays for the rows it holds.
     """
     purchase_order = models.ForeignKey(
         "projects.PurchaseOrder", on_delete=models.PROTECT, related_name="retention_releases")

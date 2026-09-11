@@ -96,8 +96,8 @@ tr { page-break-inside: avoid; }
     <td><div class="hd">PROJECT</div>
         <div class="bd"><b>{{ po.project.code }} &middot; {{ po.project.name }}</b><br>
           {% if bill.period_from %}Period {{ bill.period_from|date:"d/m/Y" }} &ndash; {{ bill.period_to|date:"d/m/Y" }}<br>{% endif %}
-          Retention {{ po.retention_pct|qty }}% &middot; DLP {{ po.dlp_months }} months
-          {% if po.mobilisation_advance %}&middot; Advance Rs {{ po.mobilisation_advance|rupees }}{% endif %}
+          {% if ladder.retention %}Retention {{ po.retention_pct|qty }}% &middot; DLP {{ po.dlp_months }} months{% endif %}
+          {% if po.mobilisation_advance %}{% if ladder.retention %}&middot; {% endif %}Advance Rs {{ po.mobilisation_advance|rupees }}{% endif %}
         </div></td>
   </tr>
 </table>
@@ -155,7 +155,7 @@ tr { page-break-inside: avoid; }
         {% endif %}
         <tr><td class="k">Amount</td><td class="n">{{ ladder.invoice_value|rupees2 }}</td></tr>
         {% if po.deduction_pct %}<tr><td class="k">Less: agreed deduction (post-tax) @ {{ po.deduction_pct|qty }}%</td><td class="n">- {{ ladder.deduction|rupees2 }}</td></tr>{% endif %}
-        <tr><td class="k">Less: retention @ {{ po.retention_pct|qty }}% on basic value</td><td class="n">- {{ ladder.retention|rupees2 }}</td></tr>
+        {% if ladder.retention %}<tr><td class="k">Less: retention @ {{ po.retention_pct|qty }}% on basic value</td><td class="n">- {{ ladder.retention|rupees2 }}</td></tr>{% endif %}
         {% if ladder.advance_recovery %}<tr><td class="k">Less: mobilisation advance recovered</td><td class="n">- {{ ladder.advance_recovery|rupees2 }}</td></tr>{% endif %}
         <tr><td class="k">Round off</td><td class="n">{{ ladder.round_off|rupees2 }}</td></tr>
         <tr class="order"><td class="k">PAYABLE THIS BILL</td><td class="n">Rs {{ ladder.payable|rupees }}</td></tr>

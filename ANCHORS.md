@@ -197,7 +197,7 @@ COMPLIANCE-SCREENS         compliance/views.py             who reads, who upload
 COMPLIANCE-MASTER          compliance/views.py             the template, and the blast radius
 DUMMY-GSTINS               seed_dummy_gstins.py            fake tax numbers, and how they stay fake
 PO-LINE-SHARES             bom_models.py, views.py         document money split across the lines, exactly
-HOME-SCREEN                projects/home.py, launchpad.html  the first screen: money band, cards, attention, sites
+HOME-SCREEN                projects/home.py, launchpad.html  the Dashboard: KPI cards, chart, ring, your work, activity, upcoming
 BOM-COLUMNS                bom.html, base.html             ten columns by default, the rest behind one switch
 PO-REGISTER-STEP           projects/views.py, po_register.html  one next step per register row, through po_advance
 ANCHOR                     Lives in                        What it governs
@@ -209,7 +209,8 @@ SALES-CALC-BULK            sales/calc.py                   list screens: two que
 SALES-SERVICES             sales/services.py               every write to a booking, atomic, with a history row
 SALES-SCREENS              sales/views.py                  who may read, edit, collect
 ANCHOR                     Lives in                        What it governs
-WO-TERMS                   bom_models.py, po_service.py,   retention, DLP and advance terms on a WO,
+WO-TERMS                   bom_models.py, po_service.py,   the advance term on a WO; retention and DLP
+                                                           kept as fields, SWITCHED OFF 11 Sep 2026
 RA-BILL-OWNS-THE-WO        projects/po_service.py          a billed WO is completed and paid by finance
 FIN-MODEL                  finance/models.py               bills store quantities and frozen rates, no money
 FIN-CALC                   finance/calc.py                 the RA bill ladder, ONE copy, half-up per rung
@@ -1748,7 +1749,21 @@ no booking behind it.
 
 ---
 
-## Finance (slice 10)
+## Finance (slice 10) — shown to people as "Finance & Accounting"
+
+### `WO-TERMS` — retention switched off, 11 Sep 2026
+**⚠ RETENTION IS SWITCHED OFF ON THE CUSTOMER'S INSTRUCTION (11 Sep 2026).** `retention_pct`
+defaults to 0 (`projects/0012_retention_switched_off`, which also clears the old 10% on every order
+with no approved RA bill), the retention and DLP inputs are gone from `po_detail.html` and
+`_apply_po_edits` no longer reads them, the Retention tab, `finance_retention` and
+`finance_retention_release` are gone, and the RA bill screen, PDF, register and Excel print no
+retention row or column when it is zero — which it now always is on a new order. **The fields, the
+ladder rung, `RetentionRelease` and `services.release_retention` stay** ("unused, kept for data"):
+orders billed at 10% before that date keep their figures, and
+`test_ladder.TheLadderStillHandlesRetention` is the ONE test that keeps the arithmetic honest. The
+mobilisation advance is the one term still typed on a draft work order.
+
+### `FIN-CALC` — the ladder, and the registers built on it
 **⚠ RETENTION IS ON THE WORK VALUE, NOT THE INVOICE.** Retention secures the work; the GST is
 the contractor's liability to the department this month and is paid in full. The deduction
 stays post-tax because it is the same agreed deduction as on the order (PO-TOTALS), and one
@@ -1770,6 +1785,31 @@ ANALYTICS-MONEY. `dlp_end` = final bill's `approved_at` + `dlp_months`, None unt
 payments, Σ TDS withheld, balance = net payable − paid; `over_invoiced` when Σ invoice totals
 exceed the order value — amount level only, an invoice carries no quantities.
 
+**THE BILLS REGISTER (`bills_register`, 11 Sep 2026)** puts a VB- invoice on a PO and an
+APPROVED/PAID RA- bill on a WO in ONE shape: `amount` is the bill as the vendor wrote it (invoice
+total / RA `invoice_value`); `tds` is the RA bill's own ladder TDS, or on an invoice what the
+payments withheld; `paid` Σ `payment.amount`; `balance` RA `net_payable − paid`, invoice
+`total − (paid + TDS)`; status open / part_paid / settled. A draft or certified RA bill is not a
+bill. `ageing` buckets open balances by DAYS SINCE THE BILL DATE (0–30 / 31–60 / 61–90 / 90+);
+`overdue` and `cash_out` use the due date = bill date + `analytics.money.credit_days(vendor)`,
+with the 30-day default counted and shown, as ANALYTICS-MONEY insists.
+
+**THE VENDOR LEDGER (`vendor_ledger`)** — the convention the accountant reconciles with Tally: an
+ORDER row (approved onwards) shows the order value and MOVES NOTHING; a BILL row credits what we owe
+(invoice total; RA bill `invoice_value − deduction + round_off`, i.e. BEFORE the advance recovery
+and retention, so the advance debit is cleared by the bills rather than hidden inside them); a
+PAYMENT row debits `amount + tds`. `balance = Σ bill − Σ (paid + TDS)`, running in date order; a
+negative balance is an advance not yet recovered, zero is fully settled. Rows before `date_from`
+fold into the opening line. `TheVendorLedger` proves the closing balance ties and that a fully
+recovered advance closes at zero.
+
+**THE TDS REPORT (`tds_report`)** — per fiscal quarter (`fiscal_quarters` on
+`analytics.periods.fiscal_start`), one row per vendor × section × rate over every payment dated in
+the quarter: `base` is the bill's TAXABLE in the proportion the payment settles of it (RA:
+`taxable × (paid + TDS) ÷ payable`; invoice: `taxable × (paid + TDS) ÷ total`; an advance is its
+own base), `gross` = paid + TDS, `tds`, `paid`. Grouped by section with subtotals; the CA files 26Q
+from the Excel. Nothing is filed from here.
+
 ### `FIN-CALC-BULK` — `finance/calc.py`
 **`bulk_cumulative`, `bulk_bill_figures`, `bulk_invoice_figures`, `bulk_po_settlement` fetch
 every related row for a set of orders in a fixed number of queries.** `bulk_bill_figures`
@@ -1790,16 +1830,20 @@ DRAFT → CERTIFIED → APPROVED → PAID, strictly sequential. One open bill pe
 after an approved final bill; approve needs every line certified and writes receipts through
 `record_receipt` with `Source.RA_BILL` (zero lines write none); part payments allowed, PAID when
 Σ amount ≥ net payable, never more than is left; the WO turns PAID when every bill is paid and a
-final bill exists. Retention release refuses more than the balance and refuses before the DLP
-unless `override=True` WITH a note; it writes a `RetentionRelease` AND a `VendorPayment` of kind
-`retention_release`, because the money left the bank and the register goes to Tally. A PO turns
-PAID when Σ payments ≥ its net payable and it is DELIVERED. Numbers `RA-` / `VB-` / `PV-` come
-from `NumberSeries`, never from max().
+final bill exists. `release_retention` is UNUSED, KEPT FOR DATA (retention switched off, 11 Sep
+2026): it still refuses more than the balance and refuses before the DLP unless `override=True`
+WITH a note, and writes a `RetentionRelease` AND a `VendorPayment` of kind `retention_release` —
+but no route or screen calls it. A PO turns PAID when Σ payments ≥ its net payable and it is
+DELIVERED. Numbers `RA-` / `VB-` / `PV-` come from `NumberSeries`, never from max().
 
 ### `FIN-SCREENS` — `finance/views.py`
-**finance.view** reads everything; **finance.certify** raises bills, types certified quantities,
-discards drafts; **finance.approve** approves bills and releases retention; **finance.pay**
-records invoices and payments.
+**finance.view** reads everything — Overview, Bills, RA bills, Payments, Vendor ledger, TDS and
+every Excel; **finance.certify** raises bills, types certified quantities, discards drafts;
+**finance.approve** approves bills; **finance.pay** records bills (invoices) and payments, and is
+the key on `finance_bill_pick`, the "Record a bill" doorway that asks for the PO first.
+
+**⚠ THE TAB STRIP CARRIES `project` ALONG** (`templates/finance/_nav.html`), as analytics carries
+its filters — only `project`, because status and type mean different things on different tabs.
 
 **⚠ TWO SCREENS OPEN TO view OR certify — `finance_wo` and `finance_ra_bill` — via
 `requires_any`.** The site engineer holds certify and not view; the bill they certify must be a
@@ -1889,10 +1933,15 @@ per-project object is fetched scoped to the project
 `po_pdf`, and the test stubs the module in `sys.modules`.
 
 ### `HOME-SCREEN` — `projects/home.py`, `templates/projects/launchpad.html`
-**The first screen, as a morning briefing rather than a menu.** A money band (committed, paid,
-owed, collected, buyers overdue), one card per module with its two or three most-asked numbers,
-a "needs your attention" list, and one card per live site with budget used, work done and
-collected of booked.
+**The first screen — called Dashboard — as a morning briefing rather than a menu.** Four KPI
+cards (committed, paid, collected, bookings, each this month with the change against last month),
+a committed-against-paid chart by fiscal month, a status ring (units on live sites, else PO
+status), then three columns: **Your work** (the signed-in user's open subtasks with lateness,
+enquiries assigned to them, orders awaiting their approval), **Recent activity** (approved
+orders, bookings, receipts, compliance uploads) and **Upcoming** (tasks, compliance expiries,
+demand letters due), a "needs your attention" list, and one card per live site with budget used,
+work done and collected of booked. The chart fetches each stage ONCE for the year and buckets by
+month in Python — the query-count test in `projects/test_home.py` is the guard.
 
 **⚠ EVERY FIGURE IS BORROWED.** `analytics.money`, `analytics.budget`, `sales.calc` and the task
 model already own these numbers; `home.py` only picks which to show. A wrong number here is a

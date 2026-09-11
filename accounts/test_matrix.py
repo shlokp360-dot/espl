@@ -112,12 +112,16 @@ SCREENS = [
     ("finance_ra_bill_pay",      True,  {A, ACC}),
     ("finance_ra_bill_pdf",      True,  {A, PM, ACC}),
     ("finance_ra_bill_discard",  True,  {A, PM, SITE}),
-    ("finance_retention",        False, {A, PM, ACC}),
-    ("finance_invoices",         False, {A, PM, ACC}),
+    # Retention is switched off (customer, 11 Sep 2026): finance_retention and
+    # finance_retention_release no longer exist.
+    ("finance_bills",            False, {A, PM, ACC}),
+    ("finance_bill_pick",        False, {A, ACC}),
     ("finance_po",               True,  {A, PM, ACC}),
     ("finance_invoice_new",      True,  {A, ACC}),
     ("finance_po_pay",           True,  {A, ACC}),
     ("finance_payments",         False, {A, PM, ACC}),
+    ("finance_vendor_ledger",    False, {A, PM, ACC}),
+    ("finance_tds",              False, {A, PM, ACC}),
     # ---- drawings -----------------------------------------------------------
     ("drawings_home",              False, {A, PM, PUR, SITE}),
     ("drawings_register_default",  False, {A, PM, PUR, SITE}),
@@ -194,8 +198,10 @@ ACTIONS = [
     ("finance_ra_bill_new",       True,  {A, PM, SITE}),
     ("finance_ra_bill_save",      True,  {A, PM, SITE}),
     ("finance_ra_bill_approve",   True,  {A, PM}),
-    ("finance_retention_release", True,  {A, PM}),
+    ("finance_bills_excel",       False, {A, PM, ACC}),
     ("finance_payments_excel",    False, {A, PM, ACC}),
+    ("finance_vendor_ledger_excel", False, {A, PM, ACC}),
+    ("finance_tds_excel",         False, {A, PM, ACC}),
     ("drawings_groups_save",      False, {A, PM}),
 ]
 

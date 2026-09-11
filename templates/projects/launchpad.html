@@ -25,47 +25,78 @@ clicking anything.
 
 {% block eyebrow %}{% endblock %}
 {% block content %}
-
+{% load inr %}
 {% comment %}
 >>> ANCHOR: HOME-SCREEN <<<
-Money band → attention list beside the module cards → one card per live site.
-Every figure comes from projects/home.py; this template prints and links.
+The dashboard: greeting → four this-month cards → chart + status ring → your
+work / recent activity / upcoming → one card per live site. Every figure comes
+from projects/home.py; this template prints and links.
 {% endcomment %}
 
-<div class="band">
-  <div class="hello">
-    <span class="big">Good day, {{ user.first_name|default:user.get_username }}</span>
-    <span class="when">{% now "l j F" %}{% if home.sites %} · {{ home.sites|length }} live site{{ home.sites|length|pluralize }}{% endif %}</span>
-  </div>
-  {% if home.money %}
-  <div class="money">
-    {% for label, value, url, kind in home.money %}
-      <a class="m {{ kind }}" href="{{ url }}"><span class="l">{{ label }}</span><span class="v">{{ value }}</span></a>
-    {% endfor %}
-  </div>
-  {% endif %}
+<div class="dash-hd">
+  <div><div class="big">Good day, {{ user.first_name|default:user.get_username }}</div>
+  <div class="when">{% now "l, j F Y" %}{% if home.sites %} · {{ home.sites|length }} live site{{ home.sites|length|pluralize }}{% endif %}</div></div>
 </div>
 
-<div class="homegrid">
-  <div class="cards">
-    {% for card in home.cards %}
-      <a class="hcard" href="{{ card.url }}" style="--tc:{{ card.color }}">
-        <span class="t">{{ card.title }}</span>
-        {% for label, n, kind in card.rows %}
-          <span class="row"><span>{{ label }}</span><b class="{{ kind }}">{{ n }}</b></span>
-        {% endfor %}
-      </a>
-    {% endfor %}
-  </div>
-  {% if home.attention %}
-  <div class="attn">
-    <div class="t">Needs your attention</div>
-    {% for color, text, action, url in home.attention %}
-      <div class="row"><i style="background:{{ color }}"></i><span>{{ text }}</span><a href="{{ url }}">{{ action }}</a></div>
-    {% endfor %}
-  </div>
+{% if home.kpis %}
+<div class="kcards">
+  {% for k in home.kpis %}
+    <a class="kcard" href="{{ k.url }}">
+      <span class="l">{{ k.label }}</span>
+      <span class="v">{{ k.value }}</span>
+      <span class="d">{% if k.delta is not None %}<span class="chip {% if k.delta >= 0 %}up{% else %}down{% endif %}">{% if k.delta >= 0 %}▲{% else %}▼{% endif %} {{ k.delta }}%</span> vs last month{% else %}<span class="chip">—</span> no figure last month{% endif %}</span>
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if home.chart or home.donut %}
+<div class="dash-row2">
+  {% if home.chart %}
+  <div class="card"><div class="grph">Committed against paid, by month</div>{{ home.chart }}</div>
+  {% endif %}
+  {% if home.donut %}
+  <a class="card ring" href="{{ home.donut.url }}">
+    <div class="grph">{{ home.donut.title }}</div>
+    <div class="ringrow">
+      <div class="ringsvg">{{ home.donut.svg }}<div class="ringtot"><span>Total</span><b>{{ home.donut.total }}</b></div></div>
+      <div class="keys">{% for r in home.donut.rows %}<div class="key"><i class="sw" style="background:{{ r.colour }}"></i><span class="k">{{ r.label }}</span><span class="n">{{ r.value }}</span></div>{% endfor %}</div>
+    </div>
+  </a>
   {% endif %}
 </div>
+{% endif %}
+
+<div class="dash-row3">
+  <div class="card">
+    <div class="grph">Your work</div>
+    {% for m in home.mine %}
+      <a class="lrow" href="{{ m.url }}"><span class="t">{{ m.what }}{% if m.where %} <span class="w">· {{ m.where }}</span>{% endif %}</span>
+        {% if m.when %}<span class="{% if m.late %}late{% endif %}">{% if m.late %}{{ m.late }} d late{% else %}{{ m.when|date:"d M" }}{% endif %}</span>{% endif %}</a>
+    {% empty %}<div class="empty">Nothing assigned to you right now.</div>{% endfor %}
+  </div>
+  <div class="card">
+    <div class="grph">Recent activity</div>
+    {% for e in home.activity %}
+      <a class="lrow" href="{{ e.url }}"><span class="t"><span class="pill p-draft">{{ e.kind }}</span> {{ e.text }}</span><span>{{ e.when|date:"d M" }}</span></a>
+    {% empty %}<div class="empty">Nothing yet.</div>{% endfor %}
+  </div>
+  <div class="card">
+    <div class="grph">Upcoming</div>
+    {% for u in home.upcoming %}
+      <a class="lrow" href="{{ u.url }}"><span class="dt">{{ u.when|date:"d M" }}</span><span class="t"><b>{{ u.kind }}</b> · {{ u.what }} <span class="w">{{ u.where }}</span></span></a>
+    {% empty %}<div class="empty">Nothing due in the next two weeks.</div>{% endfor %}
+  </div>
+</div>
+
+{% if home.attention %}
+<div class="card" style="margin-top:18px">
+  <div class="grph">Needs attention</div>
+  {% for color, text, action, url in home.attention %}
+    <a class="lrow" href="{{ url }}"><i class="dot" style="background:{{ color }}"></i><span class="t">{{ text }}</span><span>{{ action }}</span></a>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if home.sites %}
 <div class="grph" style="margin-top:22px">Your sites</div>
@@ -83,9 +114,5 @@ Every figure comes from projects/home.py; this template prints and links.
   {% endfor %}
 </div>
 {% endif %}
-
-{% for tile in tiles %}{% if not tile.live %}
-  <div class="note tight"><b>{{ tile.title }}</b> is not built yet.</div>
-{% endif %}{% endfor %}
 
 {% endblock %}

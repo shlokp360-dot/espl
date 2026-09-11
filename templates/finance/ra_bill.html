@@ -20,7 +20,7 @@ gross to net payable, and the buttons that move it along.
 {% include "finance/_style.html" %}
 
 <div class="crumb" style="margin-bottom:10px;font-size:12.5px">
-  {% if user|can:"finance.view" %}<a href="{% url 'finance_ra_bills' %}">RA bills</a> &nbsp;▸&nbsp;{% endif %}
+  {% if user|can:"finance.view" %}<a href="{% url 'finance_ra_bills' %}?project={{ po.project.id }}">RA bills</a> &nbsp;▸&nbsp;{% endif %}
   <a href="{% url 'finance_wo' po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>{{ bill.number }}</b>
 </div>
 
@@ -171,8 +171,10 @@ gross to net payable, and the buttons that move it along.
         <tr><td class="k">Amount (contractor's invoice)</td><td class="num">₹{{ ladder.invoice_value|rupees }}</td></tr>
         <tr><td class="k">Less: agreed deduction (post-tax) @ {{ po.deduction_pct|qty }}%</td>
             <td class="num">{% if ladder.deduction %}− ₹{{ ladder.deduction|rupees }}{% else %}—{% endif %}</td></tr>
+        {% if ladder.retention %}
         <tr><td class="k">Less: retention @ {{ po.retention_pct|qty }}% on basic value</td>
-            <td class="num">{% if ladder.retention %}− ₹{{ ladder.retention|rupees }}{% else %}—{% endif %}</td></tr>
+            <td class="num">− ₹{{ ladder.retention|rupees }}</td></tr>
+        {% endif %}
         <tr><td class="k">Less: mobilisation advance recovered{% if bill.is_final %} (final — whole remainder){% endif %}</td>
             <td class="num">{% if ladder.advance_recovery %}− ₹{{ ladder.advance_recovery|rupees }}{% else %}—{% endif %}</td></tr>
         <tr><td class="k">Round off</td><td class="num">₹{{ ladder.round_off|rupees2 }}</td></tr>

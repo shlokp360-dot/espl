@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load inr perms help %}
 {% comment %}THE PAYMENTS REGISTER — what the accountant keys into Tally. The Excel button exports exactly this selection.{% endcomment %}
-{% block title %}Payments{% endblock %}
+{% block title %}Payments — Finance &amp; Accounting{% endblock %}
 {% block subtitle %}Every payment to a vendor or contractor, by date{% endblock %}
 {% block nav %}{% include "finance/_nav.html" with here="payments" %}{% endblock %}
 {% block headerinfo %}{% infobutton "finance_payments" %}{% endblock %}

@@ -1389,20 +1389,13 @@ def _apply_po_edits(request, order):
         if str(order.required_by or "") != (typed or ""):
             document["required_by"] = typed
 
-    # >>> ANCHOR: WO-TERMS <<< — only a work order's form carries these inputs.
+    # >>> ANCHOR: WO-TERMS <<< — only a work order's form carries this input.
+    #   Retention and DLP have no input since 11 Sep 2026 (retention is
+    #   switched off); the mobilisation advance is the one term still typed.
     if order.document_type == DocumentType.WO:
-        for key, field, caption in (("retention", "retention_pct", "retention %"),
-                                    ("mobilisation_advance", "mobilisation_advance",
-                                     "mobilisation advance")):
-            typed = number(key, caption, blank_ok=True)
-            if typed is not None and getattr(order, field) != typed:
-                document[field] = typed
-        if "dlp_months" in request.POST:
-            raw = (request.POST.get("dlp_months") or "").strip()
-            if raw.isdigit() and order.dlp_months != int(raw):
-                document["dlp_months"] = int(raw)
-            elif raw and not raw.isdigit():
-                problems.append("The defect liability period must be a whole number of months.")
+        typed = number("mobilisation_advance", "mobilisation advance", blank_ok=True)
+        if typed is not None and order.mobilisation_advance != typed:
+            document["mobilisation_advance"] = typed
 
     if document:
         try:

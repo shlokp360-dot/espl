@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% load inr perms help %}
-{% block title %}Record invoice — {{ po.number }}{% endblock %}
+{% block title %}Record a bill — {{ po.number }}{% endblock %}
 {% block subtitle %}{{ po.project.name }} &nbsp;|&nbsp; {{ po.vendor.name }}{% endblock %}
-{% block nav %}{% include "finance/_nav.html" with here="invoices" %}{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="bills" %}{% endblock %}
 {% block headerinfo %}{% infobutton "finance_invoice_new" %}{% endblock %}
 {% block infopanel %}{% infopanel "finance_invoice_new" %}{% endblock %}
 {% block content %}
 {% include "finance/_style.html" %}
-<div class="toolbar"><span class="ttl">Record {{ po.vendor.name }}'s invoice on {{ po.number }}</span><span class="sp"></span></div>
+<div class="crumb" style="margin-bottom:10px;font-size:13px">
+  <a href="{% url 'finance_bills' %}">Bills</a> &nbsp;▸&nbsp; <a href="{% url 'finance_bill_pick' %}">Record a bill</a> &nbsp;▸&nbsp; <b>{{ po.number }}</b>
+</div>
+<div class="toolbar"><span class="ttl">Record {{ po.vendor.name }}'s bill on {{ po.number }}</span><span class="sp"></span></div>
 
 <div class="facts">
   <div class="card"><div class="k">Order basic</div><div class="v">₹{{ totals.taxable|rupees2 }}</div></div>
@@ -28,7 +31,7 @@
   </div>
   <div><label>Note</label><input name="note" maxlength="300" value="{{ typed.note|default:'' }}"></div>
   <div class="foot">
-    <button type="submit">Record invoice</button>
+    <button type="submit">Record bill</button>
     <a href="{% url 'finance_po' po.id %}"><button type="button" class="sec">Back</button></a>
   </div>
 </form>

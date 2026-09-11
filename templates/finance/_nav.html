@@ -1,17 +1,26 @@
 {% load perms %}
 {% comment %}
-The finance tab strip. `here` is one of: home, ra_bills, retention, invoices, payments.
+The Finance & Accounting tab strip. `here` is one of: home, bills, ra_bills,
+payments, ledger, tds.
 
 ⚠ EVERY TAB IS A READ AND finance.view IS THE DOOR. A site engineer, who holds
   finance.certify alone, reaches a work order and its bills from the purchase
   order screen and sees no strip — a tab can never lead to a 403.
+
+⚠ THE CHOSEN PROJECT TRAVELS WITH THE TABS, as analytics/_nav.html carries its
+  filters: pick a project on the RA bill tracker and the Bills tab and the
+  Overview open on the same project. Only `project` travels — the other
+  filters mean different things on different tabs.
 {% endcomment %}
 {% if user|can:"finance.view" %}
+{% with q=request.GET.project %}
 <nav>
-  <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'finance_home' %}">Overview</a>
-  <a class="{% if here == 'ra_bills' %}on{% endif %}" href="{% url 'finance_ra_bills' %}">RA bills</a>
-  <a class="{% if here == 'retention' %}on{% endif %}" href="{% url 'finance_retention' %}">Retention</a>
-  <a class="{% if here == 'invoices' %}on{% endif %}" href="{% url 'finance_invoices' %}">Vendor invoices</a>
-  <a class="{% if here == 'payments' %}on{% endif %}" href="{% url 'finance_payments' %}">Payments</a>
+  <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'finance_home' %}{% if q %}?project={{ q|urlencode }}{% endif %}">Overview</a>
+  <a class="{% if here == 'bills' %}on{% endif %}" href="{% url 'finance_bills' %}{% if q %}?project={{ q|urlencode }}{% endif %}">Bills</a>
+  <a class="{% if here == 'ra_bills' %}on{% endif %}" href="{% url 'finance_ra_bills' %}{% if q %}?project={{ q|urlencode }}{% endif %}">RA bills</a>
+  <a class="{% if here == 'payments' %}on{% endif %}" href="{% url 'finance_payments' %}{% if q %}?project={{ q|urlencode }}{% endif %}">Payments</a>
+  <a class="{% if here == 'ledger' %}on{% endif %}" href="{% url 'finance_vendor_ledger' %}">Vendor ledger</a>
+  <a class="{% if here == 'tds' %}on{% endif %}" href="{% url 'finance_tds' %}">TDS</a>
 </nav>
+{% endwith %}
 {% endif %}

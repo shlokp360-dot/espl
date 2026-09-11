@@ -1,12 +1,25 @@
 """
-The finance screens: RA bills, retention, vendor invoices, payments.
+The Finance & Accounting screens: overview, bills, RA bills, payments, the
+vendor ledger and the TDS report.
 
 >>> ANCHOR: FIN-SCREENS <<<
 WHO MAY DO WHAT (accounts/perms.py)
     finance.view      Admin · Project manager · Accountant — every register, PDF, Excel
     finance.certify   Admin · Project manager · Site — raise a bill, type certified quantities
-    finance.approve   Admin · Project manager — approve a bill, release retention
-    finance.pay       Admin · Accountant — invoices and payments
+    finance.approve   Admin · Project manager — approve a bill
+    finance.pay       Admin · Accountant — record a bill (invoice) and payments
+
+THE TABS  Overview · Bills · RA bills · Payments · Vendor ledger · TDS
+    finance_home            KPIs, ageing, cash-out, top vendors — project filter
+    finance_bills           one row per vendor bill, VB- on a PO or RA- on a WO
+    finance_bill_pick       "Record a bill": pick the PO first, then invoice_new
+    finance_ra_bills        the RA bill tracker, project first
+    finance_payments        the register keyed into Tally
+    finance_vendor_ledger   one vendor, everything, running balance
+    finance_tds             per quarter, per vendor, grouped by section — for 26Q
+
+⚠ RETENTION IS SWITCHED OFF (customer, 11 Sep 2026). The Retention tab, the
+  release form and its route are gone; the fields and the ladder rung stay.
 
 ⚠ TWO SCREENS OPEN TO EITHER finance.view OR finance.certify: the work order
   screen and the bill screen. The site engineer holds certify and not view —
@@ -21,8 +34,9 @@ WHO MAY DO WHAT (accounts/perms.py)
   a POST. Raw ids from the query string are `.isdigit()`-guarded.
 """
 import io
-from datetime import date, timedelta
-from decimal import Decimal, InvalidOperation
+from collections import defaultdict
+from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib import messages
 from django.http import HttpResponse
@@ -63,6 +77,11 @@ def _int(raw):
 
 def _projects():
     return Project.objects.filter(purchase_orders__isnull=False).distinct().order_by("name")
+
+
+def _won_projects():
+    """The RA bill tracker's first control: every Won project, billed or not."""
+    return Project.objects.filter(status=Project.Status.WON).order_by("name")
 
 
 def _vendors(doc_type=None):
@@ -121,41 +140,83 @@ def _decorate_bills(bills, ladders, paid_on_bill=None):
     return rows
 
 
-# ---------------------------------------------------------------- the dashboard
+# ---------------------------------------------------------------- the overview
+
+def _register_selection(source):
+    """The bills-register filters, shared by the screen, its Excel and the overview."""
+    project = _int(source.get("project"))
+    vendor = _int(source.get("vendor"))
+    kind = (source.get("type") or "").strip().lower()
+    status = (source.get("status") or "").strip()
+    date_from = _date(source.get("from"))
+    date_to = _date(source.get("to"))
+    invoices = (VendorInvoice.objects.select_related("purchase_order__vendor",
+                                                     "purchase_order__project"))
+    bills = (RABill.objects.filter(status__in=RABill.COUNTED)
+             .select_related("purchase_order__vendor", "purchase_order__project"))
+    if project:
+        invoices = invoices.filter(purchase_order__project_id=project)
+        bills = bills.filter(purchase_order__project_id=project)
+    if vendor:
+        invoices = invoices.filter(purchase_order__vendor_id=vendor)
+        bills = bills.filter(purchase_order__vendor_id=vendor)
+    if date_from:
+        invoices = invoices.filter(invoice_date__gte=date_from)
+        bills = bills.filter(bill_date__gte=date_from)
+    if date_to:
+        invoices = invoices.filter(invoice_date__lte=date_to)
+        bills = bills.filter(bill_date__lte=date_to)
+    if kind == "po":
+        bills = bills.none()
+    elif kind == "wo":
+        invoices = invoices.none()
+    else:
+        kind = ""
+    rows = calc.bills_register(list(invoices), list(bills))
+    if status in calc.BILL_STATUS_WORDS:
+        rows = [r for r in rows if r["status"] == status]
+    else:
+        status = ""
+    for row in rows:
+        row["pill"] = INVOICE_PILL[row["status"]]
+        row["word"] = INVOICE_WORDS[row["status"]]
+    chosen = {"project": project, "vendor": vendor, "type": kind, "status": status,
+              "from": date_from, "to": date_to}
+    return rows, chosen
+
 
 @requires("finance.view")
 def home(request):
     today = timezone.localdate()
-    orders = list(_work_orders())
-    summaries = calc.bulk_cumulative(orders, today=today)
+    project = _int(request.GET.get("project"))
+    rows, _chosen = _register_selection({"project": request.GET.get("project")})
+    open_rows = [r for r in rows if r["balance"] > ZERO]
 
-    invoices = list(VendorInvoice.objects.select_related("purchase_order"))
-    invoice_figures = calc.bulk_invoice_figures(invoices)
     month_from, month_to = _month_bounds(today)
+    _key, _label, quarter_from, quarter_to = calc.quarter_bounds(today)
     month_payments = VendorPayment.objects.filter(paid_on__range=(month_from, month_to))
-    po_advances = VendorPayment.objects.filter(
-        kind=VendorPayment.Kind.ADVANCE, purchase_order__document_type=DocumentType.PO
-    ).exclude(purchase_order__status=PurchaseOrder.Status.PAID)
+    quarter_payments = VendorPayment.objects.filter(paid_on__range=(quarter_from, quarter_to))
+    if project:
+        month_payments = month_payments.filter(purchase_order__project_id=project)
+        quarter_payments = quarter_payments.filter(purchase_order__project_id=project)
 
+    late = calc.overdue(open_rows, today)
     kpis = {
-        "payable_now": calc._sum(s["payable_now"] for s in summaries.values())
-                       + calc._sum(f["balance"] for f in invoice_figures.values()),
-        "retention_held": calc._sum(s["retention_balance"] for s in summaries.values()),
-        "retention_due": calc._sum(s["retention_balance"] for s in summaries.values()
-                                   if s["retention_eligible"]),
-        "advances_outstanding": calc._sum(max(ZERO, s["advance_paid"] - s["advance_recovered"])
-                                          for s in summaries.values())
-                                + calc.payments_total(po_advances)["amount"],
+        "payable_now": calc.bills_total(open_rows)["balance"],
+        "open_count": len(open_rows),
+        "overdue": late["balance"],
+        "overdue_count": late["count"],
+        "overdue_assumed": late["assumed"],
         "paid_month": calc.payments_total(month_payments)["amount"],
+        "tds_quarter": calc.payments_total(quarter_payments)["tds"],
     }
-    live = [s for s in summaries.values() if s["open_bill"] or s["retention_balance"] > ZERO]
-    live.sort(key=lambda s: (s["po"].project.name, s["po"].number))
-    horizon = today + timedelta(days=90)
-    dlp = sorted((s for s in summaries.values()
-                  if s["dlp_end"] and today <= s["dlp_end"] <= horizon),
-                 key=lambda s: s["dlp_end"])
     return render(request, "finance/home.html", {
-        "kpis": kpis, "live": live, "dlp": dlp, "today": today, "bill_pill": BILL_PILL,
+        "kpis": kpis, "today": today,
+        "ageing": calc.ageing(open_rows, today),
+        "cash_out": calc.cash_out(open_rows, today),
+        "vendors": calc.top_vendors(open_rows),
+        "projects": _won_projects(), "project": project,
+        "month": f"{month_from:%b %Y}", "quarter": f"{quarter_from:%b} – {quarter_to:%b %Y}",
     })
 
 
@@ -178,17 +239,37 @@ def _bill_selection(request):
 
 @requires("finance.view")
 def ra_bills(request):
+    """
+    The RA bill tracker. Project is the first control and "all projects" the
+    default; the tab strip carries the chosen project along. With a project
+    chosen the tfoot adds that project's position: certified to date, billed,
+    paid and balance — over its APPROVED and PAID bills, as everywhere else.
+    """
     bills, chosen = _bill_selection(request)
     ladders = calc.bulk_bill_figures(bills)
-    rows = _decorate_bills(bills, ladders)
+    paid_on_bill = defaultdict(Decimal)
+    for payment in VendorPayment.objects.filter(ra_bill_id__in=[b.id for b in bills]):
+        paid_on_bill[payment.ra_bill_id] += payment.amount
+    rows = _decorate_bills(bills, ladders, paid_on_bill)
+    counted = [b for b in bills if b.status in RABill.COUNTED]
     totals = {
         "taxable": calc._sum(ladders[b.id]["taxable"] for b in bills),
-        "retention": calc._sum(ladders[b.id]["retention"] for b in bills),
         "net_payable": calc._sum(ladders[b.id]["net_payable"] for b in bills),
+        "paid": calc._sum(paid_on_bill[b.id] for b in bills),
     }
+    subtotals = None
+    if chosen["project"]:
+        subtotals = {
+            "certified": calc._sum(ladders[b.id]["taxable"] for b in counted),
+            "billed": calc._sum(ladders[b.id]["invoice_value"] for b in counted),
+            "paid": calc._sum(paid_on_bill[b.id] for b in counted),
+            "balance": calc._sum(max(ZERO, ladders[b.id]["net_payable"] - paid_on_bill[b.id])
+                                 for b in counted),
+            "project": Project.objects.filter(pk=chosen["project"]).first(),
+        }
     return render(request, "finance/ra_bills.html", {
-        "rows": rows, "totals": totals, "chosen": chosen,
-        "projects": _projects(), "vendors": _vendors(DocumentType.WO),
+        "rows": rows, "totals": totals, "subtotals": subtotals, "chosen": chosen,
+        "projects": _won_projects(), "vendors": _vendors(DocumentType.WO),
         "statuses": RABill.Status.choices,
     })
 
@@ -214,7 +295,7 @@ def ra_bills_excel(request):
         "RA bill", "No.", "Final", "Status", "Bill date", "Contractor ref", "Approved", "Paid",
         "Project", "Work order", "Contractor", "GSTIN",
         "Gross", "Line discount", "Taxable", "GST", "Invoice value",
-        "Deduction %", "Deduction", "Retention %", "Retention", "Advance recovery",
+        "Deduction %", "Deduction", "Advance recovery",
         "Round off", "Payable", "TDS %", "TDS", "Net payable",
     ]
     money_from = headings.index("Gross")
@@ -230,8 +311,7 @@ def ra_bills_excel(request):
             po.project.code, po.number, po.vendor.name, po.vendor_gstin or po.vendor.gst_number,
             float(ladder["gross"]), float(ladder["discount"]), float(ladder["taxable"]),
             float(ladder["gst"]), float(ladder["invoice_value"]),
-            float(po.deduction_pct), float(ladder["deduction"]),
-            float(po.retention_pct), float(ladder["retention"]), float(ladder["advance_recovery"]),
+            float(po.deduction_pct), float(ladder["deduction"]), float(ladder["advance_recovery"]),
             float(ladder["round_off"]), float(ladder["payable"]),
             float(po.tds_pct), float(ladder["tds"]), float(ladder["net_payable"]),
         ])
@@ -305,7 +385,7 @@ def _xlsx(book, stem):
 
 @requires_any("finance.view", "finance.certify")
 def work_order(request, po_id):
-    """One work order: its lines to date, bills, retention, advance, payments."""
+    """One work order: its lines to date, bills, advance and payments."""
     po = _wo_or_404(po_id)
     today = timezone.localdate()
     summary = calc.cumulative(po, today=today)
@@ -315,7 +395,6 @@ def work_order(request, po_id):
         "po": po, "s": summary, "bills": bills, "today": today,
         "advances": [p for p in payments if p.kind == VendorPayment.Kind.ADVANCE],
         "payments": payments,
-        "releases": summary["releases"],
         "can_bill": (po.status in (PurchaseOrder.Status.APPROVED, PurchaseOrder.Status.DELIVERED)
                      and summary["open_bill"] is None and summary["final_bill"] is None),
         "modes": VendorPayment.Mode.choices,
@@ -499,69 +578,69 @@ def ra_bill_discard(request, bill_id):
     return render(request, "finance/ra_bill_discard.html", {"bill": bill, "po": po})
 
 
-# ---------------------------------------------------------------- retention
+# ---------------------------------------------------------------- bills (PO/WO billing)
 
 @requires("finance.view")
-def retention(request):
-    today = timezone.localdate()
-    summaries = calc.bulk_cumulative(list(_work_orders()), today=today)
-    rows = sorted((s for s in summaries.values() if s["retention_held"] > ZERO),
-                  key=lambda s: (s["dlp_end"] or date.max, s["po"].number))
-    totals = {
-        "held": calc._sum(s["retention_held"] for s in rows),
-        "released": calc._sum(s["retention_released"] for s in rows),
-        "balance": calc._sum(s["retention_balance"] for s in rows),
-        "due": calc._sum(s["retention_balance"] for s in rows if s["retention_eligible"]),
-    }
-    return render(request, "finance/retention.html", {"rows": rows, "totals": totals, "today": today})
+def bills(request):
+    """
+    ONE register for every vendor bill: a VB- invoice against a purchase order
+    or an RA- bill against a work order, in the same columns. Filters: project,
+    vendor, type, status, date range. The Excel export takes the same selection.
+    """
+    rows, chosen = _register_selection(request.GET)
+    return render(request, "finance/bills.html", {
+        "rows": rows, "totals": calc.bills_total(rows), "chosen": chosen,
+        "projects": _projects(), "vendors": _vendors(),
+        "statuses": INVOICE_WORDS.items(),
+    })
 
 
 @require_POST
-@requires("finance.approve")
-def retention_release(request, po_id):
-    po = _wo_or_404(po_id)
-    try:
-        release = services.release_retention(
-            po, request.user, request.POST.get("amount", ""),
-            released_on=_date(request.POST.get("released_on"), timezone.localdate()),
-            reference=request.POST.get("reference", ""), note=request.POST.get("note", ""),
-            override=bool(request.POST.get("override")))
-    except FinanceError as refusal:
-        messages.error(request, str(refusal))
-    else:
-        messages.success(request, f"₹{release.amount} retention released on {po.number}.")
-    return redirect(reverse("finance_wo", args=[po.id]))
-
-
-# ---------------------------------------------------------------- vendor invoices
-
 @requires("finance.view")
-def invoices(request):
-    rows = (VendorInvoice.objects.select_related("purchase_order__vendor", "purchase_order__project")
-            .order_by("-invoice_date", "-id"))
+def bills_excel(request):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    rows, chosen = _register_selection(request.POST)
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Bills"
+    headings = ["Bill no", "Type", "Document", "Vendor's ref", "Project", "Vendor", "GSTIN",
+                "Bill date", "Due", "Status", "Basic", "Amount", "TDS", "Paid to date", "Balance"]
+    _sheet_header(sheet, headings, Font, PatternFill, Alignment)
+    for row in rows:
+        sheet.append([
+            row["number"], "PO" if row["kind"] == "po" else "WO", row["po"].number,
+            row["reference"], row["project"].code, row["vendor"].name,
+            row["po"].vendor_gstin or row["vendor"].gst_number,
+            row["bill_date"], row["due_date"], row["word"],
+            float(row["taxable"]), float(row["amount"]), float(row["tds"]),
+            float(row["paid"]), float(row["balance"]),
+        ])
+    _sheet_finish(sheet, headings, headings.index("Basic"),
+                  {"Bill no": 12, "Document": 14, "Vendor's ref": 16, "Vendor": 26, "GSTIN": 18,
+                   "Status": 11})
+    return _xlsx(book, "Bills")
+
+
+@requires("finance.pay")
+def bill_pick(request):
+    """
+    "Record a bill" from the Bills tab: pick the purchase order first. Lists
+    approved-or-later POs by project; the row leads to finance_invoice_new.
+    """
     project = _int(request.GET.get("project"))
-    vendor = _int(request.GET.get("vendor"))
-    status = (request.GET.get("status") or "").strip()
+    orders = (PurchaseOrder.objects.filter(document_type=DocumentType.PO)
+              .exclude(status=PurchaseOrder.Status.DRAFT)
+              .select_related("vendor", "project").prefetch_related("lines")
+              .order_by("project__name", "-approved_at", "-id"))
     if project:
-        rows = rows.filter(purchase_order__project_id=project)
-    if vendor:
-        rows = rows.filter(purchase_order__vendor_id=vendor)
-    rows = list(rows)
-    figures = calc.bulk_invoice_figures(rows)
-    if status in INVOICE_WORDS:
-        rows = [i for i in rows if figures[i.id]["status"] == status]
-    decorated = [{"invoice": i, "f": figures[i.id], "pill": INVOICE_PILL[figures[i.id]["status"]],
-                  "word": INVOICE_WORDS[figures[i.id]["status"]]} for i in rows]
-    totals = {
-        "total": calc._sum(i.total for i in rows),
-        "settled": calc._sum(figures[i.id]["settled"] for i in rows),
-        "balance": calc._sum(figures[i.id]["balance"] for i in rows),
-    }
-    return render(request, "finance/invoices.html", {
-        "rows": decorated, "totals": totals,
-        "chosen": {"project": project, "vendor": vendor, "status": status},
-        "projects": _projects(), "vendors": _vendors(DocumentType.PO),
-        "statuses": INVOICE_WORDS.items(),
+        orders = orders.filter(project_id=project)
+    orders = list(orders)
+    settlements = calc.bulk_po_settlement(orders)
+    rows = [{"po": po, "s": settlements[po.id]} for po in orders]
+    return render(request, "finance/bill_pick.html", {
+        "rows": rows, "projects": _projects(), "project": project,
     })
 
 
@@ -698,3 +777,111 @@ def payments_excel(request):
         for cell in row:
             cell.number_format = "General"
     return _xlsx(book, f"Payments_{chosen['from']}_to_{chosen['to']}")
+
+
+# ---------------------------------------------------------------- the vendor ledger
+
+def _ledger_selection(source):
+    vendor_id = _int(source.get("vendor"))
+    vendor = Vendor.objects.filter(pk=vendor_id).first() if vendor_id else None
+    date_from = _date(source.get("from"))
+    date_to = _date(source.get("to"))
+    ledger = calc.vendor_ledger(vendor, date_from, date_to) if vendor else None
+    return vendor, ledger, {"vendor": vendor_id, "from": date_from, "to": date_to}
+
+
+@requires("finance.view")
+def vendor_ledger(request):
+    """
+    Pick a vendor; every order, bill and payment in date order with a running
+    balance — what the accountant reconciles with Tally. calc.vendor_ledger
+    holds the convention; this view only chooses and prints.
+    """
+    vendor, ledger, chosen = _ledger_selection(request.GET)
+    return render(request, "finance/vendor_ledger.html", {
+        "vendor": vendor, "ledger": ledger, "chosen": chosen, "vendors": _vendors(),
+    })
+
+
+@require_POST
+@requires("finance.view")
+def vendor_ledger_excel(request):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    vendor, ledger, chosen = _ledger_selection(request.POST)
+    if vendor is None:
+        messages.error(request, "Pick a vendor first.")
+        return redirect(reverse("finance_vendor_ledger"))
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Ledger"
+    headings = ["Date", "Kind", "Number", "Particulars", "Project", "Order value", "Bill",
+                "Paid", "TDS", "Balance"]
+    _sheet_header(sheet, headings, Font, PatternFill, Alignment)
+    opening = ledger["opening"]
+    sheet.append([chosen["from"], "Opening", "", f"Opening balance for {vendor.name}", "",
+                  None, float(opening["bill"]), float(opening["paid"]), float(opening["tds"]),
+                  float(opening["balance"])])
+    for row in ledger["rows"]:
+        sheet.append([
+            row["date"], row["kind"].title(), row["number"], row["label"], row["project"].code,
+            float(row["order_value"]) if row["order_value"] else None,
+            float(row["bill"]) if row["bill"] else None,
+            float(row["paid"]) if row["paid"] else None,
+            float(row["tds"]) if row["tds"] else None,
+            float(row["balance"]),
+        ])
+    totals = ledger["totals"]
+    sheet.append([None, "Closing", "", "Closing balance", "", float(totals["order_value"]),
+                  float(totals["bill"]), float(totals["paid"]), float(totals["tds"]),
+                  float(ledger["closing"])])
+    _sheet_finish(sheet, headings, headings.index("Order value"),
+                  {"Particulars": 40, "Number": 12, "Kind": 10})
+    return _xlsx(book, f"Ledger_{vendor.code}")
+
+
+# ---------------------------------------------------------------- the TDS report
+
+def _tds_selection(source):
+    today = timezone.localdate()
+    key, label, start, end = calc.quarter_bounds(today, (source.get("q") or "").strip())
+    report = calc.tds_report(start, end)
+    return report, {"q": key, "label": label, "from": start, "to": end}
+
+
+@requires("finance.view")
+def tds(request):
+    """
+    Per fiscal quarter (April–March, as analytics.periods), per vendor and
+    section: the basic value TDS was computed on, the rate from the order, the
+    TDS withheld and the amount paid. What the CA files 26Q from.
+    """
+    report, chosen = _tds_selection(request.GET)
+    return render(request, "finance/tds.html", {
+        "report": report, "chosen": chosen,
+        "quarters": calc.fiscal_quarters(timezone.localdate()),
+    })
+
+
+@require_POST
+@requires("finance.view")
+def tds_excel(request):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    report, chosen = _tds_selection(request.POST)
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "TDS"
+    headings = ["Section", "Vendor", "GSTIN", "Payments", "Rate %", "Taxable base",
+                "Paid + TDS", "TDS", "Paid"]
+    _sheet_header(sheet, headings, Font, PatternFill, Alignment)
+    for row in report["rows"]:
+        sheet.append([
+            row["section"], row["vendor"].name, row["gstin"], row["count"], float(row["rate"]),
+            float(row["base"]), float(row["gross"]), float(row["tds"]), float(row["paid"]),
+        ])
+    _sheet_finish(sheet, headings, headings.index("Taxable base"),
+                  {"Vendor": 26, "GSTIN": 18, "Section": 10})
+    return _xlsx(book, f"TDS_{chosen['q']}")

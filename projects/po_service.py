@@ -435,7 +435,7 @@ def _refuse_if_billed_by_ra(purchase_order, word):
     from finance.models import RABill
     if RABill.objects.filter(purchase_order=purchase_order).exists():
         raise POError(f"{purchase_order.number} is billed through RA bills, so it cannot be "
-                      f"marked {word} here. Open Finance → RA bills for this work order: the "
+                      f"marked {word} here. Open Finance & Accounting → RA bills for this work order: the "
                       f"final bill marks it completed and the last payment marks it paid.")
 
 
@@ -558,6 +558,10 @@ def update_draft_document(order, deduction_pct=None, tds_pct=None, tds_section=N
     retention 0–50%, DLP 0–60 months, an advance of at least zero and never
     more than the order's own taxable value — an advance bigger than the work
     could never be recovered from the bills.
+
+    ⚠ RETENTION IS SWITCHED OFF (customer, 11 Sep 2026). No screen sends
+      `retention_pct` or `dlp_months` any more; both default to 0 and 12 and
+      the bounds stay so a future caller cannot type nonsense.
 
     ⚠ NEITHER PERCENTAGE HAS A DEFAULT, and that is deliberate (Saahil, 10 Aug).
       They are single numbers that genuinely vary order to order, and a default

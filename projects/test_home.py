@@ -21,12 +21,14 @@ class EveryRoleHasAHome(AuthedTestCase):
     def test_a_site_engineer_sees_no_money_band(self):
         self.client.force_login(self.make_user("zq.site", role=Role.SITE))
         html = self.client.get(reverse("launchpad")).content.decode()
-        self.assertNotIn("Committed this year", html)
-        self.assertNotIn("Collected from buyers", html)
+        self.assertNotIn("Committed this month", html)
+        self.assertNotIn("Collected this month", html)
+        self.assertIn("Your work", html)
 
-    def test_an_admin_sees_the_band_and_the_cards(self):
+    def test_an_admin_sees_the_kpis_and_the_work_columns(self):
         html = self.client.get(reverse("launchpad")).content.decode()
-        for text in ("Committed this year", "Purchase orders", "Sales", "Drawings"):
+        for text in ("Committed this month", "Paid this month", "Your work",
+                     "Recent activity", "Upcoming", "Dashboard"):
             self.assertIn(text, html)
 
 

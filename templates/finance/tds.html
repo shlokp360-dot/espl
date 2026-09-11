@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load inr perms help %}
+{% comment %}
+THE TDS REPORT — one fiscal quarter, one row per vendor and section, grouped by
+section with a subtotal each. calc.tds_report does the arithmetic; this prints.
+{% endcomment %}
+{% block title %}TDS — Finance &amp; Accounting{% endblock %}
+{% block subtitle %}Tax deducted at source, per quarter and per vendor, grouped by section{% endblock %}
+{% block nav %}{% include "finance/_nav.html" with here="tds" %}{% endblock %}
+{% block headerinfo %}{% infobutton "finance_tds" %}{% endblock %}
+{% block infopanel %}{% infopanel "finance_tds" %}{% endblock %}
+{% block content %}
+{% include "finance/_style.html" %}
+
+<div class="toolbar">
+  <span class="ttl">TDS · {{ chosen.label }}</span>
+  <span class="sp"></span>
+  <form method="post" action="{% url 'finance_tds_excel' %}" style="margin:0">
+    {% csrf_token %}
+    <input type="hidden" name="q" value="{{ chosen.q }}">
+    <button type="submit" class="sec">⤓ Excel for 26Q</button>
+  </form>
+</div>
+
+<form method="get" class="searchbox" style="margin-top:0">
+  <div class="srow" style="margin-bottom:0">
+    <select name="q" class="cell">
+      {% for key, label, start, end in quarters %}<option value="{{ key }}" {% if key == chosen.q %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="sec sm">Show quarter</button>
+  </div>
+</form>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Payments · {{ chosen.from|date:"d/m/Y" }} – {{ chosen.to|date:"d/m/Y" }}</div><div class="v">{{ report.totals.count }}</div></div>
+  <div class="kpi"><div class="l">Taxable base</div><div class="v">₹{{ report.totals.base|rupees }}</div></div>
+  <div class="kpi warn"><div class="l">TDS deducted</div><div class="v">₹{{ report.totals.tds|rupees }}</div></div>
+  <div class="kpi"><div class="l">Paid to vendors</div><div class="v">₹{{ report.totals.paid|rupees }}</div></div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Section</th><th>Vendor</th><th>GSTIN</th><th class="num">Payments</th><th class="num">Rate</th>
+    <th class="num">Taxable base</th><th class="num">Paid + TDS</th><th class="num">TDS</th><th class="num">Paid</th>
+  </tr></thead>
+  <tbody>
+  {% for block in report.sections %}
+    {% for row in block.rows %}
+    <tr>
+      <td>{% if forloop.first %}<b>{{ block.section }}</b>{% endif %}</td>
+      <td>{{ row.vendor.name }}</td>
+      <td class="code">{{ row.gstin|default:"—" }}</td>
+      <td class="num">{{ row.count }}</td>
+      <td class="num">{{ row.rate|qty }}%</td>
+      <td class="num">₹{{ row.base|rupees }}</td>
+      <td class="num">₹{{ row.gross|rupees }}</td>
+      <td class="num"><b>{% if row.tds %}₹{{ row.tds|rupees }}{% else %}—{% endif %}</b></td>
+      <td class="num">₹{{ row.paid|rupees }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td colspan="5"><b>{{ block.section }}</b> · {{ block.rows|length }} vendor{{ block.rows|length|pluralize }}</td>
+      <td class="num"><b>₹{{ block.base|rupees }}</b></td>
+      <td class="num"><b>₹{{ block.gross|rupees }}</b></td>
+      <td class="num"><b>₹{{ block.tds|rupees }}</b></td>
+      <td class="num"><b>₹{{ block.paid|rupees }}</b></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9">No payment between {{ chosen.from|date:"d/m/Y" }} and {{ chosen.to|date:"d/m/Y" }}.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td colspan="5">Total · {{ report.totals.count }} payment{{ report.totals.count|pluralize }}</td>
+    <td class="num">₹{{ report.totals.base|rupees }}</td>
+    <td class="num">₹{{ report.totals.gross|rupees }}</td>
+    <td class="num"><b>₹{{ report.totals.tds|rupees }}</b></td>
+    <td class="num">₹{{ report.totals.paid|rupees }}</td>
+  </tr></tfoot>
+</table>
+{% endblock %}

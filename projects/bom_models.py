@@ -395,13 +395,17 @@ class PurchaseOrder(models.Model):
     # frozen by approval, so an approved bill's figures can never move because
     # somebody changed a term after the fact.
     #
-    # ⚠ THESE THREE HAVE DEFAULTS, unlike deduction and TDS, and that is a
-    #   customer rule rather than a convenience: 10% retention on EVERY
-    #   contractor bill, a 12-month defect liability period, and no advance
-    #   unless one was agreed.
+    # ⚠ RETENTION IS SWITCHED OFF — the customer's instruction, 11 Sep 2026.
+    #   The default is 0, the input is gone from the document screen, and the
+    #   RA bill screens print no retention row when it is zero. The field and
+    #   the ladder rung stay: orders billed at 10% before that date keep their
+    #   figures, and finance.calc still handles a non-zero value correctly
+    #   (one calc-level test proves it). DLP months keeps its default and has
+    #   no input either; the advance is the one term still typed.
     retention_pct = models.DecimalField(
-        max_digits=5, decimal_places=2, default=10, validators=[MinValueValidator(0)],
-        help_text="Held back from every RA bill, on the work value (ex-GST). Work orders only.")
+        max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="Held back from every RA bill, on the work value (ex-GST). "
+                  "Switched off by default; kept for orders billed before 11 Sep 2026.")
     dlp_months = models.PositiveSmallIntegerField(
         default=12, help_text="Defect liability period, months from the final bill's approval.")
     mobilisation_advance = models.DecimalField(

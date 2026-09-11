@@ -45,9 +45,169 @@ def _lakh_crore(value):
     return f"{sign}₹{int(value):,}".replace(",", ",")
 
 
+def _month_bounds(day):
+    first = day.replace(day=1)
+    last_prev = first - timedelta(days=1)
+    return first, last_prev.replace(day=1), last_prev
+
+
+def _delta(now, before):
+    """Percent change, or None when there is nothing to compare with."""
+    if not before:
+        return None
+    return int(round((Decimal(now) - Decimal(before)) * 100 / Decimal(before)))
+
+
 def home_for(role, user=None, today=None):
     today = today or date.today()
-    out = {"money": [], "cards": [], "attention": [], "sites": []}
+    out = {"money": [], "cards": [], "attention": [], "sites": [],
+           "kpis": [], "mine": [], "activity": [], "upcoming": [], "chart": "", "donut": None}
+    first, prev_first, prev_last = _month_bounds(today)
+
+    # ---------------------------------------------------- this month vs last
+    # >>> ANCHOR: HOME-SCREEN <<< four cards, each a figure the office asks for
+    # weekly, with the change against last month beside it.
+    if role_can(role, "analytics.view"):
+        from analytics import charts, money, periods
+        now_c = money.add_up(money.documents("committed", first, today))["taxable"]
+        was_c = money.add_up(money.documents("committed", prev_first, prev_last))["taxable"]
+        now_p = money.add_up(money.documents("paid", first, today))["net_payable"]
+        was_p = money.add_up(money.documents("paid", prev_first, prev_last))["net_payable"]
+        out["kpis"] += [
+            {"label": "Committed this month", "value": _lakh_crore(now_c), "delta": _delta(now_c, was_c),
+             "url": reverse("analytics_home")},
+            {"label": "Paid this month", "value": _lakh_crore(now_p), "delta": _delta(now_p, was_p),
+             "url": reverse("analytics_payments")},
+        ]
+        # One fetch per stage for the whole fiscal year so far, bucketed by
+        # month here — two queries per month would be a query per row.
+        months = [(key, label, periods.bounds(today, key)[:2]) for key, label in periods.months_so_far(today)]
+        year_a, year_b = months[0][2][0], months[-1][2][1]
+        bucket = {stage: {key: [] for key, _l, _ab in months}
+                  for stage in ("committed", "paid")}
+        for stage in bucket:
+            field = money.STAGE_DATE[stage]
+            for order in money.documents(stage, year_a, year_b):
+                when = getattr(order, field).date()
+                for key, _l, (a, b) in months:
+                    if a <= when <= b:
+                        bucket[stage][key].append(order)
+                        break
+        rows = [{"label": label.split()[0], "values": [
+                    money.add_up(bucket["committed"][key])["taxable"],
+                    money.add_up(bucket["paid"][key])["net_payable"]]}
+                for key, label, _ab in months]
+        out["chart"] = charts.bars(rows, [{"label": "Committed", "colour": charts.PALETTE[0]},
+                                          {"label": "Paid", "colour": charts.PALETTE[5]}], height=170)
+    if role_can(role, "sales.view"):
+        from sales.models import Booking, CustomerReceipt, Unit
+        from sales import calc as scalc
+        from analytics import charts
+        got_now = sum((scalc.receipt_credit(r) for r in CustomerReceipt.objects.filter(received_on__gte=first, received_on__lte=today)), ZERO)
+        got_was = sum((scalc.receipt_credit(r) for r in CustomerReceipt.objects.filter(received_on__gte=prev_first, received_on__lte=prev_last)), ZERO)
+        bk_now = Booking.objects.filter(booked_on__gte=first, booked_on__lte=today).exclude(status=Booking.Status.CANCELLED).count()
+        bk_was = Booking.objects.filter(booked_on__gte=prev_first, booked_on__lte=prev_last).exclude(status=Booking.Status.CANCELLED).count()
+        out["kpis"] += [
+            {"label": "Collected this month", "value": _lakh_crore(got_now), "delta": _delta(got_now, got_was),
+             "url": reverse("sales_receipts")},
+            {"label": "Bookings this month", "value": str(bk_now), "delta": _delta(bk_now, bk_was),
+             "url": reverse("sales_bookings")},
+        ]
+        units = list(Unit.objects.filter(is_active=True, project__status="won").only("id"))
+        st = scalc.bulk_unit_status(units)
+        counts = {"available": 0, "booked": 0, "registered": 0}
+        for u in units:
+            k = st.get(u.id, "available")
+            k = "available" if k == "cancelled" else k
+            counts[k] = counts.get(k, 0) + 1
+        slices = [{"label": "Available", "value": counts["available"], "colour": "#2E5C9A"},
+                  {"label": "Booked", "value": counts["booked"], "colour": "#B45309"},
+                  {"label": "Registered", "value": counts["registered"], "colour": "#375623"}]
+        out["donut"] = {"svg": charts.donut(slices, size=150), "rows": slices, "total": len(units),
+                        "title": "Units, all live sites", "url": reverse("sales_units")}
+    elif role_can(role, "register.view"):
+        from analytics import charts
+        from projects.bom_models import PurchaseOrder
+        S = PurchaseOrder.Status
+        c = {s: 0 for s in S.values}
+        for st in PurchaseOrder.objects.values_list("status", flat=True):
+            c[st] += 1
+        slices = [{"label": "Draft", "value": c[S.DRAFT], "colour": "#8A9099"},
+                  {"label": "Approved", "value": c[S.APPROVED], "colour": "#2E5C9A"},
+                  {"label": "Delivered", "value": c[S.DELIVERED], "colour": "#375623"},
+                  {"label": "Paid", "value": c[S.PAID], "colour": "#4A3B79"}]
+        out["donut"] = {"svg": charts.donut(slices, size=150), "rows": slices, "total": sum(c.values()),
+                        "title": "Orders by status", "url": reverse("po_register")}
+
+    # ------------------------------------------------------------ your work
+    if user is not None:
+        from tasks.models import Subtask
+        mine = list(Subtask.objects.filter(assignee=user).exclude(status=Subtask.Status.DONE)
+                    .select_related("header__project").only("title", "start", "days", "status", "header__project__name"))
+        mine.sort(key=lambda t: t.planned_end)
+        for t in mine[:5]:
+            late = (today - t.planned_end).days
+            out["mine"].append({"what": t.title, "where": t.header.project.name,
+                                "when": t.planned_end, "late": late if late > 0 else 0,
+                                "url": reverse("task_mine")})
+        if role_can(role, "sales.edit"):
+            from sales.models import Enquiry
+            for e in Enquiry.objects.filter(assigned_to=user, stage__in=["new", "visited", "negotiating"]).order_by("-updated_at")[:3]:
+                out["mine"].append({"what": f"Enquiry · {e.name}", "where": e.project.name,
+                                    "when": None, "late": 0, "url": reverse("sales_enquiry_form", args=[e.id])})
+        if role_can(role, "po.approve"):
+            from projects.bom_models import PurchaseOrder
+            n = PurchaseOrder.objects.filter(status=PurchaseOrder.Status.DRAFT).count()
+            if n:
+                out["mine"].insert(0, {"what": f"{n} order{'s' if n != 1 else ''} waiting for your approval",
+                                       "where": "", "when": None, "late": 0,
+                                       "url": reverse("po_register") + "?status=draft"})
+
+    # ------------------------------------------------------- recent activity
+    events = []
+    if role_can(role, "register.view"):
+        from projects.bom_models import PurchaseOrder
+        for o in (PurchaseOrder.objects.filter(approved_at__isnull=False).select_related("vendor", "approved_by")
+                  .order_by("-approved_at")[:5]):
+            events.append((o.approved_at, "Order", f"{o.number} to {o.vendor.name} approved",
+                           o.approved_by.get_full_name() if o.approved_by else "", reverse("po_detail", args=[o.project_id, o.id]) + "?from=register"))
+    if role_can(role, "sales.view"):
+        from sales.models import Booking, CustomerReceipt
+        for b in Booking.objects.select_related("unit", "customer").order_by("-booked_on", "-id")[:4]:
+            events.append((b.booked_on, "Sales", f"{b.unit.number} booked by {b.customer.name}", "",
+                           reverse("sales_booking", args=[b.id])))
+        for r in CustomerReceipt.objects.select_related("booking__customer").order_by("-received_on", "-id")[:4]:
+            events.append((r.received_on, "Sales", f"{_lakh_crore(r.amount)} received from {r.booking.customer.name}", "",
+                           reverse("sales_booking", args=[r.booking_id])))
+    if role_can(role, "compliance.view"):
+        from compliance.models import ComplianceDocument
+        for d in ComplianceDocument.objects.select_related("item", "project").order_by("-uploaded_at")[:4]:
+            events.append((d.uploaded_at, "Compliance", f"{d.item.name} filed for {d.project.name}", "",
+                           reverse("compliance_project", args=[d.project_id])))
+    from datetime import datetime
+    def _day(e):
+        return e[0].date() if isinstance(e[0], datetime) else e[0]
+    events.sort(key=_day, reverse=True)
+    out["activity"] = [{"when": e[0], "kind": e[1], "text": e[2], "who": e[3], "url": e[4]} for e in events[:8]]
+
+    # -------------------------------------------------------------- upcoming
+    horizon = today + timedelta(days=14)
+    if role_can(role, "tasks.view"):
+        from tasks.models import Subtask
+        for t in (Subtask.objects.exclude(status=Subtask.Status.DONE).select_related("header__project", "assignee")
+                  .only("title", "start", "days", "header__project__name", "assignee__first_name", "assignee__last_name")):
+            if today <= t.planned_end <= horizon:
+                out["upcoming"].append((t.planned_end, "Task due", t.title, t.header.project.name, reverse("task_board")))
+    if role_can(role, "compliance.view"):
+        from compliance.models import ComplianceDocument
+        for d in ComplianceDocument.objects.filter(expires_on__gte=today, expires_on__lte=today + timedelta(days=60)).select_related("item", "project"):
+            out["upcoming"].append((d.expires_on, "Expiry", d.item.name, d.project.name, reverse("compliance_project", args=[d.project_id])))
+    if role_can(role, "sales.view"):
+        from sales.models import Demand
+        for d in Demand.objects.filter(due_on__gte=today, due_on__lte=horizon).select_related("booking__customer", "booking__unit"):
+            out["upcoming"].append((d.due_on, "Demand due", f"{_lakh_crore(d.amount)} · {d.booking.customer.name}", d.booking.unit.number, reverse("sales_booking", args=[d.booking_id])))
+    out["upcoming"].sort(key=lambda e: e[0])
+    out["upcoming"] = [{"when": e[0], "kind": e[1], "what": e[2], "where": e[3], "url": e[4]} for e in out["upcoming"][:8]]
 
     # ---------------------------------------------------------- the money band
     if role_can(role, "analytics.view"):
