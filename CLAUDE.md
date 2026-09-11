@@ -9,8 +9,9 @@ Django 5.2 · SQLite in dev, PostgreSQL in production · no static files, all CS
 python manage.py test            # expect ~1200, then OK. Run ALONE, never chained (--parallel 4 is fine).
 python manage.py migrate
 python manage.py runserver       # http://127.0.0.1:8000/  · login: schokshi
-python manage.py seed_showcase   # demo data · --remove takes it away (run seed_sales_showcase --remove first)
+python manage.py seed_showcase   # demo data · --remove takes it away (run the two --removes below first)
 python manage.py seed_sales_showcase  # units, enquiries, bookings, demands, receipts on the showcase projects · --remove
+python manage.py seed_finance_showcase  # vendor bills, payments, WO-S work orders with RA bills, drawings + one Completed project · --remove
 python manage.py check_integrity # read-only, safe any time
 python manage.py import_masters  # ⚠ THE ONLY way to seed a fresh database
 python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBUG only · --remove
