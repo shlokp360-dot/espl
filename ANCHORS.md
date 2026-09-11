@@ -86,6 +86,14 @@ adding a checklist title or item     ANCHOR: COMPLIANCE-MASTER
 a suggested expiry date              ANCHOR: COMPLIANCE-MASTER
 the gross-to-net ladder on screen    ANCHOR: ANALYTICS-G2N
 a due date, or 30-day default terms  ANCHOR: ANALYTICS-MONEY
+a drawing's Required/Received/       ANCHOR: DRAWINGS-STATUS
+  Approved pill
+the five drawing types, or a         ANCHOR: DRAWINGS-MODEL
+  completed project's register
+a drawing that will not delete       ANCHOR: DRAWINGS-NO-DELETE
+"already has a revision R1"          ANCHOR: DRAWINGS-LABEL-UNIQUE
+who may read or upload drawings,     ANCHOR: DRAWINGS-SCREENS
+  the overview's two tables
 ```
 
 ⚠ `TASK-MODULE` HAS NOTHING TO DO WITH TASK MANAGEMENT. It is the goods-receipt
@@ -129,9 +137,9 @@ GSTIN-CAPTURE              masters/models.py, po_service.py  approval hard-block
 LUMPSUM                    projects/views.py               value + rate → derived quantity
 PO-PDF                     projects/views.py               approved onwards only
 PO-SCREEN                  projects/views.py               vendors → documents → the document
-PO-REGISTER                projects/views.py               every document, every project
+PO-REGISTER                projects/views.py               every document, every project — the Orders tab of Finance since 11 Sep 2026
 PO-STATUS-FILTER           projects/views.py               status per project, and "not paid yet"
-PO-DOORWAY                 views.py, _nav.html             which tabs a document offers, and to whom
+PO-DOORWAY                 views.py, _nav.html, po_detail.html  which strip a document carries, and to whom
 BOM-STOCK-ONLY             projects/views.py               the site engineer writes stock, and only stock
 BOQ-SCREEN                 bom_calc.py, views.py           the estimate screen
 BOQ-LOCK                   models.py, admin.py             locked at Won, admin included
@@ -154,7 +162,7 @@ LAUNCHPAD                  projects/views.py               the home screen
 INFO-PANELS                help_panels.py, _infopanel.html  the ⓘ panels, as data
                            panel_gujarati.py               the Gujarati FIRST DRAFT, to be corrected
                            seed_panel_translations.py      loading it without overwriting a person
-HUB-TILES                  projects/hub.py                 tiles as DATA, filtered by permission
+HUB-TILES                  projects/hub.py                 tiles as DATA, filtered by permission; `any_of` on finance alone
 HUB-MASTERS                projects/hub.py                 what sits behind Master data
 MASTER-TABS                projects/master_tabs.py         five entries, tabs, no Django Admin
 ACTIVITY-MASTER            projects/master_tabs.py         the activity master, and its ₹/sqft
@@ -217,14 +225,14 @@ FIN-CALC                   finance/calc.py                 the RA bill ladder, O
 FIN-CALC-BULK              finance/calc.py                 registers: fixed queries, not per row
 FIN-CUMULATIVE             finance/services.py             certified to date may not exceed the order
 FIN-SERVICES               finance/services.py             every finance write, atomic, user-facing refusals
-FIN-SCREENS                finance/views.py                who may read, certify, approve, pay
-DRAWINGS-MODEL               drawings/models.py              five tables; the number is the architect's
+FIN-SCREENS                finance/views.py                who may read, certify, approve, pay; Orders first, redirect not 403
+DRAWINGS-MODEL               drawings/models.py              four tables; five types; the number is the architect's
 DRAWINGS-STATUS              drawings/status.py              Required/Received/Approved, from the newest revision
 DRAWINGS-NO-DELETE           drawings/models.py              a drawing with history is deactivated, never deleted
 DRAWINGS-APPROVE-ONCE        drawings/models.py              who and when, recorded once
 DRAWINGS-LABEL-UNIQUE        drawings/views.py               R1 twice on one drawing is refused
-DRAWINGS-TRANSMITTAL-ATOMIC  drawings/models.py              header and lines together; empty is refused before a number
-DRAWINGS-SCREENS             drawings/views.py               who reads, who uploads, how files serve
+DRAWINGS-TRANSMITTAL-ATOMIC  — retired —                     transmittals dropped 11 Sep 2026, "just revisions"
+DRAWINGS-SCREENS             drawings/views.py               who reads, who uploads, how files serve; Won AND Completed
 ```
 
 ---
@@ -843,6 +851,11 @@ moment a milestone exists, whether or not it has subtasks yet. The line is the
 phase's JUDGED finish, which only moves once work under it proves the window
 wrong. Amber marks the band's own overrun tail and the line together.
 
+**The left column is "Work · Assigned to" (11 Sep 2026).** A milestone row names
+its owner — or, with no owner, the distinct people under it — beside its
+done/count; a subtask row names its assignee. Decided in `schedule.py`
+(`row["who"]`), never in the template.
+
 **⚠⚠ THE BAND WAS REMOVED ONCE, THEN BROUGHT BACK.** It was dropped when
 milestones first moved to a dotted line, but the CSS (`.gbar.hdr`, `.gbar.hdrover`)
 and the legend describing it were left behind — so the screen kept promising a
@@ -1451,9 +1464,20 @@ three. **Every tab now carries the key that opens it**, exactly as the
 launchpad's tiles do. The rule was already written down for tiles; this is the
 same rule one level down.
 
-⚠ **`standalone` MEANS "YOU CAME IN FROM THE PURCHASE ORDERS TILE"**, and then
-there are no project tabs at all and the crumb goes back to the register. Same
-screen, different doorway.
+⚠ **`standalone` MEANS "YOU CAME IN FROM THE REGISTER"**, and then there are no
+project tabs at all and the crumb goes back to the register. Same screen,
+different doorway.
+
+⚠⚠ **SINCE 11 SEP 2026 THE REGISTER IS THE ORDERS TAB OF FINANCE & ACCOUNTING**
+— Saahil: *"add the purchase order module to finance and accounting"* — so a
+standalone document renders `finance/_nav.html` with `here="orders"` instead of
+nothing, and the accountant steps from a document to Bills without going back.
+`po_detail.html` picks the strip; `projects/_nav.html` still draws nothing when
+`standalone`. The per-project vendor screens (`po_vendors`, `po_vendor`) have no
+register doorway and keep the project tabs. The "Purchase orders" tile is gone
+from `hub.py`; the URL, the screens and `register.view` are untouched. See
+`HUB-TILES` for how the finance tile is shown to `register.view` without ever
+leading to a 403.
 
 ⚠ **A QUERY PARAMETER, NOT THE REFERER.** A referer is absent on a bookmark,
 stripped by some setups and trivially forged. The link that sends you here says
@@ -1842,29 +1866,46 @@ every Excel; **finance.certify** raises bills, types certified quantities, disca
 **finance.approve** approves bills; **finance.pay** records bills (invoices) and payments, and is
 the key on `finance_bill_pick`, the "Record a bill" doorway that asks for the PO first.
 
+**⚠⚠ ORDERS IS THE FIRST TAB, AND IT IS THE ONE TAB NOT BEHIND `finance.view` (11 Sep 2026).**
+Saahil: *"add the purchase order module to finance and accounting."* The register (`po_register`,
+`register.view` — PO-REGISTER) left the left rail and heads the strip: Orders · Overview · Bills ·
+RA bills · Payments · Vendor ledger · TDS. The Orders tab is drawn for `register.view`; the rest
+only for `finance.view`. Because the finance tile is now shown to either key (HUB-TILES, `any_of`),
+**`finance_home` sends a role holding `register.view` without `finance.view` — Purchase, Site — to
+the register with a redirect, never a 403.** The register and a document opened from it render the
+finance strip with `here="orders"` (PO-DOORWAY). `accounts/test_matrix.py` lists Purchase and Site
+on the `finance_home` row for exactly this reason, and nowhere else in finance.
+
 **⚠ THE TAB STRIP CARRIES `project` ALONG** (`templates/finance/_nav.html`), as analytics carries
 its filters — only `project`, because status and type mean different things on different tabs.
+The Orders tab keeps its own filters and is not passed one.
 
 **⚠ TWO SCREENS OPEN TO view OR certify — `finance_wo` and `finance_ra_bill` — via
 `requires_any`.** The site engineer holds certify and not view; the bill they certify must be a
 screen they can open, and "a permission is only real if the role can reach the screen the
 button is on" (PERMS-MATRIX). Used on those two READS only; every write behind them carries its
 own single key, and tests prove Site is refused every register, the PDF and the PO screens.
-The nav strip is hidden without finance.view so no tab leads to a 403.
+The books' tabs are hidden without finance.view so no tab leads to a 403; Orders alone shows
+for register.view.
 
 **RA bill PDF is approved onwards only** (the PO-PDF rule). The Excel exports follow the
 screen's filters; widths and formats are keyed off `headings`, never counted by hand.
 
 ---
 
-## Drawings (slice 10)
-## Drawings
+## Drawings repository (slice 10)
 
 ### `DRAWINGS-MODEL` — `drawings/models.py`
-**Five tables, two of them masters.** `Architect` and `DrawingGroup` are
-shared; `Drawing`, `DrawingRevision`, `Transmittal`/`TransmittalLine` are per
-project. The register is grouped by `DrawingGroup` (ARC, STR, MEP, LND, INT,
-SUR — seeded by `0002_seed_groups`).
+**Four tables, two of them masters.** `Architect` and `DrawingGroup` are
+shared; `Drawing` and `DrawingRevision` are per project. The register is
+grouped by `DrawingGroup`, and **the groups are the five types the owner named
+receivable** — *"Architect, Structure, Survey, Passing and MEP are the main
+types of drawings receivable"* — seeded as ARC, STR, SUR, PAS, MEP by
+`0003_five_types` (10…50). Passing is the AMC-passed plan set. `0002` had
+seeded six (ARC/STR/MEP/LND/INT/SUR); `0003` renames the four that survive in
+place — a rename, not a replacement, so drawings already filed keep their
+group — creates PAS, and switches LND and INT off only when nothing is filed
+under them. A group holding drawings is never deactivated by a migration.
 
 **The drawing number is typed, not generated.** It is the architect's number
 from the title block, unique per project only — two architects on two sites may
@@ -1872,14 +1913,24 @@ both call their first sheet A-101.
 
 **A revision is a new row.** `DrawingRevision` is versioned by existence: the
 newest row (`-uploaded_at, -id`) is current, and every earlier one stays and
-stays downloadable, because the contractor who was sent R0 built from R0.
+stays downloadable, because R0 was the paper on site before R1 arrived.
 
-**A transmittal is a record, not a message.** Nothing is sent from the system.
-`TransmittalLine` points at the REVISION, not the drawing, so R1 arriving later
-cannot change what the record says a contractor was handed. Numbered
-`TR-000001` from `NumberSeries("transmittal")`.
+**⚠ THERE IS NO TRANSMITTAL.** The owner, 11 Sep 2026: *"No requirement of
+transmittal, just revisions."* `Transmittal`, `TransmittalLine`, `Purpose`, the
+four transmittal screens, the PDF, the `drawings.transmit` permission, their
+ⓘ panels and drafts are all gone; `0004_drop_transmittals` drops the two tables
+(no production data existed). The `NumberSeries("transmittal")` row, if one was
+ever taken, is left alone — a series is never rewound.
 
-Affects: every drawings screen, the transmittal PDF, `drawings/status.py`.
+**⚠ IT IS A REPOSITORY FOR PREVIOUS PROJECTS TOO.** *"Rename drawings as
+drawings repository where I can add drawings and compliance data of previous
+projects."* `live_projects()` is Won AND Completed — the same pair
+`compliance.views.live_projects` uses — so a finished building's register stays
+open and still accepts uploads. Completed is set through the existing
+`project_status` control on the BOQ screen (`PROJECT-STATUS`); nothing new was
+added for it.
+
+Affects: every drawings screen, `drawings/status.py`, the Groups screen.
 
 ### `DRAWINGS-STATUS` — `drawings/status.py`
 **Derived, never typed.** Required = no revision; Received = newest revision
@@ -1894,11 +1945,10 @@ and costs a query each. Tested by the query-shape tests in `drawings/tests.py`
 
 ### `DRAWINGS-NO-DELETE` — `drawings/models.py`, `Drawing.delete()`
 **Refused once a revision exists.** The revision FK cascades at the database,
-so this guard is the only thing between a stray delete and a transmittal that
-says a contractor was sent a drawing that no longer exists. Raises
-`DrawingInUse`; the screens offer only the Active tick. A revision on a
-transmittal is `PROTECT`ed by the line. A drawing nothing points at can still be
-deleted — the same rule as everywhere else.
+so this guard is the only thing between a stray delete and a file that was on
+site quietly leaving the repository. Raises `DrawingInUse`; the screens offer
+only the Active tick. A drawing nothing points at can still be deleted — the
+same rule as everywhere else.
 
 ### `DRAWINGS-APPROVE-ONCE` — `drawings/models.py`, `DrawingRevision.approve()`
 **Who and when, recorded once.** A second approval is refused with the first
@@ -1911,26 +1961,31 @@ signature onto somebody else.
 in the view with a message, and by a unique constraint `(drawing, label)` at the
 database. The new file gets its own label; nothing is ever overwritten.
 
-### `DRAWINGS-TRANSMITTAL-ATOMIC` — `drawings/models.py`, `Transmittal.issue()`
-**Header and lines together, or not at all — and an empty one is refused
-BEFORE a number is taken.** A numbered transmittal with no lines would burn a
-number and sit on the register saying nothing. Also refuses a revision from
-another project. The view resolves ticked drawings to their newest revision and
-offers only drawings that have one.
-
 ### `DRAWINGS-SCREENS` — `drawings/views.py`
 **Who may do what**, from `accounts/perms.py` and not widened here:
 `drawings.view` (A, PM, PUR, SITE) reads and downloads; `drawings.edit` (A, PM)
-registers, uploads, approves, edits the masters; `drawings.transmit` (A, PM)
-records a transmittal.
+registers, uploads, approves, edits the masters. `drawings.transmit` no longer
+exists.
+
+**The overview is two tables, one shape: Live sites (Won) and Completed
+projects.** Each row carries Required / Received / Approved / Total, **Latest
+revision** (the newest `received_on` per project, one grouped query — it
+replaced the "Last transmittal" column) and **Compliance**, the count of
+`ComplianceDocument` rows on that project, linking to `compliance_project`.
+Four queries for the whole screen however many projects; the query-shape test
+adds twenty drawings and five completed projects and allows fewer than ten
+extra.
 
 **⚠ Files are served through `download` and never from a URL.** No MEDIA_URL,
 nothing under the static tree; a missing file is a 404, not a crash. Every
 per-project object is fetched scoped to the project
 (`get_object_or_404(..., project=project)` / `drawing__project=project`).
 
-**The transmittal PDF imports WeasyPrint inside the view**, the same as
-`po_pdf`, and the test stubs the module in `sys.modules`.
+**⚠ Compliance for a completed project needed no change.**
+`compliance.views.live_projects` was already Won + Completed, its `upload` and
+`project_screen` are fetched by id with no status gate, and the project picker
+lists both. The Drawings overview is simply the first screen that puts the
+compliance count and the completed projects side by side.
 
 ### `HOME-SCREEN` — `projects/home.py`, `templates/projects/launchpad.html`
 **The first screen — called Dashboard — as a morning briefing rather than a menu.** Four KPI

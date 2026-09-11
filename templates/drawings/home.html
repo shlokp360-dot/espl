@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% load help %}
 {% comment %}
-DRAWINGS OVERVIEW — every Won site: what is required, received and approved.
+DRAWINGS REPOSITORY OVERVIEW — live sites first, completed projects below:
+what is required, received and approved, when the newest revision arrived,
+and how many compliance documents each project holds.
 
 ⚠ THE NUMBER THAT LEADS IS "REQUIRED" — drawings the site is waiting for.
+⚠ TWO SECTIONS, ONE TABLE SHAPE. A completed project is not a live site and
+  must not read as one, but its file is kept in full and still accepts uploads.
 {% endcomment %}
 
-{% block title %}Drawings{% endblock %}
-{% block subtitle %}Which drawings each site needs, holds and has approved{% endblock %}
+{% block title %}Drawings repository{% endblock %}
+{% block subtitle %}Every drawing and its revisions, for live and completed projects, with each site's compliance file{% endblock %}
 {% block nav %}{% include "drawings/_nav.html" with here="home" %}{% endblock %}
 
 {% block headerinfo %}{% infobutton "drawings_home" %}{% endblock %}
@@ -16,7 +20,7 @@ DRAWINGS OVERVIEW — every Won site: what is required, received and approved.
 {% block content %}
 
 <div class="toolbar">
-  <span class="ttl">Drawings</span>
+  <span class="ttl">Drawings repository</span>
   {% if required %}<span class="pill p-draft">{{ required }} required</span>{% endif %}
 </div>
 
@@ -24,30 +28,64 @@ DRAWINGS OVERVIEW — every Won site: what is required, received and approved.
   <div class="kpi"><div class="l">Required</div><div class="v">{{ required }}</div></div>
   <div class="kpi"><div class="l">Received</div><div class="v">{{ received }}</div></div>
   <div class="kpi"><div class="l">Approved</div><div class="v">{{ approved }}</div></div>
+  <div class="kpi"><div class="l">Compliance documents</div><div class="v">{{ compliance_total }}</div></div>
 </div>
 
-<div class="scroll" style="max-height:none">
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:11px">
+  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Live sites</span></div>
   <table>
     <thead><tr class="hd">
       <th>Project</th>
-      <th class="num" style="width:110px">Required</th>
-      <th class="num" style="width:110px">Received</th>
-      <th class="num" style="width:110px">Approved</th>
-      <th class="num" style="width:110px">Total</th>
-      <th style="width:150px">Last transmittal</th>
+      <th class="num" style="width:100px">Required</th>
+      <th class="num" style="width:100px">Received</th>
+      <th class="num" style="width:100px">Approved</th>
+      <th class="num" style="width:90px">Total</th>
+      <th style="width:140px">Latest revision</th>
+      <th class="num" style="width:150px">Compliance</th>
     </tr></thead>
     <tbody>
-      {% for row in rows %}
+      {% for row in live %}
         <tr>
           <td><a href="{% url 'drawings_register' row.project.pk %}">{{ row.project.code }} — {{ row.project.name }}</a></td>
           <td class="num">{% if row.summary.required %}<span class="pill p-draft">{{ row.summary.required }}</span>{% else %}—{% endif %}</td>
           <td class="num">{{ row.summary.received }}</td>
           <td class="num">{{ row.summary.approved }}</td>
           <td class="num">{{ row.summary.total }}</td>
-          <td>{% if row.last_sent %}<a href="{% url 'drawings_transmittals' row.project.pk %}">{{ row.last_sent|date:"d/m/Y" }}</a>{% else %}none yet{% endif %}</td>
+          <td>{% if row.latest_on %}{{ row.latest_on|date:"d/m/Y" }}{% else %}none yet{% endif %}</td>
+          <td class="num"><a href="{% url 'compliance_project' row.project.pk %}">{{ row.compliance }} document{{ row.compliance|pluralize }}</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" style="padding:14px">No project is Won yet. Drawings open with the site.</td></tr>
+        <tr><td colspan="7" style="padding:14px">No project is Won yet. A site's drawings open with it.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Completed projects</span></div>
+  <table>
+    <thead><tr class="hd">
+      <th>Project</th>
+      <th class="num" style="width:100px">Required</th>
+      <th class="num" style="width:100px">Received</th>
+      <th class="num" style="width:100px">Approved</th>
+      <th class="num" style="width:90px">Total</th>
+      <th style="width:140px">Latest revision</th>
+      <th class="num" style="width:150px">Compliance</th>
+    </tr></thead>
+    <tbody>
+      {% for row in completed %}
+        <tr>
+          <td><a href="{% url 'drawings_register' row.project.pk %}">{{ row.project.code }} — {{ row.project.name }}</a></td>
+          <td class="num">{% if row.summary.required %}<span class="pill p-draft">{{ row.summary.required }}</span>{% else %}—{% endif %}</td>
+          <td class="num">{{ row.summary.received }}</td>
+          <td class="num">{{ row.summary.approved }}</td>
+          <td class="num">{{ row.summary.total }}</td>
+          <td>{% if row.latest_on %}{{ row.latest_on|date:"d/m/Y" }}{% else %}none yet{% endif %}</td>
+          <td class="num"><a href="{% url 'compliance_project' row.project.pk %}">{{ row.compliance }} document{{ row.compliance|pluralize }}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:14px">No project is Completed yet. Set a finished project's status to Completed on its BOQ screen and it moves here, file intact.</td></tr>
       {% endfor %}
     </tbody>
   </table>

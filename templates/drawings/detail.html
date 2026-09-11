@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load perms help %}
 {% comment %}
-ONE DRAWING: every revision, who approved which, and who was sent what.
+ONE DRAWING: every revision and who approved which.
 
-⚠ EVERY REVISION STAYS DOWNLOADABLE. The contractor sent R0 built from R0.
+⚠ EVERY REVISION STAYS DOWNLOADABLE. R0 was the paper on site before R1 arrived.
 ⚠ APPROVE ONCE. The button disappears once a revision is approved; the server
   refuses a second approval regardless.
 {% endcomment %}
 
-{% block title %}Drawings{% endblock %}
+{% block title %}Drawings repository{% endblock %}
 {% block subtitle %}{{ project.code }} — {{ drawing.number }}{% endblock %}
 {% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
 
@@ -90,31 +90,5 @@ ONE DRAWING: every revision, who approved which, and who was sent what.
     <div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="submit">Upload</button></div>
   </form>
 {% endif %}
-
-<div class="card" style="padding:0;overflow:hidden">
-  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Sent to</span></div>
-  <table>
-    <thead><tr class="hd">
-      <th style="width:110px">Transmittal</th>
-      <th>Contractor</th>
-      <th style="width:70px">Revision</th>
-      <th style="width:140px">Purpose</th>
-      <th style="width:100px">Issued</th>
-    </tr></thead>
-    <tbody>
-      {% for line in sent_to %}
-        <tr>
-          <td class="code"><a href="{% url 'drawings_transmittal' project.pk line.transmittal.pk %}">{{ line.transmittal.number }}</a></td>
-          <td>{{ line.transmittal.vendor.name }}</td>
-          <td class="code">{{ line.revision.label }}</td>
-          <td>{{ line.transmittal.get_purpose_display }}</td>
-          <td>{{ line.transmittal.issued_on|date:"d/m/Y" }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5" style="padding:14px">Not sent to any contractor yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
 
 {% endblock %}

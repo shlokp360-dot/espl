@@ -127,8 +127,11 @@ class TheScreensRender(ScreenFixture):
         self.assertIn("Finance &amp; Accounting", html)
         self.assertNotIn(">Retention<", html)                # no tab
         self.assertNotIn("Vendor invoices", html)
-        for tab in ("Overview", "Bills", "RA bills", "Payments", "Vendor ledger", "TDS"):
+        for tab in ("Orders", "Overview", "Bills", "RA bills", "Payments", "Vendor ledger", "TDS"):
             self.assertIn(f">{tab}</a>", html, tab)
+        # Orders is the FIRST tab (customer, 11 Sep 2026).
+        strip = html.split("<nav>")[1].split("</nav>")[0]
+        self.assertLess(strip.find(">Orders</a>"), strip.find(">Overview</a>"))
 
     def test_finance_po_refuses_a_work_order_and_finance_wo_a_purchase_order(self):
         self.assertEqual(self.client.get(reverse("finance_po", args=[self.wo.pk])).status_code, 404)
@@ -317,7 +320,9 @@ class WhoMayOpenWhat(ScreenFixture):
         self.as_role(Role.SITE)
         self.assertEqual(self.status("finance_wo", self.wo.pk), 200)
         self.assertEqual(self.status("finance_ra_bill", self.second.pk), 200)
-        for name in ("finance_home", "finance_ra_bills", "finance_bills", "finance_bill_pick",
+        # ⚠ finance_home IS NOT ON THIS LIST SINCE 11 SEP 2026: it sends a
+        #   register-only role to the Orders tab instead — see the test below.
+        for name in ("finance_ra_bills", "finance_bills", "finance_bill_pick",
                      "finance_payments", "finance_vendor_ledger", "finance_tds"):
             self.assertEqual(self.status(name), 403, name)
         for name in ("finance_bills_excel", "finance_vendor_ledger_excel", "finance_tds_excel"):
@@ -328,9 +333,45 @@ class WhoMayOpenWhat(ScreenFixture):
     def test_purchase_and_compliance_are_refused_everywhere(self):
         for role in (Role.PURCHASE, Role.COMPLIANCE):
             self.as_role(role)
-            self.assertEqual(self.status("finance_home"), 403)
             self.assertEqual(self.status("finance_wo", self.wo.pk), 403)
             self.assertEqual(self.status("finance_ra_bill", self.second.pk), 403)
+            if role == Role.COMPLIANCE:      # Purchase is redirected — see below
+                self.assertEqual(self.status("finance_home"), 403)
+
+    def test_a_register_only_role_lands_on_the_orders_tab(self):
+        """
+        ⚠ THE PURCHASE ORDER REGISTER IS THE FIRST TAB OF THIS MODULE since
+          11 Sep 2026, and the finance tile is shown to register.view too. So
+          the Overview must never 403 somebody the tile was shown to: Purchase
+          and Site are sent to the register, and see one tab there.
+        """
+        for role in (Role.PURCHASE, Role.SITE):
+            self.as_role(role)
+            response = self.client.get(reverse("finance_home"))
+            self.assertEqual(response.status_code, 302, role)
+            self.assertEqual(response["Location"], reverse("po_register"), role)
+            html = self.client.get(reverse("po_register")).content.decode()
+            strip = html.split("<nav>")[1].split("</nav>")[0]
+            self.assertIn(">Orders</a>", strip, role)
+            for tab in ("Overview", "Bills", "RA bills", "Payments", "Vendor ledger", "TDS"):
+                self.assertNotIn(f">{tab}</a>", strip, f"{role} {tab}")
+
+    def test_the_register_and_a_standalone_document_carry_the_finance_strip(self):
+        """The accountant moves between Orders and Bills without leaving the strip."""
+        self.as_role(Role.ACCOUNTANT)
+        html = self.client.get(reverse("po_register")).content.decode()
+        strip = html.split("<nav>")[1].split("</nav>")[0]
+        self.assertTrue(strip.lstrip().startswith("<a"))
+        self.assertIn(f'class="on" href="{reverse("po_register")}">Orders</a>', strip)
+        self.assertIn(reverse("finance_bills"), strip)
+        # From the register, the document keeps the strip; from the project it
+        # keeps the project tabs (ANCHOR: PO-DOORWAY).
+        url = reverse("po_detail", args=[self.project.pk, self.po.pk])
+        html = self.client.get(url + "?from=register").content.decode()
+        self.assertIn(reverse("finance_bills"), html.split("<nav>")[1].split("</nav>")[0])
+        html = self.client.get(url).content.decode()
+        self.assertNotIn(reverse("finance_bills"), html)
+        self.assertIn(reverse("po_screen", args=[self.project.pk]), html)
 
     def test_the_accountant_pays_but_does_not_certify_or_approve(self):
         self.as_role(Role.ACCOUNTANT)

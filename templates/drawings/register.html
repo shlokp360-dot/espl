@@ -7,7 +7,7 @@ ONE PROJECT'S DRAWING REGISTER, grouped by section.
 ⚠ UPLOAD IS HIDDEN FROM ANYONE WHO CANNOT UPLOAD; the register itself is not.
 {% endcomment %}
 
-{% block title %}Drawings{% endblock %}
+{% block title %}Drawings repository{% endblock %}
 {% block subtitle %}{% if project %}{{ project.code }} — {{ project.name }}{% endif %}{% endblock %}
 {% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
 
@@ -36,7 +36,7 @@ ONE PROJECT'S DRAWING REGISTER, grouped by section.
 </div>
 
 {% if not project %}
-  <div class="note tight"><b>No project is Won yet.</b> Drawings open with the site.</div>
+  <div class="note tight"><b>No project is Won or Completed yet.</b> A site's drawings open with it.</div>
 {% else %}
 
   <div class="kpis">

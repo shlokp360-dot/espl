@@ -2,7 +2,7 @@
 {% load help %}
 {% comment %}ADD OR EDIT ONE ARCHITECT. Phone is digits only, like every other master.{% endcomment %}
 
-{% block title %}Drawings{% endblock %}
+{% block title %}Drawings repository{% endblock %}
 {% block subtitle %}{% if architect %}{{ architect.name }}{% else %}Add an architect{% endif %}{% endblock %}
 {% block nav %}{% include "drawings/_nav.html" with here="architects" %}{% endblock %}
 

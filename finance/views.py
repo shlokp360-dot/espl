@@ -9,7 +9,10 @@ WHO MAY DO WHAT (accounts/perms.py)
     finance.approve   Admin · Project manager — approve a bill
     finance.pay       Admin · Accountant — record a bill (invoice) and payments
 
-THE TABS  Overview · Bills · RA bills · Payments · Vendor ledger · TDS
+THE TABS  Orders · Overview · Bills · RA bills · Payments · Vendor ledger · TDS
+    po_register             the purchase order register (projects/views.py) —
+                            FIRST tab since 11 Sep 2026, shown to register.view;
+                            finance_home redirects a register-only role there
     finance_home            KPIs, ageing, cash-out, top vendors — project filter
     finance_bills           one row per vendor bill, VB- on a PO or RA- on a WO
     finance_bill_pick       "Record a bill": pick the PO first, then invoice_new
@@ -39,7 +42,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -185,8 +188,22 @@ def _register_selection(source):
     return rows, chosen
 
 
-@requires("finance.view")
 def home(request):
+    """
+    The Overview — and the doorway for the whole module.
+
+    ⚠ THE FINANCE TILE IS SHOWN TO finance.view OR register.view (ANCHOR:
+      HUB-TILES, `any_of`), because the purchase order register is the first
+      tab of this strip since 11 Sep 2026. Somebody holding register.view
+      alone — the Purchase manager, the Site engineer — is sent to the register
+      rather than refused, so a tile never leads to a 403. Everybody else
+      without finance.view is refused here exactly as `requires` would.
+    """
+    if not can(request.user, "finance.view"):
+        if can(request.user, "register.view"):
+            return redirect("po_register")
+        return HttpResponseForbidden(
+            "Your role does not include this. Ask an Admin if you think it should.")
     today = timezone.localdate()
     project = _int(request.GET.get("project"))
     rows, _chosen = _register_selection({"project": request.GET.get("project")})

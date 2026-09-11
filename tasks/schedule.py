@@ -287,9 +287,24 @@ def build(project, today=None):
         over_bar = (_bar(header.planned_end + timedelta(days=1), work_end, span_start, total)
                     if over else None)
 
+        # Who answers for the milestone: its owner, else the people under it.
+        # Decided here so the "Work · Assigned to" column reads the same on
+        # every row and the template never works a name out.
+        if header.owner:
+            who = header.owner.get_full_name() or header.owner.username
+        else:
+            names = []
+            for subtask in subtasks:
+                if subtask.assignee:
+                    name = subtask.assignee.get_full_name() or subtask.assignee.username
+                    if name not in names:
+                        names.append(name)
+            who = ", ".join(names) if names else "unassigned"
+
         rows.append({
             "kind": "milestone",
             "header": header,
+            "who": who,
             "done": done,
             "count": count,
             "over": over,

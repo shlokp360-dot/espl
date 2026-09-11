@@ -6,7 +6,7 @@ REGISTER OR EDIT ONE DRAWING. The number is the architect's, typed as printed.
 ⚠ NO DELETE. Active is the way out once a revision has been filed against it.
 {% endcomment %}
 
-{% block title %}Drawings{% endblock %}
+{% block title %}Drawings repository{% endblock %}
 {% block subtitle %}{{ project.code }} — {% if drawing %}{{ drawing.number }}{% else %}register a drawing{% endif %}{% endblock %}
 {% block nav %}{% include "drawings/_nav.html" with here="register" %}{% endblock %}
 

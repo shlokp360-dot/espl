@@ -71,16 +71,11 @@ _TILES = [
         "perm": "projects.view",
         "live": True,
     },
-    {
-        "key": "orders",
-        "color": "#8A6D1F",
-        "icon": "M6 2h9l5 5v15H6V2zm8 1.5V8h4.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2z",
-        "title": "Purchase orders",
-        "subtitle": "Every document across every project",
-        "url_name": "po_register",
-        "perm": "register.view",
-        "live": True,
-    },
+    # ⚠ THERE IS NO "orders" TILE ANY MORE. The purchase order register moved
+    #   under Finance & Accounting on 11 Sep 2026 — Saahil: "add the purchase
+    #   order module to finance and accounting" — and is now the first tab of
+    #   that strip. `po_register` and every register screen still exist; only
+    #   the doorway moved. See the finance tile below for who now reaches it.
     {
         "key": "masters",
         "color": "#4C6B3A",
@@ -152,14 +147,26 @@ _TILES = [
         "subtitle": "Bills against orders, contractor bills, payments and what is owed",
         "url_name": "finance_home",
         "perm": "finance.view",
+        # ⚠ THE ONE TILE WITH A SECOND KEY. The purchase order register is the
+        #   first tab of this strip, so somebody holding register.view alone —
+        #   the Purchase manager and the Site engineer — must still see the
+        #   tile. `finance_home` sends them straight to the register instead of
+        #   refusing them (finance/views.py), so the tile rule holds: a tile
+        #   can never lead to a 403. `any_of` is honoured by `tiles_for` and by
+        #   nothing else; every other tile carries `perm` alone.
+        "any_of": ["finance.view", "register.view"],
+        # ⚠ WHICH PATHS LIGHT THIS ENTRY IN THE RAIL besides its own. The
+        #   register lives at /orders/, not under /finance/, and the rail must
+        #   not go dark on the strip's own first tab.
+        "also_url_names": ["po_register"],
         "live": True,
     },
     {
         "key": "drawings",
         "color": "#1D4ED8",
         "icon": "M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h6v2H7V7zm0 4h10v2H7v-2zm0 4h8v2H7v-2z",
-        "title": "Drawings",
-        "subtitle": "Every drawing, its revisions, and who was sent which",
+        "title": "Drawings repository",
+        "subtitle": "Every drawing and its revisions, for live and completed projects, with each site's compliance file",
         "url_name": "drawings_home",
         "perm": "drawings.view",
         "live": True,
@@ -180,17 +187,34 @@ def tiles_for(role=None):
     the tests for the launchpad's shape use, and what the screen used before
     there were roles.
 
+    ⚠ `any_of` IS THE ONE WIDENING. A tile carrying it is shown when the role
+      holds ANY of those keys; `perm` is still the key the screen behind it
+      checks first. Only the finance tile uses it, because the purchase order
+      register sits inside that strip and is held by more roles than the
+      books are — and `finance_home` redirects those roles to the register
+      rather than refusing them, which is what keeps the tile rule true.
+
     Each tile comes back with `url` resolved, or None when it is not live, so
     the template never calls {% url %} on a screen that does not exist.
+    `also_urls` is the list of extra paths that light the tile in the rail.
     """
     out = []
     for tile in _TILES:
-        if role is not None and tile["perm"] is not None and not role_can(role, tile["perm"]):
+        if role is not None and not _opens_for(role, tile):
             continue
         resolved = dict(tile)
         resolved["url"] = reverse(tile["url_name"]) if tile["url_name"] else None
+        resolved["also_urls"] = [reverse(name) for name in tile.get("also_url_names", [])]
         out.append(resolved)
     return out
+
+
+def _opens_for(role, tile):
+    """Whether this role holds the tile's key, or any of its `any_of` keys."""
+    keys = tile.get("any_of") or ([tile["perm"]] if tile["perm"] is not None else [])
+    if not keys:
+        return True
+    return any(role_can(role, key) for key in keys)
 
 
 # ---------------------------------------------------------- master data page

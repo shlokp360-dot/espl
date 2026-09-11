@@ -27,7 +27,20 @@ ORDER VALUE and then NET PAYABLE.
   {{ order.type_label }} &nbsp;|&nbsp; {{ project.name }} &nbsp;|&nbsp; {{ order.vendor.name }}
 {% endblock %}
 
-{% block nav %}{% include "projects/_nav.html" with here="orders" %}{% endblock %}
+{% comment %}
+⚠ TWO STRIPS, ONE DOORWAY EACH — ANCHOR: PO-DOORWAY. From the register (which
+  is the Orders tab of Finance & Accounting since 11 Sep 2026) the finance
+  strip stays up, so the accountant steps from this document to Bills without
+  going back. From Projects → a project → Purchase orders the project tabs
+  stay, because there the chain is the point.
+{% endcomment %}
+{% block nav %}
+  {% if standalone %}
+    {% include "finance/_nav.html" with here="orders" %}
+  {% else %}
+    {% include "projects/_nav.html" with here="orders" %}
+  {% endif %}
+{% endblock %}
 
 {% block headerinfo %}{% infobutton "po_detail" %}{% endblock %}
 {% block infopanel %}{% infopanel "po_detail" %}{% endblock %}

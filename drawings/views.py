@@ -1,5 +1,5 @@
 """
-The drawing screens: the register, the revisions, and who was sent what.
+The Drawings repository screens: the overview, the register, the revisions.
 
 >>> ANCHOR: DRAWINGS-SCREENS <<<
 
@@ -8,7 +8,6 @@ WHO MAY DO WHAT — from accounts/perms.py, and nothing here widens it:
         view and download   Admin · Project manager · Purchase · Site engineer
         register, upload,   Admin · Project manager
           approve
-        issue a transmittal Admin · Project manager
 
 ⚠⚠ FILES ARE SERVED THROUGH `download` AND NEVER FROM A URL. There is no
     MEDIA_URL. A structural drawing readable by anybody holding a link is the
@@ -19,6 +18,11 @@ WHO MAY DO WHAT — from accounts/perms.py, and nothing here widens it:
 
 ⚠ LIST SCREENS FETCH IN BULK. The newest revision for every drawing comes from
     one query (`status.latest_by_drawing`); nothing here asks per row.
+
+⚠ WON AND COMPLETED ARE BOTH LIVE HERE. A finished building's drawings and its
+    compliance file are exactly what the repository is for — `live_projects()`
+    is the one place that says so, and the overview shows the two in separate
+    sections so a live site is never mistaken for an old one.
 """
 import os
 
@@ -26,22 +30,17 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Max
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from accounts.perms import requires
+from compliance.models import ComplianceDocument
 from drawings import status as drawing_status
-from drawings.models import (
-    Architect, Drawing, DrawingGroup, DrawingRevision, Purpose, Transmittal, TransmittalLine,
-)
-from masters.models import CompanyProfile, Vendor
-from projects.bom_models import PurchaseOrder
+from drawings.models import Architect, Drawing, DrawingGroup, DrawingRevision
 from projects.models import Project
 
 #: ⚠ WHAT MAY BE UPLOADED. A whitelist: the formats a drawing arrives in and
@@ -52,7 +51,10 @@ MAX_BYTES = 50 * 1024 * 1024
 
 
 def live_projects():
-    """Drawings start at Won — a quoted job has no site to draw for."""
+    """
+    Won and Completed — a quoted job has no site to draw for, and a finished
+    one keeps its file. The same pair as `compliance.views.live_projects`.
+    """
     return Project.objects.filter(
         status__in=[Project.Status.WON, Project.Status.COMPLETED]).order_by("name")
 
@@ -75,36 +77,59 @@ def _person(user):
 
 
 # ---------------------------------------------------------------- the overview
-@requires("drawings.view")
-def home(request):
-    """Every Won project: how many drawings are required, received, approved."""
-    projects = list(live_projects())
-    drawings = list(Drawing.objects.filter(project__in=projects, is_active=True))
-    latest = drawing_status.latest_by_drawing(drawings)
-
-    last_sent = dict(Transmittal.objects
-                     .filter(project__in=projects)
-                     .values_list("project_id")
-                     .annotate(last=Max("issued_on"))
-                     .values_list("project_id", "last"))
-
+def _overview_rows(projects, drawings, latest, newest, compliance):
+    """One row per project: the status counts, the newest revision date, the compliance count."""
     by_project = {project.id: [] for project in projects}
     for drawing in drawings:
         by_project[drawing.project_id].append(drawing)
-
     rows = []
     for project in projects:
         summary = drawing_status.summarise(
             drawing_status.rows_for(by_project[project.id], latest))
         rows.append({"project": project, "summary": summary,
-                     "last_sent": last_sent.get(project.id)})
+                     "latest_on": newest.get(project.id),
+                     "compliance": compliance.get(project.id, 0)})
+    return rows
+
+
+@requires("drawings.view")
+def home(request):
+    """
+    Every live site and every completed project: drawings required, received,
+    approved, the date the newest revision arrived, and how many compliance
+    documents the project holds.
+
+    ⚠ FOUR QUERIES FOR THE WHOLE SCREEN, however many projects — the drawings,
+      their newest revisions, the newest revision date per project and the
+      compliance count per project, each grouped in the database.
+    """
+    projects = list(live_projects())
+    drawings = list(Drawing.objects.filter(project__in=projects, is_active=True))
+    latest = drawing_status.latest_by_drawing(drawings)
+
+    newest = dict(DrawingRevision.objects
+                  .filter(drawing__project__in=projects, drawing__is_active=True)
+                  .values_list("drawing__project_id")
+                  .annotate(last=Max("received_on"))
+                  .values_list("drawing__project_id", "last"))
+    compliance = dict(ComplianceDocument.objects
+                      .filter(project__in=projects)
+                      .values_list("project_id")
+                      .annotate(n=Count("id"))
+                      .values_list("project_id", "n"))
+
+    rows = _overview_rows(projects, drawings, latest, newest, compliance)
+    live = [row for row in rows if row["project"].status == Project.Status.WON]
+    completed = [row for row in rows if row["project"].status == Project.Status.COMPLETED]
 
     return render(request, "drawings/home.html", {
-        "rows": rows,
+        "live": live,
+        "completed": completed,
         "projects": projects,
         "required": sum(row["summary"]["required"] for row in rows),
         "received": sum(row["summary"]["received"] for row in rows),
         "approved": sum(row["summary"]["approved"] for row in rows),
+        "compliance_total": sum(row["compliance"] for row in rows),
     })
 
 
@@ -301,16 +326,11 @@ def bulk(request, project_id):
 # ------------------------------------------------------------------ one drawing
 @requires("drawings.view")
 def detail(request, project_id, drawing_id):
-    """The revision history, the upload form, and who was sent which revision."""
+    """The revision history and the upload form."""
     project = _project(project_id)
     drawing = _drawing(project, drawing_id)
     revisions = list(drawing.revisions.select_related("approved_by", "uploaded_by"))
     latest = revisions[0] if revisions else None
-
-    sent_to = list(TransmittalLine.objects
-                   .filter(revision__drawing=drawing)
-                   .select_related("transmittal", "transmittal__vendor", "revision")
-                   .order_by("-transmittal__issued_on", "-transmittal__id"))
 
     state = drawing_status.status_of(latest)
     return render(request, "drawings/detail.html", {
@@ -321,7 +341,6 @@ def detail(request, project_id, drawing_id):
         "state": state,
         "state_label": drawing_status.LABELS[state],
         "pill": drawing_status.PILLS[state],
-        "sent_to": sent_to,
         "today": timezone.localdate(),
         "suggested_label": f"R{len(revisions)}",
     })
@@ -333,8 +352,8 @@ def upload(request, project_id, drawing_id):
     """
     Add a revision. Never replaces one.
 
-    ⚠ THE EARLIER REVISION STAYS AND STAYS DOWNLOADABLE — the contractor who was
-      sent R0 built from R0, and that is what a dispute will ask about.
+    ⚠ THE EARLIER REVISION STAYS AND STAYS DOWNLOADABLE — R0 was the paper on
+      site before R1 arrived, and that is what a dispute will ask about.
     """
     project = _project(project_id)
     drawing = _drawing(project, drawing_id)
@@ -421,133 +440,6 @@ def download(request, revision_id):
         raise Http404("The file for this revision is not on the server.")
     return FileResponse(handle, as_attachment=True,
                         filename=revision.original_name or os.path.basename(revision.file.name))
-
-
-# ---------------------------------------------------------------- transmittals
-@requires("drawings.view")
-def transmittals(request, project_id):
-    """Every transmittal issued from this project, newest first."""
-    project = _project(project_id)
-    rows = list(Transmittal.objects.filter(project=project)
-                .select_related("vendor", "issued_by")
-                .annotate(line_count=Count("lines")))
-    return render(request, "drawings/transmittals.html", {
-        "project": project, "rows": rows,
-    })
-
-
-def _vendors_for(project):
-    """
-    Contractors on this project first, then everybody else who is active.
-
-    The vendor a drawing goes to is almost always one who holds a purchase or
-    work order on the site, so those lead the list — but the list is not
-    limited to them, because a drawing is sometimes sent before the order is.
-    """
-    on_site = set(PurchaseOrder.objects.filter(project=project)
-                  .values_list("vendor_id", flat=True))
-    vendors = list(Vendor.objects.filter(is_active=True).order_by("name"))
-    return ([vendor for vendor in vendors if vendor.id in on_site],
-            [vendor for vendor in vendors if vendor.id not in on_site])
-
-
-def _issuable(project):
-    """Active drawings that have at least one revision, each with its newest."""
-    drawings = list(Drawing.objects.filter(project=project, is_active=True)
-                    .select_related("group"))
-    latest = drawing_status.latest_by_drawing(drawings)
-    return [drawing_status.row_for(drawing, latest[drawing.id])
-            for drawing in drawings if drawing.id in latest]
-
-
-@requires("drawings.transmit")
-def transmittal_new(request, project_id):
-    """Record that a contractor was handed the newest revision of the ticked drawings."""
-    project = _project(project_id)
-    on_site, others = _vendors_for(project)
-    rows = _issuable(project)
-
-    if request.method == "POST":
-        vendor_id = (request.POST.get("vendor") or "").strip()
-        vendor = Vendor.objects.filter(pk=vendor_id, is_active=True).first() \
-            if vendor_id.isdigit() else None
-        ticked = {int(raw) for raw in request.POST.getlist("drawing") if raw.isdigit()}
-        purpose = (request.POST.get("purpose") or "").strip()
-        note = (request.POST.get("note") or "").strip()[:300]
-        issued_on = parse_date((request.POST.get("issued_on") or "").strip())
-
-        errors = []
-        if vendor is None:
-            errors.append("Choose the contractor the drawings went to.")
-        revisions = [row["latest"] for row in rows if row["drawing"].id in ticked]
-        if not revisions:
-            errors.append("Tick at least one drawing. A transmittal with nothing on it is not a record.")
-        if purpose not in Purpose.values:
-            errors.append("Say what the drawings are issued for.")
-
-        if not errors:
-            transmittal = Transmittal.issue(project, vendor, revisions, purpose, note,
-                                            request.user, issued_on=issued_on)
-            messages.success(request, f"{transmittal.number} recorded — {len(revisions)} "
-                                      f"drawing{'' if len(revisions) == 1 else 's'} to {vendor.name}.")
-            return redirect("drawings_transmittal", project_id=project.pk,
-                            transmittal_id=transmittal.pk)
-        for problem in errors:
-            messages.error(request, problem)
-
-    return render(request, "drawings/transmittal_form.html", {
-        "project": project,
-        "on_site": on_site,
-        "others": others,
-        "rows": rows,
-        "purposes": Purpose.choices,
-        "today": timezone.localdate(),
-    })
-
-
-def _transmittal(project, transmittal_id):
-    transmittal = get_object_or_404(
-        Transmittal.objects.select_related("vendor", "issued_by", "project"),
-        pk=transmittal_id, project=project)
-    lines = list(transmittal.lines
-                 .select_related("revision", "revision__drawing", "revision__drawing__group"))
-    return transmittal, lines
-
-
-@requires("drawings.view")
-def transmittal_detail(request, project_id, transmittal_id):
-    project = _project(project_id)
-    transmittal, lines = _transmittal(project, transmittal_id)
-    return render(request, "drawings/transmittal.html", {
-        "project": project, "transmittal": transmittal, "lines": lines,
-    })
-
-
-@requires("drawings.view")
-def transmittal_pdf(request, project_id, transmittal_id):
-    """
-    The transmittal as a PDF, to go with the drawings.
-
-    ⚠ WEASYPRINT IS IMPORTED INSIDE THIS FUNCTION, NOT AT THE TOP OF THE FILE —
-      the same reason as `projects.views.po_pdf`: CI does not install it, and a
-      module-level import would fail every test on a library only a PDF needs.
-    """
-    project = _project(project_id)
-    transmittal, lines = _transmittal(project, transmittal_id)
-    html = render_to_string("drawings/transmittal_pdf.html", {
-        "project": project,
-        "transmittal": transmittal,
-        "lines": lines,
-        "company": CompanyProfile.get_solo(),
-    }, request=request)
-
-    from weasyprint import HTML          # see the note above — deliberately here
-
-    pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
-    vendor = slugify(transmittal.vendor.name).replace("-", "_") or "vendor"
-    response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{transmittal.number}_{vendor}.pdf"'
-    return response
 
 
 # --------------------------------------------------------------------- masters

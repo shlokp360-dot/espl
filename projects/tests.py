@@ -3563,7 +3563,14 @@ class TheMasterDataPage(AuthedTestCase):
         """
         body = self.client.get(reverse("launchpad")).content.decode()
         self.assertIn(reverse("master_data"), body)
-        self.assertIn(reverse("po_register"), body)
+        # ⚠ THE REGISTER IS ONE TILE FURTHER SINCE 11 SEP 2026: it left the rail
+        #   and is the Orders tab of Finance & Accounting, so the way to it from
+        #   the Dashboard is the finance tile and then the strip. Not orphaned —
+        #   the door moved, and this asserts the new one.
+        self.assertNotIn(reverse("po_register"), body)
+        self.assertIn(reverse("finance_home"), body)
+        strip = self.client.get(reverse("finance_home")).content.decode()
+        self.assertIn(reverse("po_register"), strip)
 
 
 class TheDocumentRegister(Fixture):

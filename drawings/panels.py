@@ -5,21 +5,25 @@ The ⓘ panels for the drawing screens, as data.
 Same shape and same rules as `projects/help_panels.py`: a 1–2 word index
 label, 20–30 words a step, `[[…]]` for a button or a field and nothing else,
 `perm=` on any step whose action needs a permission. To be merged into
-`projects.help_panels.PANELS` — see WIRING.md.
+`projects.help_panels.PANELS` in `projects/help_panels.py`.
 """
 from projects.panel_format import step
 
 PANELS = {
 
     "drawings_home": {
-        "title": "Drawings — overview",
+        "title": "Drawings repository — overview",
         "steps": [
-            step("Read", "See where every site stands",
-                 "Each row is one Won project. [[Required]] counts drawings no revision has "
-                 "arrived for, [[Received]] those waiting for approval, [[Approved]] those cleared."),
+            step("Read", "See where every project stands",
+                 "Live sites sit in the first table, completed projects in the second. "
+                 "[[Required]] counts drawings no revision has arrived for, [[Received]] those "
+                 "awaiting approval, [[Approved]] those cleared."),
             step("Open", "Go to one project's register",
-                 "Press the project name to open its register, grouped by section. The "
-                 "[[Last transmittal]] date opens that project's transmittal register instead."),
+                 "Press the project name to open its register, grouped by type — Architect, "
+                 "Structure, Survey, Passing and MEP. [[Latest revision]] is the date the newest file arrived."),
+            step("Compliance", "Open the project's compliance file",
+                 "The [[Compliance]] count is how many compliance documents that project holds. "
+                 "Press it to open the project's compliance screen and file more, completed projects included."),
             step("Watch", "Chase what is still required",
                  "A Required count that does not fall is a drawing the site is waiting for. "
                  "Open the register, filter by Required, and ask the architect."),
@@ -30,8 +34,8 @@ PANELS = {
         "title": "Drawing register",
         "steps": [
             step("Pick", "Choose the project",
-                 "The picker at the top switches sites. Every drawing below belongs to the "
-                 "chosen project alone, grouped by section — Architectural, Structural, MEP and so on."),
+                 "The picker at the top lists live sites and completed projects. Every drawing "
+                 "below belongs to the chosen project alone, grouped by type — Architect, Structure, Survey, Passing, MEP."),
             step("Filter", "Narrow the list",
                  "Choose a group or a status and press [[Filter]]. Tick [[show deactivated]] "
                  "to see drawings taken off the register; their revisions are still on file."),
@@ -64,7 +68,7 @@ PANELS = {
                  perm="drawings.edit"),
             step("Deactivate", "Take one off the register",
                  "A drawing is never deleted once a revision is filed. Untick [[Active]] and "
-                 "press [[Save]]; its revisions and transmittals stay on record.",
+                 "press [[Save]]; every revision stays on record and stays downloadable.",
                  perm="drawings.edit"),
         ],
     },
@@ -90,7 +94,7 @@ PANELS = {
         "steps": [
             step("History", "Read the revisions",
                  "Newest first; the top row is the current revision. Every earlier one stays "
-                 "listed and downloadable, because a contractor may have built from it."),
+                 "listed and downloadable, because the site may have built from it."),
             step("Download", "Get the file",
                  "Press [[Download]] on any revision. Files are served only through this "
                  "screen after the permission check — there is no link to pass around."),
@@ -102,59 +106,6 @@ PANELS = {
                  "Press [[Approve]] on the revision that was cleared. Your name and today's "
                  "date are recorded and cannot be changed or approved again.",
                  perm="drawings.edit"),
-            step("Sent to", "See who holds which revision",
-                 "The [[Sent to]] table lists every transmittal carrying this drawing — the "
-                 "contractor, the revision they were handed, and the date."),
-        ],
-    },
-
-    "drawings_transmittals": {
-        "title": "Transmittals",
-        "steps": [
-            step("Read", "The register of what was handed over",
-                 "Each row is one transmittal: the contractor, the purpose, how many drawings, "
-                 "who issued it and when. Press the number to see its lines."),
-            step("Record", "Record a new transmittal",
-                 "Press [[Record a transmittal]], choose the contractor, tick the drawings "
-                 "and say the purpose. Nothing is sent from here; this is the record.",
-                 perm="drawings.transmit"),
-            step("Print", "Get the paper copy",
-                 "Press [[PDF]] for a printable transmittal listing every drawing number, "
-                 "title, revision and date received, with a line for the contractor to sign."),
-        ],
-    },
-
-    "drawings_transmittal_new": {
-        "title": "Record a transmittal",
-        "steps": [
-            step("Contractor", "Choose who received the drawings",
-                 "Contractors holding a purchase or work order on this project are listed "
-                 "first under [[Contractor]]; every other active vendor follows below them."),
-            step("Tick", "Choose the drawings",
-                 "Tick each drawing handed over. The newest revision is what goes on the "
-                 "record; a drawing with no revision yet is not offered."),
-            step("Purpose", "Say what they are issued for",
-                 "Choose [[Purpose]] — for construction, for approval or for information — "
-                 "and the [[Issued on]] date if it was not today. Add a [[Note]] if needed."),
-            step("Save", "Record it",
-                 "Press [[Record transmittal]]. It is numbered, listed on the register, and "
-                 "each drawing's page shows the contractor and the revision they were handed.",
-                 perm="drawings.transmit"),
-        ],
-    },
-
-    "drawings_transmittal": {
-        "title": "One transmittal",
-        "steps": [
-            step("Read", "What was handed over",
-                 "The contractor, the date, who issued it and the purpose sit at the top. "
-                 "Every line below is one drawing at the revision handed over."),
-            step("Open", "Go to a drawing",
-                 "Press a drawing number to open its page and see whether a newer revision "
-                 "has arrived since — if so the contractor holds a superseded sheet."),
-            step("Print", "Download the PDF",
-                 "Press [[Download PDF]] for the paper copy listing every drawing number, "
-                 "title, revision and date received, with a signature line for the contractor."),
         ],
     },
 
@@ -178,9 +129,9 @@ PANELS = {
     "drawings_groups": {
         "title": "Drawing groups",
         "steps": [
-            step("Read", "The register's sections",
-                 "Architectural, Structural, MEP, Landscape, Interior and Survey come "
-                 "pre-loaded. [[Order]] decides the sequence on the register; [[Drawings]] counts what uses each."),
+            step("Read", "The five types receivable",
+                 "Architect, Structure, Survey, Passing and MEP come pre-loaded — Passing is the "
+                 "AMC-passed plan set. [[Order]] decides the register sequence; [[Drawings]] counts what uses each."),
             step("Edit", "Change a row in place",
                  "Type into [[Code]], [[Name]] or [[Order]] on any row and press [[Save]]. "
                  "A code is up to four capitals and must be unique.",

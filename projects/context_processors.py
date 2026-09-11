@@ -19,6 +19,10 @@ def modules(request):
         if not tile["live"]:
             continue
         tile["on"] = path.startswith(tile["url"]) if tile["url"] != "/" else False
+        # A tile whose strip holds a screen living elsewhere — the purchase
+        # order register at /orders/ is the first tab of Finance & Accounting.
+        if not tile["on"]:
+            tile["on"] = any(path.startswith(url) for url in tile["also_urls"])
         out.append(tile)
     # Master data lives under /masters/ and Projects under /projects/; a
     # per-project screen (/projects/3/bom/) lights up Projects, as it should.

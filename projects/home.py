@@ -308,7 +308,7 @@ def home_for(role, user=None, today=None):
         from drawings.models import Drawing, DrawingRevision
         received = DrawingRevision.objects.filter(approved_on__isnull=True).count()
         required = Drawing.objects.filter(is_active=True, revisions__isnull=True).count()
-        out["cards"].append(_card("Drawings", "#1D4ED8", reverse("drawings_home"), [
+        out["cards"].append(_card("Drawings repository", "#1D4ED8", reverse("drawings_home"), [
             ("Awaiting approval", received, "warn" if received else ""),
             ("Required, not received", required, ""),
         ]))

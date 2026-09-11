@@ -246,8 +246,8 @@ PANELS = {
                  "The [[not paid yet]] shortcut shows everything approved or "
                  "delivered but not yet paid — what the business still owes."),
             step("Open", "Look at one document",
-                 "Press the [[Document]] number. Arriving from here you see the document alone; "
-                 "arriving through a project you also get that project's tabs."),
+                 "Press the [[Document]] number. Arriving from here you keep the finance tabs; "
+                 "arriving through a project you get that project's tabs instead."),
         ],
     },
 

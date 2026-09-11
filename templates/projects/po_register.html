@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% load inr perms help %}
 {% comment %}
-The cross-project document register — the Purchase orders tile.
+The cross-project document register — the Orders tab of Finance & Accounting.
+
+⚠ IT WAS A TILE OF ITS OWN UNTIL 11 SEP 2026. Saahil: "add the purchase order
+  module to finance and accounting" — so the strip rendered here is the
+  finance one (finance/_nav.html, here="orders"), and the accountant moves
+  between Orders and Bills without leaving it. The screen, its address and
+  its permission (register.view) are unchanged; only the doorway moved.
 
 ⚠ THIS IS THE "LOOKING" SCREEN, NOT THE "WORKING" ONE. Documents are created
   from the BOM and worked on inside a project; that path is untouched. This one
@@ -22,13 +28,15 @@ The cross-project document register — the Purchase orders tile.
 {% block title %}Purchase orders — all projects{% endblock %}
 {% block subtitle %}Every document, every project{% endblock %}
 
+{% block nav %}{% include "finance/_nav.html" with here="orders" %}{% endblock %}
+
 {% block headerinfo %}{% infobutton "po_register" %}{% endblock %}
 {% block infopanel %}{% infopanel "po_register" %}{% endblock %}
 
 {% block content %}
 
 <div class="crumb" style="margin-bottom:10px;font-size:12.5px">
-  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp; <b>Purchase orders</b>
+  <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp; Finance &amp; Accounting &nbsp;▸&nbsp; <b>Purchase orders</b>
 </div>
 
 <div class="toolbar">

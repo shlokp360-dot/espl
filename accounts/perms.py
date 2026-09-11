@@ -225,10 +225,11 @@ MATRIX = {
     "finance.approve":   {A, PM},              # approve an RA bill, release retention
     "finance.pay":       {A, ACC},             # invoices and payments recorded
 
-    # ---- drawings — the architect's drawings and who was sent which ------
+    # ---- drawings repository — every drawing and its revisions, live and completed
     "drawings.view":     {A, PM, PUR, SITE},
     "drawings.edit":     {A, PM},              # register a drawing, upload a revision, approve
-    "drawings.transmit": {A, PM},              # issue a transmittal to a contractor
+    # ⚠ `drawings.transmit` WAS REMOVED WITH THE TRANSMITTAL TABLES (11 Sep 2026):
+    #   "no requirement of transmittal, just revisions".
 }
 
 

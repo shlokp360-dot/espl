@@ -1,16 +1,17 @@
 """
-The drawing register: which drawings a site needs, which revision it holds,
-and which contractor was handed which revision.
+The Drawings repository: which drawings a site needs, which revision it holds,
+and the same for every project already built.
 
 >>> ANCHOR: DRAWINGS-MODEL <<<
 
-FIVE TABLES, TWO OF THEM MASTERS:
+FOUR TABLES, TWO OF THEM MASTERS:
 
     Architect           who draws — a master, shared by every project
-    DrawingGroup        ARC · STR · MEP · LND · INT · SUR — the register's sections
+    DrawingGroup        ARC · STR · SUR · PAS · MEP — the five types receivable,
+                        seeded by `0003_five_types` (Architect, Structure,
+                        Survey, Passing, MEP; Passing = the AMC-passed set)
     Drawing             one line on a project's register, by the ARCHITECT'S number
     DrawingRevision     the file itself — R0, R1, R2 — versioned, never overwritten
-    Transmittal         the record that a contractor was handed a set of revisions
 
 ⚠ THE DRAWING NUMBER IS TYPED, NOT GENERATED. It is the architect's number — the
     one written in the title block and quoted on site — so it must be theirs and
@@ -24,20 +25,22 @@ FIVE TABLES, TWO OF THEM MASTERS:
     that was approved.
 
 ⚠ NOTHING IS OVERWRITTEN AND NOTHING IS DELETED. A revision is a NEW ROW; R0
-    stays downloadable after R1 arrives, because the contractor who was sent R0
-    built from R0. A drawing with revisions or transmittal lines can only be
-    deactivated — the transmittal is the record of what a contractor was handed,
-    and a record with a hole in it is not a record.
+    stays downloadable after R1 arrives, because the day a wall is in the wrong
+    place the question is "which revision was on site", and the answer must be
+    on file. A drawing with revisions can only be deactivated.
 
-⚠ A TRANSMITTAL IS A RECORD, NOT A MESSAGE. Nothing is emailed or sent from
-    here; the drawings go to the contractor however they go, and the register
-    remembers which revision that was. That is the whole reason it exists: the
-    day a wall is in the wrong place, the question is "which revision did they
-    have", and the answer must be on file.
+⚠ A COMPLETED PROJECT KEEPS ITS REGISTER AND STILL ACCEPTS FILES. The owner's
+    words: a repository "where I can add drawings and compliance data of
+    previous projects". Won and Completed are both live here; only Draft,
+    Quoted and Lost have no register.
+
+⚠ THERE IS NO TRANSMITTAL. Who was handed which revision is not recorded —
+    "no requirement of transmittal, just revisions" (11 Sep 2026). The
+    `Transmittal`/`TransmittalLine` tables were dropped by `0004_drop_transmittals`.
 """
 from django.conf import settings
 from django.core.validators import RegexValidator
-from django.db import models, transaction
+from django.db import models
 from django.utils import timezone
 
 # Copied from masters.models rather than imported: a validator is a value baked
@@ -62,7 +65,7 @@ class Architect(models.Model):
 
 
 class DrawingGroup(models.Model):
-    """The register's sections — Architectural, Structural, MEP and the rest."""
+    """The register's sections — Architect, Structure, Survey, Passing, MEP."""
 
     code = models.CharField(max_length=4, unique=True,
                             help_text="Up to four capitals, e.g. ARC. Shown on the register.")
@@ -124,10 +127,10 @@ class Drawing(models.Model):
     def delete(self, *args, **kwargs):
         """
         >>> ANCHOR: DRAWINGS-NO-DELETE <<<
-        ⚠⚠ REFUSED ONCE ANYTHING POINTS AT IT. The revision FK cascades at the
+        ⚠⚠ REFUSED ONCE A REVISION EXISTS. The revision FK cascades at the
            database, so this guard is the only thing standing between a stray
-           delete and a transmittal that says a contractor was sent a drawing
-           which no longer exists. A drawing with a history is deactivated.
+           delete and a file that was on site quietly leaving the repository.
+           A drawing with a history is deactivated.
         """
         if self.revisions.exists():
             raise DrawingInUse(
@@ -191,84 +194,3 @@ class DrawingRevision(models.Model):
         self.approved_on = on or timezone.localdate()
         self.approved_by = user
         self.save(update_fields=["approved_on", "approved_by"])
-
-
-class Purpose(models.TextChoices):
-    CONSTRUCTION = "construction", "For construction"
-    APPROVAL = "approval", "For approval"
-    INFORMATION = "information", "For information"
-
-
-class Transmittal(models.Model):
-    """
-    The record that one contractor was handed a set of revisions on a date.
-
-    ⚠ NUMBERED FROM `NumberSeries`, never from max(existing) — the same rule as
-      every other document. TR-000001 means one thing forever.
-    """
-
-    number = models.CharField(max_length=12, unique=True)
-    project = models.ForeignKey("projects.Project", on_delete=models.PROTECT,
-                                related_name="transmittals")
-    vendor = models.ForeignKey("masters.Vendor", on_delete=models.PROTECT,
-                               related_name="transmittals")
-    issued_on = models.DateField(default=timezone.localdate)
-    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-                                  null=True, blank=True, related_name="transmittals_issued")
-    purpose = models.CharField(max_length=12, choices=Purpose.choices, default=Purpose.CONSTRUCTION)
-    note = models.CharField(max_length=300, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-issued_on", "-id"]
-
-    def __str__(self):
-        return self.number
-
-    @classmethod
-    def issue(cls, project, vendor, revisions, purpose, note, user, issued_on=None):
-        """
-        >>> ANCHOR: DRAWINGS-TRANSMITTAL-ATOMIC <<<
-        ⚠ THE HEADER AND ITS LINES ARRIVE TOGETHER OR NOT AT ALL, and a transmittal
-          with nothing on it is refused before a number is taken. An empty
-          transmittal is not a record of anything; a numbered one with no lines
-          would burn a number and sit on the register saying nothing.
-        """
-        from projects.bom_models import NumberSeries
-
-        revisions = list(revisions)
-        if not revisions:
-            raise ValueError("A transmittal needs at least one drawing.")
-        if any(revision.drawing.project_id != project.id for revision in revisions):
-            raise ValueError("Every drawing on a transmittal must belong to the same project.")
-        if purpose not in Purpose.values:
-            raise ValueError("Choose what the drawings are issued for.")
-
-        with transaction.atomic():
-            number = f"TR-{NumberSeries.take_next('transmittal'):06d}"
-            transmittal = cls.objects.create(
-                number=number, project=project, vendor=vendor,
-                issued_on=issued_on or timezone.localdate(), issued_by=user,
-                purpose=purpose, note=note)
-            TransmittalLine.objects.bulk_create([
-                TransmittalLine(transmittal=transmittal, revision=revision)
-                for revision in revisions])
-        return transmittal
-
-
-class TransmittalLine(models.Model):
-    """One revision on one transmittal. PROTECT: the record outlives the file."""
-
-    transmittal = models.ForeignKey(Transmittal, on_delete=models.CASCADE, related_name="lines")
-    revision = models.ForeignKey(DrawingRevision, on_delete=models.PROTECT,
-                                 related_name="transmittal_lines")
-
-    class Meta:
-        ordering = ["revision__drawing__group__sort_order", "revision__drawing__number"]
-        constraints = [
-            models.UniqueConstraint(fields=["transmittal", "revision"],
-                                    name="one_revision_per_transmittal"),
-        ]
-
-    def __str__(self):
-        return f"{self.transmittal.number} · {self.revision}"

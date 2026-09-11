@@ -12,6 +12,12 @@ PANELS = {
     "finance_home": {
         "title": "Finance & Accounting overview",
         "steps": [
+            # ⚠ ORDERS IS THE FIRST TAB since 11 Sep 2026 — the register left
+            #   the left rail. No perm= here: everybody who reaches this
+            #   Overview holds register.view already.
+            step("Orders", "Start from the orders",
+                 "The [[Orders]] tab is the purchase order register: every document on every "
+                 "project. Bills and payments hang off those orders, so look there first."),
             step("Payable", "Read what is owed today",
                  "[[Bills payable now]] adds the open balance on every vendor invoice and every "
                  "approved RA bill. [[Overdue]] is the part whose due date has already passed."),

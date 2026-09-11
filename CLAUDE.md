@@ -61,10 +61,15 @@ python manage.py seed_dummy_gstins  # fake GSTINs so POs can be approved · DEBU
   `base.html` and must not be reintroduced; instructions belong in the ⓘ panel. Inline font sizes
   below 13px are not allowed in templates.
 - **Modules:** `sales` (units → bookings → demands → receipts), `finance` — shown as
-  "Finance & Accounting" (RA bills on work orders, vendor bills and payments on purchase
-  orders, one bills register, a vendor ledger and a TDS report; retention is switched OFF
-  since 11 Sep 2026, fields kept), `drawings` (revisions and transmittals). Each keeps its ⓘ
-  panels in `<app>/panels.py`, merged into `projects/help_panels.py`.
+  "Finance & Accounting" (**the purchase order register is its first tab, "Orders", since
+  11 Sep 2026 — there is no Purchase orders tile any more**; then RA bills on work orders,
+  vendor bills and payments on purchase orders, one bills register, a vendor ledger and a
+  TDS report; retention is switched OFF since 11 Sep 2026, fields kept; the finance tile is
+  shown to `finance.view` OR `register.view` and `finance_home` redirects a register-only
+  role to the register), `drawings` — shown as "Drawings repository" (five types:
+  Architect, Structure, Survey, Passing, MEP; revisions only, NO transmittals; Won and
+  Completed projects both live, each row linking to the site's compliance file). Each keeps
+  its ⓘ panels in `<app>/panels.py`, merged into `projects/help_panels.py`.
 
 ## Vocabulary — do not drift
 

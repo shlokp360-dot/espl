@@ -24,15 +24,6 @@ urlpatterns = [
     path("drawings/project/<int:project_id>/revision/<int:revision_id>/approve/", views.approve,
          name="drawings_approve"),
     path("drawings/file/<int:revision_id>/", views.download, name="drawings_download"),
-    # The transmittal register — the record of who was handed which revision.
-    path("drawings/project/<int:project_id>/transmittals/", views.transmittals,
-         name="drawings_transmittals"),
-    path("drawings/project/<int:project_id>/transmittals/new/", views.transmittal_new,
-         name="drawings_transmittal_new"),
-    path("drawings/project/<int:project_id>/transmittals/<int:transmittal_id>/",
-         views.transmittal_detail, name="drawings_transmittal"),
-    path("drawings/project/<int:project_id>/transmittals/<int:transmittal_id>/pdf/",
-         views.transmittal_pdf, name="drawings_transmittal_pdf"),
     # Masters.
     path("drawings/architects/", views.architects, name="drawings_architects"),
     path("drawings/architects/new/", views.architect_new, name="drawings_architect_new"),

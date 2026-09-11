@@ -103,7 +103,13 @@ SCREENS = [
     ("sales_receipts",         False, {A, PM, ACC}),
     ("sales_receipts_excel",   False, {A, PM, ACC}),
     # ---- finance ------------------------------------------------------------
-    ("finance_home",             False, {A, PM, ACC}),
+    # ⚠ PURCHASE AND SITE ARE ON THIS ROW WITHOUT HOLDING finance.view. The
+    #   purchase order register became the first tab of Finance & Accounting
+    #   on 11 Sep 2026, so the tile is shown to register.view too, and the
+    #   Overview sends a register-only role to the register (302) rather than
+    #   refusing it — a tile can never lead to a 403. The books themselves
+    #   (every other finance row) are still {A, PM, ACC}.
+    ("finance_home",             False, {A, PM, PUR, ACC, SITE}),
     ("finance_ra_bills",         False, {A, PM, ACC}),
     # ⚠ The site engineer holds finance.certify and not finance.view; the bill
     #   they certify has to be a screen they can open (requires_any, reads only).
@@ -126,7 +132,6 @@ SCREENS = [
     ("drawings_home",              False, {A, PM, PUR, SITE}),
     ("drawings_register_default",  False, {A, PM, PUR, SITE}),
     ("drawings_register",          True,  {A, PM, PUR, SITE}),
-    ("drawings_transmittals",      True,  {A, PM, PUR, SITE}),
     ("drawings_architects",        False, {A, PM, PUR, SITE}),
     ("drawings_groups",            False, {A, PM, PUR, SITE}),
     ("drawings_download",          True,  {A, PM, PUR, SITE}),
@@ -148,7 +153,8 @@ SCREENS = [
     ("analytics_vendors",          False, {A}),
     ("analytics_sales",            False, {A, PM, ACC}),
     ("drawings_architect_new",     False, {A, PM}),
-    ("drawings_transmittal_new",   True,  {A, PM}),
+    # ⚠ drawings_transmittals / drawings_transmittal_new are gone with the
+    #   transmittal tables (11 Sep 2026) — "just revisions".
 ]
 
 #: POST-only actions, checked for the refusal rather than the whole flow.
@@ -277,15 +283,34 @@ class TheLaunchpadShowsOnlyWhatWorks(AuthedTestCase):
         self.client.force_login(self.people[role])
         return {tile["key"] for tile in self.client.get(reverse("launchpad")).context["tiles"]}
 
-    def test_a_site_engineer_sees_orders_and_not_master_data(self):
+    def test_a_site_engineer_sees_finance_for_the_orders_and_not_master_data(self):
+        """
+        ⚠ THIS SAID "orders" UNTIL 11 SEP 2026. The register is now the first
+          tab of Finance & Accounting, so the tile a site engineer sees for it
+          is the finance one — and pressing it lands on the register, not on
+          books they may not read.
+        """
         seen = self.tiles_seen(SITE)
-        self.assertIn("orders", seen)
+        self.assertNotIn("orders", seen)
+        self.assertIn("finance", seen)
         self.assertNotIn("masters", seen)
         self.assertNotIn("projects", seen)
 
-    def test_an_accountant_sees_projects_orders_and_masters(self):
+    def test_a_register_only_role_is_sent_to_the_register_not_refused(self):
+        for role in (PUR, SITE):
+            self.client.force_login(self.people[role])
+            response = self.client.get(reverse("finance_home"))
+            self.assertEqual(response.status_code, 302, role)
+            self.assertEqual(response["Location"], reverse("po_register"), role)
+        # And somebody with neither key is refused, as before.
+        self.client.force_login(self.people[COMP])
+        self.assertEqual(self.client.get(reverse("finance_home")).status_code, 403)
+        self.assertNotIn("finance", self.tiles_seen(COMP))
+
+    def test_an_accountant_sees_projects_finance_and_masters(self):
         seen = self.tiles_seen(ACC)
-        self.assertLessEqual({"projects", "orders", "masters"}, seen)
+        self.assertLessEqual({"projects", "finance", "masters"}, seen)
+        self.assertNotIn("orders", seen)
         self.assertNotIn("analytics", seen)
 
     def test_only_an_admin_sees_analytics(self):

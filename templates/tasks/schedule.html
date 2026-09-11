@@ -157,7 +157,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
   <div class="gantt">
 
     <div class="gscale">
-      <span class="pad">Work</span>
+      <span class="pad">Work · Assigned to</span>
       {% for month in chart.months %}
         <span class="m" style="flex:0 0 {{ month.width }}px">{{ month.label }}</span>
       {% endfor %}
@@ -195,7 +195,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
         {% if row.kind == 'milestone' %}
           <span class="gname hdr">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.header.name }}</span>
-            <span class="who">{{ row.done }}/{{ row.count }}</span>
+            <span class="who" title="{{ row.done }} of {{ row.count }} subtasks done">{{ row.who }} · {{ row.done }}/{{ row.count }}</span>
           </span>
         {% else %}
           <span class="gname sub">

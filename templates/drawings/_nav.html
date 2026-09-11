@@ -1,15 +1,14 @@
 {% load perms %}
 {% comment %}
-The drawings tab strip. Home lives in the header, beside the ⓘ.
+The Drawings repository tab strip. Home lives in the header, beside the ⓘ.
 
-⚠ THE PROJECT TABS FOLLOW THE PROJECT IN CONTEXT. Register and Transmittals
-  need a site; without one the register opens on the first Won project.
+⚠ THE REGISTER TAB FOLLOWS THE PROJECT IN CONTEXT. It needs a site; without
+  one it opens on the first live project (Won or Completed).
 {% endcomment %}
 <nav>
   <a class="{% if here == 'home' %}on{% endif %}" href="{% url 'drawings_home' %}">Overview</a>
   {% if project %}
     <a class="{% if here == 'register' %}on{% endif %}" href="{% url 'drawings_register' project.pk %}">Register</a>
-    <a class="{% if here == 'transmittals' %}on{% endif %}" href="{% url 'drawings_transmittals' project.pk %}">Transmittals</a>
   {% else %}
     <a class="{% if here == 'register' %}on{% endif %}" href="{% url 'drawings_register_default' %}">Register</a>
   {% endif %}
