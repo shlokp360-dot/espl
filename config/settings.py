@@ -131,6 +131,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Admin branding
 ADMIN_SITE_HEADER = "Elegance Skyz — Construction Automation"
 
+# ⚠ ON IN DEV TOO, not just production. These two have no downside on http and
+#   they are what protect the ONE place the app renders an uploaded file in the
+#   browser (compliance.views.view_inline): nosniff stops a browser MIME-sniffing
+#   a whitelisted .pdf/.png that isn't really one, and DENY stops the app being
+#   framed. SecurityMiddleware and XFrameOptionsMiddleware apply them to every
+#   response, the file downloads included.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+
 # ⚠ PRODUCTION HARDENING, ON ONLY WHEN DEBUG IS OFF. In dev these would break
 #   http://127.0.0.1 (endless HTTPS redirects, cookies the browser drops). In
 #   production DJANGO_DEBUG is unset, so every one of these turns on. Behind a
@@ -146,5 +155,4 @@ if os.getenv("DJANGO_DEBUG", "True") != "True":
     SECURE_HSTS_SECONDS = 31536000  # one year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = "DENY"
+    # nosniff and X_FRAME_OPTIONS are set unconditionally above.
