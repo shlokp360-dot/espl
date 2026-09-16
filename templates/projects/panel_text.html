@@ -96,7 +96,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
       </thead>
       <tbody>
         {% for row in rows %}
-          <tr {% if row.stale %}style="background:#FFF6F6"{% endif %}>
+          <tr {% if row.stale %}style="background:var(--redbg)"{% endif %}>
             <td style="vertical-align:top">
               <b style="color:var(--navy)">{{ forloop.counter }} · {{ row.step.label }}</b>
               {% if row.updated_by %}

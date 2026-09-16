@@ -37,7 +37,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
       at the end."
    ⚠ THE NAMES COLUMN IS STICKY, not scrolled away with it. A chart you can
      scroll but whose rows you cannot identify is not an improvement. */
-.gantt{background:#fff;border:1px solid var(--line);border-radius:var(--rc);overflow-x:auto;overflow-y:hidden}
+.gantt{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);overflow-x:auto;overflow-y:hidden}
 .gantt .gname,.gantt .pad{position:sticky;left:0;z-index:4}
 /* >>> ANCHOR: TASK-SCHEDULE-SCALE <<<
    ⚠⚠ WIDTH:MAX-CONTENT, AND WITHOUT IT THE LAST MONTHS GO INVISIBLE. Saahil
@@ -63,11 +63,11 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
    leaked. The semicolon separates them. The test caught it twice: once in the
    rule, once in the comment that explained the rule. Do not tidy it away. */
 .gantt .gscale,.gantt .gtags,.gantt .grow{width:max-content;min-width:100%;}
-.grow{display:flex;align-items:stretch;border-bottom:1px solid #EDEFF3;height:36px}
+.grow{display:flex;align-items:stretch;border-bottom:1px solid var(--line);height:36px}
 .grow:last-child{border-bottom:none}
-.gname{flex:0 0 300px;padding:0 10px;font-size:13px;border-right:1px solid var(--line);background:#fff;
+.gname{flex:0 0 300px;padding:0 10px;font-size:13px;border-right:1px solid var(--line);background:var(--surface);
        display:flex;align-items:center;gap:6px;min-width:0}
-.gname.hdr{font-weight:600;color:var(--navy);background:#FAFBFD}
+.gname.hdr{font-weight:600;color:var(--navy);background:var(--hover)}
 .gname.sub{padding-left:24px;color:var(--text)}
 .gname .who{color:var(--text);font-size:13px;margin-left:auto;white-space:nowrap}
 .gtrack{position:relative;flex:0 0 auto}
@@ -77,7 +77,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
    after it in the wrong place. */
 .gbar{position:absolute;top:9px;height:18px;border-radius:3px;min-width:3px}
 /* The milestone band carries its own name, white on navy, clipped to the bar. */
-.gbar.hdr{background:var(--navy);top:8px;height:20px;color:#fff;font-size:13px;font-weight:600;line-height:20px;
+.gbar.hdr{background:var(--accent);top:8px;height:20px;color:var(--accent-on);font-size:13px;font-weight:600;line-height:20px;
           padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gbar.hdrover{background:var(--amber);opacity:.55;top:8px;height:20px;border-radius:0 3px 3px 0}
 .gbar.open{background:#9BB4D8}
@@ -86,27 +86,27 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
 /* ⚠ THE LATE TAIL IS HATCHED RED, FULL HEIGHT, so it reads at a glance beside
    the green or blue segment it follows. Stops are in pixels on purpose. */
 .gbar.late{background:repeating-linear-gradient(135deg,var(--red) 0 4px,#E8B4B4 4px 8px);border-radius:0 3px 3px 0}
-.gscale{display:flex;border-bottom:1px solid var(--line);background:var(--navy);color:#fff;position:sticky;top:0;z-index:5}
+.gscale{display:flex;border-bottom:1px solid var(--line);background:var(--accent);color:var(--accent-on);position:sticky;top:0;z-index:5}
 .gscale .m{font-size:13px;padding:4px 0;text-align:center;border-right:1px solid #2E4A7D;
            overflow:hidden;white-space:nowrap}
-.gscale .pad{flex:0 0 300px;border-right:1px solid #2E4A7D;padding:4px 10px;font-size:13px;background:var(--navy);
+.gscale .pad{flex:0 0 300px;border-right:1px solid #2E4A7D;padding:4px 10px;font-size:13px;background:var(--accent);
              letter-spacing:.6px;text-transform:uppercase}
 .gmarks{position:absolute;inset:0;pointer-events:none}
 .gmark{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #7A5AA6}
 /* A phase whose work ran past the window it was given. Same line, warmer colour. */
 .gmark.over{border-left-color:#C55A11}
-.gtoday{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--navy)}
+.gtoday{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent)}
 /* >>> ANCHOR: MILESTONE-LINE <<<
    ONE strip of tags along the top edge. Each tag hangs off its line's date and
    is clipped to the lane clearance, so two tags in one lane can never touch;
    a tag that would collide drops a lane — decided in schedule.py, read here. */
-.gtags{display:flex;border-bottom:1px solid var(--line);background:#FAFBFD;position:relative}
-.gtags .pad{flex:0 0 300px;border-right:1px solid var(--line);background:#FAFBFD}
+.gtags{display:flex;border-bottom:1px solid var(--line);background:var(--hover);position:relative}
+.gtags .pad{flex:0 0 300px;border-right:1px solid var(--line);background:var(--hover)}
 .gtags .track{position:relative;flex:0 0 auto}
 .gtag{position:absolute;font-size:13px;line-height:18px;height:18px;padding:0 5px;white-space:nowrap;overflow:hidden;
-      text-overflow:ellipsis;color:#4A3B79;border-left:2px dashed #7A5AA6;background:#FAFBFD}
+      text-overflow:ellipsis;color:#4A3B79;border-left:2px dashed #7A5AA6;background:var(--hover)}
 .gtag.over{color:#C55A11;border-left-color:#C55A11}
-.gtag.today{color:#fff;background:var(--navy);border-left:2px solid var(--navy);border-radius:0 3px 3px 0;font-weight:600;z-index:1}
+.gtag.today{color:var(--accent-on);background:var(--accent);border-left:2px solid var(--accent);border-radius:0 3px 3px 0;font-weight:600;z-index:1}
 /* The legend strip: four swatches and the one sentence the chart cannot be read without. */
 .glegend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:9px}
 .glegend .sw{display:inline-block;width:14px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:5px}

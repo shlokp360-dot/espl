@@ -145,7 +145,7 @@ THE VENDOR MASTER — 173 rows.
           <tr class="click" onclick="window.location='{% url 'vendor_edit' v.id %}'">
             <td class="code">{{ v.code }}</td>
             <td>{{ v.name }}{% if not v.is_active %}
-                  <span class="pill" style="background:#EDEDED;color:#555">inactive</span>{% endif %}</td>
+                  <span class="pill" style="background:var(--hover);color:var(--muted)">inactive</span>{% endif %}</td>
             <td style="color:var(--muted)">{{ v.contact_person }}</td>
             <td>{{ v.phone }}</td>
             <td>{{ v.group.name|default:"—" }}</td>
@@ -154,7 +154,7 @@ THE VENDOR MASTER — 173 rows.
             <td>{% if v.default_document_type == 'WO' %}
                   <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
                 {% else %}
-                  <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
+                  <span class="pill" style="background:var(--hover);color:var(--muted)">PO</span>
                 {% endif %}</td>
             <td>{% if v.gst_number %}<span class="code">{{ v.gst_number }}</span>
                 {% elif v.is_unregistered %}<span class="pill p-nogst">unregistered</span>

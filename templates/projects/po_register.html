@@ -139,7 +139,7 @@ The cross-project document register — the Orders tab of Finance & Accounting.
               <td>{% if row.order.document_type == 'WO' %}
                     <span class="pill" style="background:var(--lblue);color:var(--navy)">WO</span>
                   {% else %}
-                    <span class="pill" style="background:#EDEFF3;color:#41485A">PO</span>
+                    <span class="pill" style="background:var(--hover);color:var(--muted)">PO</span>
                   {% endif %}</td>
               <td>{{ row.order.raised_on|date:"d/m/Y" }}</td>
               <td>{{ row.order.project.name }}</td>

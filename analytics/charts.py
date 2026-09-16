@@ -42,7 +42,7 @@ def _f(value):
 #: margins either side once the card is wider than the viewBox's ratio. Height
 #: `auto` makes the drawing scale with the width instead, so the chart is as
 #: wide as the card at 1200px and at 1440px and never overflows it.
-_FILL = 'style="width:100%;height:auto;display:block;overflow:visible"'
+_FILL = 'style="width:100%;height:auto;display:block;overflow:visible;color:var(--text)"'
 
 
 def _key(series, width, y=10):
@@ -57,7 +57,7 @@ def _key(series, width, y=10):
     for entry in reversed(series):
         label = escape(entry["label"])
         x -= len(label) * 7 + 4
-        parts.append(f'<text x="{x:.1f}" y="{y + 4}" font-size="12" fill="#26282B">{label}</text>')
+        parts.append(f'<text x="{x:.1f}" y="{y + 4}" font-size="12" fill="currentColor">{label}</text>')
         x -= 14
         parts.append(f'<rect x="{x:.1f}" y="{y - 5}" width="10" height="10" rx="2" '
                      f'fill="{entry["colour"]}"/>')
@@ -75,7 +75,7 @@ def bars(rows, series, height=200):
     """
     rows = list(rows)
     if not rows:
-        return mark_safe('<p style="margin:0">Nothing in this period.</p>')
+        return mark_safe('<p style="margin:0;color:var(--muted)">Nothing in this period.</p>')
 
     top = max([_f(value) for row in rows for value in row["values"]] + [1])
     width, pad_left, pad_bottom, pad_top = 800, 8, 26, 22
@@ -103,7 +103,7 @@ def bars(rows, series, height=200):
                 f'height="{max(0, bar_h):.1f}" fill="{series[slot]["colour"]}" rx="2"/>')
         parts.append(
             f'<text x="{x0 + group / 2:.1f}" y="{height - 8}" text-anchor="middle" '
-            f'font-size="12" fill="#4B5563">{escape(row["label"])}</text>')
+            f'font-size="12" style="fill:var(--muted)">{escape(row["label"])}</text>')
 
     parts.append("</svg>")
     return mark_safe("".join(parts))
@@ -120,7 +120,7 @@ def donut(slices, size=170):
     slices = [row for row in slices if _f(row["value"]) > 0]
     total = sum(_f(row["value"]) for row in slices)
     if not total:
-        return mark_safe('<p style="margin:0">Nothing to show yet.</p>')
+        return mark_safe('<p style="margin:0;color:var(--muted)">Nothing to show yet.</p>')
 
     radius, stroke = size / 2 - 12, 22
     circumference = 2 * 3.141592653589793 * radius
@@ -155,10 +155,10 @@ def stacked(parts, height=30):
     parts = [row for row in parts if _f(row["value"]) > 0]
     total = sum(_f(row["value"]) for row in parts)
     if not total:
-        return mark_safe('<p style="margin:0">Nothing approved yet.</p>')
+        return mark_safe('<p style="margin:0;color:var(--muted)">Nothing approved yet.</p>')
 
     out = ['<div style="display:flex;height:%dpx;border-radius:5px;overflow:hidden;'
-           'border:1px solid #D6DCE4">' % height]
+           'border:1px solid var(--line)">' % height]
     for row in parts:
         pct = _f(row["value"]) * 100 / total
         out.append(
@@ -183,10 +183,10 @@ def stacked(parts, height=30):
 #: width wider than a phone, so the row fits whatever card it is in.
 _ROW = ('<div style="display:grid;grid-template-columns:minmax(80px,150px) minmax(0,1fr) auto;'
         'align-items:center;gap:8px;font-size:13px">')
-_LABEL = ('<span style="color:#26282B;overflow:hidden;text-overflow:ellipsis;'
+_LABEL = ('<span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;'
           'white-space:nowrap" title="{title}">{label}</span>')
 _FIGURE = ('<span style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;'
-           'color:#26282B">{figure}</span>')
+           'color:var(--text)">{figure}</span>')
 
 
 def hbars(rows, colour_of=None, height=16, maximum=None):
@@ -213,7 +213,7 @@ def hbars(rows, colour_of=None, height=16, maximum=None):
     """
     rows = [row for row in rows if _f(row["value"]) > 0]
     if not rows:
-        return mark_safe('<p style="margin:0">Nothing to show yet.</p>')
+        return mark_safe('<p style="margin:0;color:var(--muted)">Nothing to show yet.</p>')
 
     top = maximum or max(_f(row["value"]) for row in rows)
     out = ['<div style="display:grid;gap:5px">']
@@ -222,7 +222,7 @@ def hbars(rows, colour_of=None, height=16, maximum=None):
         fill = row.get("colour") or (colour_of(index) if colour_of else colour(index))
         out.append(
             _ROW + _LABEL.format(title=escape(row["label"]), label=escape(row["label"]))
-            + f'<span style="background:#EDEFF3;border-radius:3px;height:{height}px;min-width:0">'
+            + f'<span style="background:var(--hover);border-radius:3px;height:{height}px;min-width:0">'
             f'<span style="display:block;width:{width:.4f}%;background:{fill};height:{height}px;'
             f'border-radius:3px"></span></span>'
             + _FIGURE.format(figure=escape(row["display"])) + "</div>")
@@ -243,7 +243,7 @@ def hbars_paired(rows, series, height=9, maximum=None):
     """
     rows = [row for row in rows if any(_f(value) > 0 for value in row["values"])]
     if not rows:
-        return mark_safe('<p style="margin:0">Nothing to show yet.</p>')
+        return mark_safe('<p style="margin:0;color:var(--muted)">Nothing to show yet.</p>')
 
     top = maximum or max(_f(value) for row in rows for value in row["values"])
     out = ['<div class="keys" style="margin:0 0 8px">']
@@ -256,7 +256,7 @@ def hbars_paired(rows, series, height=9, maximum=None):
         for slot, value in enumerate(row["values"]):
             width = _f(value) * 100 / top if top else 0
             bars_html.append(
-                f'<span style="display:block;background:#EDEFF3;border-radius:3px;height:{height}px">'
+                f'<span style="display:block;background:var(--hover);border-radius:3px;height:{height}px">'
                 f'<span style="display:block;width:{max(0.0, width):.4f}%;height:{height}px;'
                 f'background:{series[slot]["colour"]};border-radius:3px"></span></span>')
             figures.append(f'<span style="color:{series[slot]["colour"]}">'
@@ -372,11 +372,11 @@ def waterfall(rows, height=260, money=str):
         #   a shape; the reader needs to add them up themselves to trust it.
         parts.append(
             f'<text x="{x + bar_w / 2:.1f}" y="{high - 4:.1f}" text-anchor="middle" '
-            f'font-size="11" fill="#26282B">{escape(money(step["amount"]))}</text>')
+            f'font-size="11" fill="currentColor">{escape(money(step["amount"]))}</text>')
         for line, dy in zip(escape(step["label"]).split(" "), range(0, 99, 11)):
             parts.append(
                 f'<text x="{x + bar_w / 2:.1f}" y="{height - pad_bottom + 13 + dy:.1f}" '
-                f'text-anchor="middle" font-size="11" fill="#4B5563">{line}</text>')
+                f'text-anchor="middle" font-size="11" style="fill:var(--muted)">{line}</text>')
         # The dotted carry line to the next bar, which is what makes it read as
         # a ladder rather than as a row of unrelated bars.
         if index + 1 < len(steps) and step["kind"] != "total":

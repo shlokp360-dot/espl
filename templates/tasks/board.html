@@ -28,11 +28,11 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 <style>
 /* Scoped to this screen. The add dialogs are plain forms in a <dialog> (.addform, shaped in
    base.html): no framework, no state to keep, and the browser closes them on Escape. */
-.hdr{background:#fff;border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px}
+.hdr{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px}
 /* ⚠ ONE STRIP, ONE LINE, 44px. Name · activity · owner · dates · progress, and
    the amber pill only when the plan no longer fits. */
 .hdr .top{display:flex;align-items:center;gap:12px;height:44px;padding:0 13px;overflow:hidden;
-          border-bottom:1px solid var(--line);background:#FAFBFD;white-space:nowrap}
+          border-bottom:1px solid var(--line);background:var(--hover);white-space:nowrap}
 .hdr .top .nm{font-size:14px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;min-width:0}
 .hdr .top .sp{flex:1}
 .hdr .top .who,.hdr .top .win,.hdr .top .n{font-size:13px;color:var(--text)}

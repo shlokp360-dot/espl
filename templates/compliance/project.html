@@ -23,7 +23,7 @@ ONE SITE'S COMPLIANCE FILE.
 /* ⚠ EVERY ROW IS THE SAME SHAPE: pill · name · a second line only where there
    is something to say · the actions in a fixed-width column, so the buttons
    line up down the page whatever the row holds. */
-.citem{display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid #EDEFF3;min-height:40px}
+.citem{display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid var(--line);min-height:40px}
 .citem:last-child{border-bottom:none}
 .citem>.pill{flex:0 0 84px;text-align:center}
 .citem .nm{flex:1;min-width:0;font-size:13px}
@@ -32,10 +32,10 @@ ONE SITE'S COMPLIANCE FILE.
 .citem .act{flex:0 0 330px;display:flex;gap:6px;align-items:center;justify-content:flex-end;white-space:nowrap}
 .citem .act form{margin:0;display:inline}
 .citem .act a{text-decoration:none}
-.citem.old{padding-left:34px;background:#FCFCFD}
-.ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
+.citem.old{padding-left:34px;background:var(--hover)}
+.ctitle{background:var(--hover);border-bottom:1px solid var(--line);padding:7px 11px;
         font-size:13px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
-.cblock{background:#fff;border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px;overflow:hidden}
+.cblock{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px;overflow:hidden}
 @media (max-width:640px){
   .citem{flex-wrap:wrap}
   .citem .act{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap}

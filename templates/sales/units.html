@@ -49,7 +49,7 @@ only on a unit that can be booked, and only for a role that may book.
     </tr></thead>
     <tbody>
     {% for group in groups %}
-      <tr><td colspan="8" style="background:#FAFBFD;font-weight:600;color:var(--navy)">
+      <tr><td colspan="8" style="background:var(--hover);font-weight:600;color:var(--navy)">
         {% if group.block %}Block {{ group.block }} · {% endif %}Floor {{ group.floor }}</td></tr>
       {% for row in group.rows %}
         <tr>

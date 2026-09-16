@@ -29,7 +29,7 @@ class UsernameLoginForm(AuthenticationForm):
             "class": "cell", "autofocus": True, "autocomplete": "username",
             "autocapitalize": "none", "spellcheck": "false",
             "placeholder": "ramesh",
-            "style": "background:#fff",
+            "style": "background:var(--surface)",
         }),
     )
     password = forms.CharField(
@@ -37,7 +37,7 @@ class UsernameLoginForm(AuthenticationForm):
         strip=False,
         widget=forms.PasswordInput(attrs={
             "class": "cell", "autocomplete": "current-password",
-            "style": "background:#fff",
+            "style": "background:var(--surface)",
         }),
     )
 
