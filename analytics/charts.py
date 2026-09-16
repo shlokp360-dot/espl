@@ -57,7 +57,7 @@ def _key(series, width, y=10):
     for entry in reversed(series):
         label = escape(entry["label"])
         x -= len(label) * 7 + 4
-        parts.append(f'<text x="{x:.1f}" y="{y + 4}" font-size="12" fill="currentColor">{label}</text>')
+        parts.append(f'<text x="{x:.1f}" y="{y + 4}" font-size="13" fill="currentColor">{label}</text>')
         x -= 14
         parts.append(f'<rect x="{x:.1f}" y="{y - 5}" width="10" height="10" rx="2" '
                      f'fill="{entry["colour"]}"/>')
@@ -103,7 +103,7 @@ def bars(rows, series, height=200):
                 f'height="{max(0, bar_h):.1f}" fill="{series[slot]["colour"]}" rx="2"/>')
         parts.append(
             f'<text x="{x0 + group / 2:.1f}" y="{height - 8}" text-anchor="middle" '
-            f'font-size="12" style="fill:var(--muted)">{escape(row["label"])}</text>')
+            f'font-size="13" style="fill:var(--muted)">{escape(row["label"])}</text>')
 
     parts.append("</svg>")
     return mark_safe("".join(parts))
@@ -372,11 +372,11 @@ def waterfall(rows, height=260, money=str):
         #   a shape; the reader needs to add them up themselves to trust it.
         parts.append(
             f'<text x="{x + bar_w / 2:.1f}" y="{high - 4:.1f}" text-anchor="middle" '
-            f'font-size="11" fill="currentColor">{escape(money(step["amount"]))}</text>')
+            f'font-size="13" fill="currentColor">{escape(money(step["amount"]))}</text>')
         for line, dy in zip(escape(step["label"]).split(" "), range(0, 99, 11)):
             parts.append(
                 f'<text x="{x + bar_w / 2:.1f}" y="{height - pad_bottom + 13 + dy:.1f}" '
-                f'text-anchor="middle" font-size="11" style="fill:var(--muted)">{line}</text>')
+                f'text-anchor="middle" font-size="13" style="fill:var(--muted)">{line}</text>')
         # The dotted carry line to the next bar, which is what makes it read as
         # a ladder rather than as a row of unrelated bars.
         if index + 1 < len(steps) and step["kind"] != "total":

@@ -400,6 +400,15 @@ dialog.info .bd[data-lang="gu"] p.en{display:none}
   .rail .foot{margin-top:0;margin-left:auto;flex:0 0 auto;flex-direction:row;
         align-items:center;gap:14px;padding:0 6px}
   .rail .foot button{min-height:40px}
+  /* the rail strip already shows Dashboard as a big tab, so the header's own
+     Dashboard link is a duplicate word right under it — drop it on mobile. It
+     stays in the markup (the "two ways home" test counts markup, and the rail
+     strip IS the second way), just hidden here. */
+  header .adm.home{display:none}
+  /* drop the desktop spacer so the account items sit left in reading order
+     under the strip instead of being stranded centre by the flex:1 gap */
+  header{padding:6px 14px;min-height:44px;gap:4px 16px;flex-wrap:wrap}
+  header .spacer{display:none}
 }
 @media (max-width:700px){
   .dash-row2,.dash-row3{grid-template-columns:1fr}
@@ -472,7 +481,7 @@ function setLang(key, lang, button) {
   <span class="spacer"></span>
   {% block headerinfo %}{% endblock %}
   <button type="button" class="link" id="themebtn" onclick="esplTheme()" title="Toggle dark theme" aria-label="Toggle dark theme" style="font-size:16px">&#9790;</button>
-  <a class="adm" href="{% url 'launchpad' %}">Dashboard</a>
+  <a class="adm home" href="{% url 'launchpad' %}">Dashboard</a>
   {% comment %}
   HOME, BESIDE THE ⓘ, ON EVERY SCREEN.
 
