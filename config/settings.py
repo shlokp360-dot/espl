@@ -130,3 +130,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Admin branding
 ADMIN_SITE_HEADER = "Elegance Skyz — Construction Automation"
+
+# ⚠ PRODUCTION HARDENING, ON ONLY WHEN DEBUG IS OFF. In dev these would break
+#   http://127.0.0.1 (endless HTTPS redirects, cookies the browser drops). In
+#   production DJANGO_DEBUG is unset, so every one of these turns on. Behind a
+#   TLS-terminating proxy, so trust its X-Forwarded-Proto for the redirect.
+#   ⚠ GATED ON THE ENV VAR, NOT `DEBUG`: the test runner forces DEBUG=False in
+#     process, which would 301 every test request to https. The env var it does
+#     not touch, so this stays off in dev and under test, on only in production.
+if os.getenv("DJANGO_DEBUG", "True") != "True":
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # one year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
