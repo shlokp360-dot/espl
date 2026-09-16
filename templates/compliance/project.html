@@ -36,6 +36,10 @@ ONE SITE'S COMPLIANCE FILE.
 .ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
         font-size:13px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
 .cblock{background:#fff;border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px;overflow:hidden}
+@media (max-width:640px){
+  .citem{flex-wrap:wrap}
+  .citem .act{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap}
+}
 </style>
 
 <div class="toolbar">
@@ -201,7 +205,7 @@ ONE SITE'S COMPLIANCE FILE.
           {% csrf_token %}
           <input type="hidden" name="type" value="{{ row.type.pk }}">
           <b style="min-width:60px">{{ row.type.code }}</b>
-          <span style="flex:1;color:var(--muted)">{{ row.type.note }}</span>
+          <span style="flex:1;min-width:0;color:var(--muted)">{{ row.type.note }}</span>
           {% if row.applicable %}
             <span class="pill p-won">applies</span>
             <button type="submit" name="applicable" value="no" class="sec sm">Turn off</button>

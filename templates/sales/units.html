@@ -42,7 +42,7 @@ only on a unit that can be booked, and only for a role that may book.
     <div class="kpi"><div class="l">Cancelled</div><div class="v">{{ counts.cancelled }}</div></div>
   </div>
 
-  <table>
+  <div class="scroll"><table>
     <thead><tr>
       <th>Unit</th><th>Type</th><th class="num">Carpet sqft</th><th class="num">Saleable sqft</th>
       <th class="num">Base price</th><th>Status</th><th>Customer</th><th></th>
@@ -74,6 +74,6 @@ only on a unit that can be booked, and only for a role that may book.
       <tr><td colspan="8">No units yet on {{ project.code }}.</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 {% endif %}
 {% endblock %}

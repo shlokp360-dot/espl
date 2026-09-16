@@ -38,7 +38,7 @@ section with a subtotal each. calc.tds_report does the arithmetic; this prints.
   <div class="kpi"><div class="l">Paid to vendors</div><div class="v">₹{{ report.totals.paid|rupees }}</div></div>
 </div>
 
-<table>
+<div class="scroll"><table>
   <thead><tr>
     <th>Section</th><th>Vendor</th><th>GSTIN</th><th class="num">Payments</th><th class="num">Rate</th>
     <th class="num">Taxable base</th><th class="num">Paid + TDS</th><th class="num">TDS</th><th class="num">Paid</th>
@@ -76,5 +76,5 @@ section with a subtotal each. calc.tds_report does the arithmetic; this prints.
     <td class="num"><b>₹{{ report.totals.tds|rupees }}</b></td>
     <td class="num">₹{{ report.totals.paid|rupees }}</td>
   </tr></tfoot>
-</table>
+</table></div>
 {% endblock %}

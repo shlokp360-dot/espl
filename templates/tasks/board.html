@@ -112,7 +112,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 
       <b style="color:var(--navy)">Ticked tasks:</b>
 
-      <span style="display:flex;gap:5px;align-items:center">
+      <span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
         move
         <input type="number" name="days" value="7" style="width:64px;">
         days
@@ -125,7 +125,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 
       <span style="color:var(--line)">|</span>
 
-      <span style="display:flex;gap:5px;align-items:center">
+      <span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
         hand to
         <select name="assignee">
           <option value="">nobody</option>
@@ -192,7 +192,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 
       <div class="body">
         {% if row.subtasks %}
-          <table>
+          <div class="scroll"><table>
             <thead>
               <tr class="hd">
                 {% if user|can:"tasks.manage" %}<th style="width:26px"></th>{% endif %}
@@ -291,7 +291,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
                 </tr>
               {% endfor %}
             </tbody>
-          </table>
+          </table></div>
         {% else %}
           <div class="none">Nothing under this yet. The window above is what was committed to.</div>
         {% endif %}

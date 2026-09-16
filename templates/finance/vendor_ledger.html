@@ -47,7 +47,7 @@ payments and TDS debit, orders move nothing); this template only prints.
   <div class="kpi {% if ledger.closing > 0 %}warn{% endif %}"><div class="l">Closing balance{% if chosen.to %} on {{ chosen.to|date:"d/m/Y" }}{% endif %}</div><div class="v">₹{{ ledger.closing|rupees }}</div></div>
 </div>
 
-<table>
+<div class="scroll"><table>
   <thead><tr>
     <th>Date</th><th>Kind</th><th>Number</th><th>Particulars</th><th>Project</th>
     <th class="num">Order value</th><th class="num">Bill</th><th class="num">Paid</th><th class="num">TDS</th><th class="num">Balance</th>
@@ -90,12 +90,12 @@ payments and TDS debit, orders move nothing); this template only prints.
     <td class="num">₹{{ ledger.totals.tds|rupees }}</td>
     <td class="num"><b>₹{{ ledger.closing|rupees }}</b></td>
   </tr></tfoot>
-</table>
+</table></div>
 {% else %}
-<table>
+<div class="scroll"><table>
   <thead><tr><th>Date</th><th>Kind</th><th>Number</th><th>Particulars</th><th>Project</th>
     <th class="num">Order value</th><th class="num">Bill</th><th class="num">Paid</th><th class="num">TDS</th><th class="num">Balance</th></tr></thead>
   <tbody><tr><td colspan="10">Pick a vendor and press Open ledger.</td></tr></tbody>
-</table>
+</table></div>
 {% endif %}
 {% endblock %}
