@@ -82,6 +82,7 @@ buttons a role cannot use are not shown, and the view refuses them anyway.
 
 <h3 class="sec">Payment schedule <span class="pill {% if schedule_total == 100 %}p-approved{% else %}p-lost{% endif %}">{{ schedule_total|qty }}%</span></h3>
 {% if can_edit_schedule %}<form method="post" action="{% url 'sales_booking_schedule' booking.pk %}">{% csrf_token %}{% endif %}
+<div class="scroll" style="max-height:none">
 <table class="sched">
   <thead><tr><th style="width:36px">#</th><th>Milestone</th><th class="num">%</th><th class="num">Amount</th><th>Due on</th><th>Linked header task</th><th>Demand</th><th>Status</th></tr></thead>
   <tbody>
@@ -124,6 +125,7 @@ buttons a role cannot use are not shown, and the view refuses them anyway.
   <tfoot><tr><td></td><td>Total</td><td class="num">{{ schedule_total|qty }}%</td><td class="num">₹{{ figures.agreement|rupees }}</td><td colspan="4">
     {% if can_edit_schedule %}<button type="submit" class="sec sm">Save schedule</button>{% endif %}</td></tr></tfoot>
 </table>
+</div>
 {% if can_edit_schedule %}</form>{% endif %}
 
 <h3 class="sec">Demand letters</h3>

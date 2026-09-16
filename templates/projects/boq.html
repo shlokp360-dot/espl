@@ -82,9 +82,7 @@ area, and the total is a composite ₹/sqft.
       button here would post the estimate on its way to fetching a PDF.
     {% endcomment %}
     {% if lines and project.status != 'draft' %}
-      <a class="sec sm" href="{% url 'boq_pdf' project.id %}"
-         style="text-decoration:none;padding:7px 15px;border:1px solid var(--navy);
-                border-radius:5px;color:var(--navy);background:#fff;font-size:12.5px">⤓ PDF</a>
+      <a class="btn sec" href="{% url 'boq_pdf' project.id %}">⤓ PDF</a>
     {% endif %}
     {% if editable %}
       <button class="sec" type="submit">Save estimate</button>
@@ -99,9 +97,7 @@ area, and the total is a composite ₹/sqft.
                 >Generate BOM ▸</button>
       {% endif %}
     {% elif has_bom %}
-      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);
-                            background:var(--navy);color:#fff;font-weight:600"
-         href="{% url 'bom_screen' project.id %}">Open the BOM ▸</a>
+      <a class="btn" href="{% url 'bom_screen' project.id %}">Open the BOM ▸</a>
     {% endif %}
   </div>
 
@@ -240,7 +236,7 @@ area, and the total is a composite ₹/sqft.
 
     {# ---------------- the statutory add-ons -------------------------------- #}
     {% if editable %}
-      <h3 style="margin:18px 0 4px;font-size:13px;color:var(--navy)">Statutory and add-on factors</h3>
+      <h3>Statutory and add-on factors</h3>
       <div style="font-size:13px;color:var(--muted);margin-bottom:8px">
         Applied to the base cost, in this order: contingency, then design fee, then GST on the lot.
       </div>

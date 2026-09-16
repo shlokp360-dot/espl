@@ -27,17 +27,17 @@ EDITING A SUBTASK — including handing it to somebody else.
 <form method="post" class="card" style="max-width:640px">
   {% csrf_token %}
 
-  <div style="display:grid;gap:12px">
+  <div class="fform" style="max-width:none">
     <div>
-      <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">What needs doing</label>
+      <label>What needs doing</label>
       <input type="text" name="title" maxlength="200" required value="{{ subtask.title }}"
-             style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+            >
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="two">
       <div>
-        <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Assigned to</label>
-        <select name="assignee" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        <label>Assigned to</label>
+        <select name="assignee">
           <option value="">Nobody</option>
           {% for person in people %}
             <option value="{{ person.pk }}" {% if person.pk == subtask.assignee_id %}selected{% endif %}>
@@ -46,8 +46,8 @@ EDITING A SUBTASK — including handing it to somebody else.
         </select>
       </div>
       <div>
-        <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Priority</label>
-        <select name="priority" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+        <label>Priority</label>
+        <select name="priority">
           {% for value, label in priorities %}
             <option value="{{ value }}" {% if value == subtask.priority %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
@@ -55,16 +55,16 @@ EDITING A SUBTASK — including handing it to somebody else.
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="two">
       <div>
-        <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Starts</label>
+        <label>Starts</label>
         <input type="date" name="start" required value="{{ subtask.start|date:'Y-m-d' }}"
-               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+              >
       </div>
       <div>
-        <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Days</label>
+        <label>Days</label>
         <input type="number" name="days" min="1" required value="{{ subtask.days }}"
-               style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+              >
       </div>
     </div>
 
@@ -79,9 +79,9 @@ EDITING A SUBTASK — including handing it to somebody else.
     </div>
 
     <div style="border-top:1px solid var(--line);padding-top:12px">
-      <label style="display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">
+      <label>
         If this pushes the finish out — why?</label>
-      <select name="shift_reason" style="width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+      <select name="shift_reason">
         <option value="">—</option>
         {% for value, label in reasons %}
           <option value="{{ value }}" {% if value == subtask.shift_reason %}selected{% endif %}>{{ label }}</option>
@@ -89,7 +89,7 @@ EDITING A SUBTASK — including handing it to somebody else.
       </select>
       <input type="text" name="shift_note" maxlength="200" value="{{ subtask.shift_note }}"
              placeholder="Anything to add (optional)"
-             style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px">
+             style="margin-top:8px">
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end">

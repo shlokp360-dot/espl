@@ -22,7 +22,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <a href="{% url 'user_list' %}">Users</a> &nbsp;▸&nbsp;
@@ -100,7 +100,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
       <tr>
         <td style="border:0;padding:8px 10px 8px 0;vertical-align:top"><b>Active</b></td>
         <td style="border:0;padding:8px 0">
-          <label style="font-size:12.5px">
+          <label>
             <input type="checkbox" name="is_active"
                    {% if not person or person.is_active %}checked{% endif %}
                    {% if editing_self %}disabled{% endif %}>
@@ -149,7 +149,7 @@ ADD OR EDIT A PERSON. One screen does both, like the material and vendor forms.
     be worse than the blank.
   {% endcomment %}
   <div class="panel" style="border-top:1px solid var(--line);max-width:760px;margin-top:14px">
-    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">History</h3>
+    <h3>History</h3>
     {% if history %}
       <table>
         <thead><tr class="hd"><th>When</th><th>What</th><th>Detail</th><th>By</th></tr></thead>

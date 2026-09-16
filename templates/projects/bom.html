@@ -51,7 +51,7 @@ HOW EDITING WORKS
 
 {% if not activity %}
   <div class="card">
-    <h3 style="margin-top:0;color:var(--navy)">This BOM has no construction activities yet</h3>
+    <h3 style="margin-top:0">This BOM has no construction activities yet</h3>
     <p>Tabs come from the activities on the project's estimate. {{ project.code }}'s estimate has
        none, so there is nothing to plan against. Add activities to the estimate in Admin first.</p>
   </div>
@@ -77,8 +77,7 @@ HOW EDITING WORKS
       than a second list of them here — two screens listing the same drafts would
       eventually disagree about them.
       {% endcomment %}
-      <a class="tab" style="padding:5px 12px;border-radius:5px;border:1px solid var(--line)"
-         href="{% url 'po_screen' project.id %}?type=">{{ draft_count }} draft{{ draft_count|pluralize }} ▸</a>
+      <a class="btn sec" href="{% url 'po_screen' project.id %}?type=">{{ draft_count }} draft{{ draft_count|pluralize }} ▸</a>
     {% endif %}
     {% comment %}
     ⚠ SAVE STAYS FOR ANYBODY WHO MAY WRITE SOMETHING — a site engineer holds

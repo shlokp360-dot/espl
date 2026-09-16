@@ -19,7 +19,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <a href="{% url 'material_list' %}">Materials</a> &nbsp;▸&nbsp;
@@ -39,7 +39,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
 
   <div class="panel" style="border-top:1px solid var(--line)">
 
-    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">What it is</h3>
+    <h3>What it is</h3>
     <table style="width:100%;max-width:860px">
       {% if material.pk %}
         <tr>
@@ -48,7 +48,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
             <div style="font-size:13px;color:var(--muted)">Assigned once. Never regenerated, so it
               may name the construction activity this material was born under rather than its current one</div></td>
           <td style="border:0;padding:8px 0">
-            <span class="code" style="font-size:13px">{{ material.code }}</span></td>
+            <span class="code">{{ material.code }}</span></td>
         </tr>
       {% endif %}
       <tr>
@@ -95,7 +95,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       with its own Admin page. Saahil's instruction: "Material is to be linked to
       activity in the same material master screen, not as a separate tile."
     {% endcomment %}
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Which construction activity buys it</h3>
+    <h3>Which construction activity buys it</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       The home activity is required — it decides which BOM tab offers this material, and it is the
       first part of the code on a new one. The second is for the rare material genuinely bought
@@ -132,12 +132,12 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
           <div style="font-size:13px;color:var(--muted)">Wall plugs, fevicol, hacksaw blades. Shows
             in every activity's list whatever its home</div></td>
         <td style="border:0;padding:8px 0">
-          <label style="font-size:12.5px"><input type="checkbox" name="is_common"
+          <label><input type="checkbox" name="is_common"
             {% if material.is_common %}checked{% endif %}> Common material</label></td>
       </tr>
     </table>
 
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Money and tax</h3>
+    <h3>Money and tax</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>The estimation rate is what the BOM plans at, not what a vendor charges.</b> A vendor's
       price lives on the BOM line and on their rate list; this is the company's own planning figure.
@@ -173,7 +173,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
       </tr>
     </table>
 
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Stock and searching</h3>
+    <h3>Stock and searching</h3>
     <table style="width:100%;max-width:860px">
       <tr>
         <td style="width:26%;border:0;padding:8px 10px 8px 0;vertical-align:top">
@@ -207,7 +207,7 @@ CREATE OR CHANGE A MATERIAL. One screen does both, like the project form.
           <div style="font-size:13px;color:var(--muted)">Turn off instead of deleting. Every
             historical record still resolves</div></td>
         <td style="border:0;padding:8px 0">
-          <label style="font-size:12.5px"><input type="checkbox" name="is_active"
+          <label><input type="checkbox" name="is_active"
             {% if material.is_active or not material.pk %}checked{% endif %}> In use</label></td>
       </tr>
     </table>

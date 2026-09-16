@@ -9,7 +9,7 @@ nothing to fill in yet, because the BOM itself does not exist.
 
 {% block content %}
 <div class="card">
-  <h3 style="margin-top:0;color:var(--navy)">{{ project.code }} has no bill of materials yet</h3>
+  <h3 style="margin-top:0">{{ project.code }} has no bill of materials yet</h3>
   {% if estimate %}
     <p>Its estimate covers {{ estimate.lines.count }} activit{{ estimate.lines.count|pluralize:"y,ies" }}.
        Generating the BOM creates an empty sheet under each of them, ready for materials.</p>

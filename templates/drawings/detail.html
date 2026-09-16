@@ -35,8 +35,8 @@ ONE DRAWING: every revision and who approved which.
   <div class="kpi"><div class="l">Required by</div><div class="v">{% if drawing.required_by %}{{ drawing.required_by|date:"d/m/Y" }}{% else %}—{% endif %}</div></div>
 </div>
 
-<div class="card" style="padding:0;overflow:hidden;margin-bottom:11px">
-  <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">Revisions</span></div>
+<div class="card" style="padding:0;overflow:auto;margin-bottom:11px">
+  <h3 style="margin:0;padding:9px 11px;border-bottom:1px solid var(--line)">Revisions</h3>
   <table>
     <thead><tr class="hd">
       <th style="width:70px">Label</th>
@@ -77,7 +77,7 @@ ONE DRAWING: every revision and who approved which.
   <form method="post" enctype="multipart/form-data" id="upload" class="card" style="margin-bottom:11px"
         action="{% url 'drawings_upload' project.pk drawing.pk %}">
     {% csrf_token %}
-    <div class="toolbar" style="margin:0 0 8px;padding:0"><span class="ttl">Upload a revision</span></div>
+    <h3>Upload a revision</h3>
     <div style="display:grid;grid-template-columns:100px 1fr 150px 1fr;gap:10px;align-items:end">
       <label>Label<br><input class="cell" name="label" maxlength="12" required value="{{ suggested_label }}"></label>
       <label>File<br><input class="cell" type="file" name="file" accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png,.zip" required></label>

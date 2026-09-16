@@ -31,6 +31,7 @@
   </div>
 </form>
 
+<div class="scroll" style="max-height:none;">
 <table>
   <thead><tr>
     <th>Receipt</th><th>Received</th><th>Project</th><th>Unit</th><th>Booking</th><th>Customer</th><th>Against</th><th>Mode</th><th>Reference</th>
@@ -63,4 +64,5 @@
     <td class="num">₹{{ totals.credit|rupees2 }}</td>
   </tr></tfoot>
 </table>
+</div>
 {% endblock %}

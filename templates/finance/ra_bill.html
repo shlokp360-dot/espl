@@ -19,7 +19,7 @@ gross to net payable, and the buttons that move it along.
 {% block content %}
 {% include "finance/_style.html" %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   {% if user|can:"finance.view" %}<a href="{% url 'finance_ra_bills' %}?project={{ po.project.id }}">RA bills</a> &nbsp;▸&nbsp;{% endif %}
   <a href="{% url 'finance_wo' po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>{{ bill.number }}</b>
 </div>
@@ -35,20 +35,17 @@ gross to net payable, and the buttons that move it along.
       <button class="sec" type="submit" name="action" value="save">Save</button>
       <button type="submit" name="action" value="certify"
               onclick="return confirm('Certify {{ bill.number|escapejs }}? Every line needs a certified quantity.');">Certify ▸</button>
-      <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line);color:var(--red)"
-         href="{% url 'finance_ra_bill_discard' bill.id %}">Discard</a>
+      <a class="btn sec danger" href="{% url 'finance_ra_bill_discard' bill.id %}">Discard</a>
     {% endif %}
     {% if bill.status == 'certified' and user|can:"finance.approve" %}
       <button type="submit" formaction="{% url 'finance_ra_bill_approve' bill.id %}"
               onclick="return confirm('Approve {{ bill.number|escapejs }}?\n\nThis locks the bill, records the certified quantities as received on the BOM{% if bill.is_final %} and marks {{ po.number|escapejs }} completed{% endif %}.');">Approve &amp; lock ▸</button>
     {% endif %}
     {% if bill.status == 'approved' and user|can:"finance.pay" %}
-      <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--navy);color:var(--navy);font-weight:600"
-         href="{% url 'finance_ra_bill_pay' bill.id %}">Record payment</a>
+      <a class="btn sec" href="{% url 'finance_ra_bill_pay' bill.id %}">Record payment</a>
     {% endif %}
     {% if not bill.is_open and user|can:"finance.view" %}
-      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);background:#fff;color:var(--navy);font-weight:600"
-         href="{% url 'finance_ra_bill_pdf' bill.id %}">⤓ Download PDF</a>
+      <a class="btn sec" href="{% url 'finance_ra_bill_pdf' bill.id %}">⤓ Download PDF</a>
     {% endif %}
   </div>
 
@@ -84,11 +81,11 @@ gross to net payable, and the buttons that move it along.
 
     {% if editable %}
       <div style="margin-top:10px">
-        <label style="font-size:12.5px"><input type="checkbox" name="is_final" value="1" {% if bill.is_final %}checked{% endif %}> Final bill — closes the contract and recovers the whole advance remainder</label>
+        <label><input type="checkbox" name="is_final" value="1" {% if bill.is_final %}checked{% endif %}> Final bill — closes the contract and recovers the whole advance remainder</label>
         &nbsp; Note <input class="cell" name="note" maxlength="300" value="{{ bill.note }}" style="width:320px">
       </div>
     {% elif bill.note %}
-      <div style="margin-top:10px;font-size:12.5px">Note: {{ bill.note }}</div>
+      <div style="margin-top:10px">Note: {{ bill.note }}</div>
     {% endif %}
 
     <div class="scroll" style="margin-top:14px">
@@ -107,9 +104,9 @@ gross to net payable, and the buttons that move it along.
             <td class="code">{{ row.line.po_line.bom_line.material.code }}</td>
             <td>{{ row.line.po_line.bom_line.material.name }}
               {% if editable %}
-                <input class="cell" name="remark-{{ row.line.id }}" maxlength="200" value="{{ row.line.remark }}"
-                       placeholder="remark" style="width:100%;margin-top:4px;font-size:10.8px">
-              {% elif row.line.remark %}<div style="font-size:10.8px;font-style:italic">↳ {{ row.line.remark }}</div>{% endif %}</td>
+                <input class="cell ref" name="remark-{{ row.line.id }}" maxlength="200" value="{{ row.line.remark }}"
+                       placeholder="remark">
+              {% elif row.line.remark %}<div class="ref">↳ {{ row.line.remark }}</div>{% endif %}</td>
             <td>{{ row.line.po_line.bom_line.material.uom }}</td>
             <td class="num">{{ row.line.po_line.quantity|qty }}</td>
             <td class="num">{{ row.before|qty }}</td>

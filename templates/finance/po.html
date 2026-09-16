@@ -13,7 +13,7 @@ invoice carries no quantities to match.
 {% block content %}
 {% include "finance/_style.html" %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'finance_bills' %}?project={{ po.project.id }}">Bills</a> &nbsp;▸&nbsp;
   <a href="{% url 'po_detail' po.project.id po.id %}">{{ po.number }}</a> &nbsp;▸&nbsp; <b>Settlement</b>
 </div>

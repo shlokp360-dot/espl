@@ -25,7 +25,7 @@ GROSS TO NET — the ladder that was in the model, on every PDF, and on no scree
     <input type="hidden" name="project" value="{{ view.project.pk|default:'' }}">
     <input type="hidden" name="type" value="{{ view.doc_type }}">
     <select name="stage" onchange="this.form.submit()"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       {% for key, label in stages %}
         <option value="{{ key }}" {% if stage == key %}selected{% endif %}>{{ label }}</option>
       {% endfor %}

@@ -53,7 +53,7 @@ ORDER VALUE and then NET PAYABLE.
   with your filters still on it. Sending somebody to a project's vendor list
   instead would be sending them somewhere they never were.
 {% endcomment %}
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   {% if standalone %}
     <a href="{% url 'po_register' %}">Purchase orders</a>
     &nbsp;▸&nbsp; <b>{{ order.number }}</b>
@@ -90,8 +90,7 @@ ORDER VALUE and then NET PAYABLE.
       page shows exactly which quantities move before anything moves.
       {% endcomment %}
       {% if user|can:"po.discard" %}
-        <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line);color:var(--red)"
-           href="{% url 'po_discard_confirm' project.id order.id %}">Discard draft</a>
+        <a class="btn sec danger" href="{% url 'po_discard_confirm' project.id order.id %}">Discard draft</a>
       {% endif %}
       {% comment %}
       Approve posts through the same form, so whatever is on screen is written
@@ -118,9 +117,7 @@ ORDER VALUE and then NET PAYABLE.
       indistinguishable from a real order. The view refuses it as well — the
       button being hidden is convenience, not the safeguard.
       {% endcomment %}
-      <a class="tab" style="padding:6px 14px;border-radius:5px;border:1px solid var(--navy);
-                            background:#fff;color:var(--navy);font-weight:600"
-         href="{% url 'po_pdf' project.id order.id %}">⤓ Download PDF</a>
+      <a class="btn sec" href="{% url 'po_pdf' project.id order.id %}">⤓ Download PDF</a>
       {% comment %}
       THE DOOR TO FINANCE. A work order is billed through RA bills and a
       purchase order through vendor invoices; both start once the document is
@@ -129,12 +126,10 @@ ORDER VALUE and then NET PAYABLE.
       {% endcomment %}
       {% if order.document_type == 'WO' %}
         {% if user|can:"finance.view" or user|can:"finance.certify" %}
-          <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line)"
-             href="{% url 'finance_wo' order.id %}">RA bills</a>
+          <a class="btn sec" href="{% url 'finance_wo' order.id %}">RA bills</a>
         {% endif %}
       {% elif user|can:"finance.view" %}
-        <a class="tab" style="padding:6px 12px;border-radius:5px;border:1px solid var(--line)"
-           href="{% url 'finance_po' order.id %}">Vendor invoices &amp; payments</a>
+        <a class="btn sec" href="{% url 'finance_po' order.id %}">Vendor invoices &amp; payments</a>
       {% endif %}
       {% comment %}
       Delivered and Paid are two different permissions, held by two different
@@ -341,11 +336,10 @@ ORDER VALUE and then NET PAYABLE.
             <td>{{ line.bom_line.material.name }}
               <div style="font-size:13px;color:var(--muted)">{{ line.bom_line.material.specification }}</div>
               {% if editable %}
-                <textarea class="cell" name="ref-{{ line.id }}" rows="2" maxlength="300"
-                          style="font-size:10.8px;font-style:italic;margin-top:4px"
+                <textarea class="cell ref" name="ref-{{ line.id }}" rows="2" maxlength="300"
                           placeholder="Reference for the vendor — free text, about 50 words">{{ line.reference }}</textarea>
               {% elif line.reference %}
-                <div style="font-size:10.8px;font-style:italic;margin-top:3px">↳ {{ line.reference }}</div>
+                <div class="ref">↳ {{ line.reference }}</div>
               {% endif %}</td>
             <td>{{ line.bom_line.material.uom }}</td>
 

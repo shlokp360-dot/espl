@@ -20,7 +20,7 @@ CREATE OR CHANGE A VENDOR.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <a href="{% url 'vendor_list' %}">Vendors</a> &nbsp;▸&nbsp;
@@ -40,13 +40,13 @@ CREATE OR CHANGE A VENDOR.
 
   <div class="panel" style="border-top:1px solid var(--line)">
 
-    <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">Who they are</h3>
+    <h3>Who they are</h3>
     <table style="width:100%;max-width:860px">
       {% if vendor.pk %}
         <tr>
           <td style="width:26%;border:0;padding:8px 10px 8px 0"><b>Code</b></td>
           <td style="border:0;padding:8px 0">
-            <span class="code" style="font-size:13px">{{ vendor.code }}</span></td>
+            <span class="code">{{ vendor.code }}</span></td>
         </tr>
       {% endif %}
       <tr>
@@ -100,7 +100,7 @@ CREATE OR CHANGE A VENDOR.
       vendor category as an identifier to search vendor … lets not mix vendor
       category and link them to Vendor Activities."
     {% endcomment %}
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">What they are, and what they do</h3>
+    <h3>What they are, and what they do</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>Group</b> is what this vendor is, and it is how somebody searches for them.
       <b>Serves</b> is which construction activity they work in, and it is what decides whether they are offered on
@@ -150,7 +150,7 @@ CREATE OR CHANGE A VENDOR.
       </tr>
     </table>
 
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Tax and terms</h3>
+    <h3>Tax and terms</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:860px">
       <b>A purchase order cannot be approved without a GSTIN</b>, unless the vendor is marked
       unregistered — in which case no GST is charged at all. The first two digits also decide
@@ -169,7 +169,7 @@ CREATE OR CHANGE A VENDOR.
           <div style="font-size:13px;color:var(--muted)">No GSTIN and none expected — 0% GST on
             their documents</div></td>
         <td style="border:0;padding:8px 0">
-          <label style="font-size:12.5px"><input type="checkbox" name="is_unregistered"
+          <label><input type="checkbox" name="is_unregistered"
             {% if vendor.is_unregistered %}checked{% endif %}> Not registered for GST</label></td>
       </tr>
       <tr>
@@ -190,7 +190,7 @@ CREATE OR CHANGE A VENDOR.
           <div style="font-size:13px;color:var(--muted)">Turn off instead of deleting. Every
             historical order still resolves</div></td>
         <td style="border:0;padding:8px 0">
-          <label style="font-size:12.5px"><input type="checkbox" name="is_active"
+          <label><input type="checkbox" name="is_active"
             {% if vendor.is_active or not vendor.pk %}checked{% endif %}> In use</label></td>
       </tr>
     </table>

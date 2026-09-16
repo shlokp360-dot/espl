@@ -37,7 +37,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
       at the end."
    ⚠ THE NAMES COLUMN IS STICKY, not scrolled away with it. A chart you can
      scroll but whose rows you cannot identify is not an improvement. */
-.gantt{background:#fff;border:1px solid var(--line);border-radius:6px;overflow-x:auto;overflow-y:hidden}
+.gantt{background:#fff;border:1px solid var(--line);border-radius:var(--rc);overflow-x:auto;overflow-y:hidden}
 .gantt .gname,.gantt .pad{position:sticky;left:0;z-index:4}
 /* >>> ANCHOR: TASK-SCHEDULE-SCALE <<<
    ⚠⚠ WIDTH:MAX-CONTENT, AND WITHOUT IT THE LAST MONTHS GO INVISIBLE. Saahil
@@ -117,7 +117,7 @@ THE SCHEDULE — milestones and their tasks as bars on a month scale.
   {% if projects %}
     <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
       <select name="project" onchange="this.form.submit()"
-              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+             >
         {% for option in projects %}
           <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
             {{ option.code }} — {{ option.name }}</option>

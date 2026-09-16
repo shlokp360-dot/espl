@@ -27,7 +27,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <b>Screen instructions</b>
@@ -39,7 +39,7 @@ SCREEN INSTRUCTIONS — the ⓘ panels, in Gujarati.
   <div class="toolbar">
     <span class="ttl">Screen instructions</span>
     <select onchange="location.href='{% url 'panel_text' %}?panel='+this.value"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       {% for k, title in panels %}
         <option value="{{ k }}" {% if k == key %}selected{% endif %}>{{ title }}</option>
       {% endfor %}

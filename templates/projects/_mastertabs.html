@@ -7,7 +7,7 @@ The tab strip on the master-data screens.
 `strip` is "materials" or "vendors"; `here` is the url name of the open tab.
 {% endcomment %}
 {% load perms %}
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <b>{% if strip == 'vendors' %}Vendors{% else %}Materials{% endif %}</b>

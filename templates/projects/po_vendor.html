@@ -21,7 +21,7 @@ clickable — an "open ▸" that goes nowhere is worse than no link at all.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'po_screen' project.id %}?{{ request.GET.urlencode }}">Vendors</a>
   &nbsp;▸&nbsp; <b>{{ vendor.code }} · {{ vendor.name }}</b>
 </div>

@@ -35,15 +35,7 @@ ONE SITE'S COMPLIANCE FILE.
 .citem.old{padding-left:34px;background:#FCFCFD}
 .ctitle{background:#FAFBFD;border-bottom:1px solid var(--line);padding:7px 11px;
         font-size:13px;font-weight:600;color:var(--navy);display:flex;gap:9px;align-items:center}
-.cblock{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px;overflow:hidden}
-.dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
-.dlgform label{display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;
-               color:var(--muted);margin-bottom:3px}
-.dlgform input,.dlgform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
-                               border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
-.dlgform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.dlgform .foot{display:flex;gap:8px;justify-content:flex-end}
-.dlgform p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;white-space:normal}
+.cblock{background:#fff;border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px;overflow:hidden}
 </style>
 
 <div class="toolbar">
@@ -51,7 +43,7 @@ ONE SITE'S COMPLIANCE FILE.
   {% if projects %}
     <form method="get" style="margin:0" id="pickproject">
       <select onchange="location.href='/compliance/project/'+this.value+'/'"
-              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+             >
         {% for option in projects %}
           <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
             {{ option.code }} — {{ option.name }}</option>
@@ -205,7 +197,7 @@ ONE SITE'S COMPLIANCE FILE.
       <div class="grph">Optional regimes</div>
       {% for row in optional %}
         <form method="post" action="{% url 'compliance_applies' project.pk %}"
-              style="display:flex;gap:9px;align-items:center;margin:0 0 7px;font-size:12.5px">
+              style="display:flex;gap:9px;align-items:center;margin:0 0 7px">
           {% csrf_token %}
           <input type="hidden" name="type" value="{{ row.type.pk }}">
           <b style="min-width:60px">{{ row.type.code }}</b>
@@ -238,7 +230,7 @@ ONE SITE'S COMPLIANCE FILE.
       {% for row in put_back %}
         <form method="post"
               action="{% url 'compliance_restore_item' project.pk row.item.pk %}"
-              style="display:flex;gap:9px;align-items:center;margin:0 0 7px;font-size:12.5px">
+              style="display:flex;gap:9px;align-items:center;margin:0 0 7px">
           {% csrf_token %}
           <b style="min-width:60px">{{ row.item.title.type.code }}</b>
           <span style="flex:1">{{ row.item.name }}

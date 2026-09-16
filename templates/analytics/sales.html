@@ -27,7 +27,7 @@ SALES VELOCITY — how fast units move this fiscal year, and how the money follo
   <span class="sp"></span>
   <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
     <select name="project" onchange="this.form.submit()"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       <option value="">All projects</option>
       {% for option in view.projects %}
         <option value="{{ option.pk }}" {% if view.project.pk == option.pk %}selected{% endif %}>

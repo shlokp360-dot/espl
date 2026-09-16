@@ -56,7 +56,8 @@ Excel button exports exactly this selection. Nothing is added here.
   </div>
 </form>
 
-<table style="margin-top:12px">
+<div class="scroll" style="max-height:none;margin-top:12px;">
+<table>
   <thead><tr>
     <th>Bill no</th><th>Document</th><th>Type</th><th>Project</th><th>Vendor</th><th>Bill date</th>
     <th class="num">Amount</th><th class="num">TDS</th><th class="num">Paid to date</th><th class="num">Balance</th><th>Status</th>
@@ -92,4 +93,5 @@ Excel button exports exactly this selection. Nothing is added here.
     <td></td>
   </tr></tfoot>
 </table>
+</div>
 {% endblock %}

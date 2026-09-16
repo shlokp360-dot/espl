@@ -26,25 +26,14 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 {% block content %}
 
 <style>
-/* Scoped to this screen. The add dialogs are plain forms in a <dialog>: no
-   framework, no state to keep, and the browser closes them on Escape. */
-.addform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
-.addform label{display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;
-               color:var(--muted);margin-bottom:3px}
-.addform input,.addform select{width:100%;padding:6px 8px;border:1px solid #CBD2DC;
-                               border-radius:4px;font:inherit;font-size:12.5px;background:#fff}
-.addform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.addform .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
-/* ⚠ normal, not nowrap. A one-line explanation inside a dialog overflowed it on
-   Saahil's screen and he sent a picture of it. */
-.addform p{margin:0;color:var(--muted);font-size:13px;white-space:normal;line-height:1.5}
-
-.hdr{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:11px}
+/* Scoped to this screen. The add dialogs are plain forms in a <dialog> (.addform, shaped in
+   base.html): no framework, no state to keep, and the browser closes them on Escape. */
+.hdr{background:#fff;border:1px solid var(--line);border-radius:var(--rc);margin-bottom:11px}
 /* ⚠ ONE STRIP, ONE LINE, 44px. Name · activity · owner · dates · progress, and
    the amber pill only when the plan no longer fits. */
 .hdr .top{display:flex;align-items:center;gap:12px;height:44px;padding:0 13px;overflow:hidden;
           border-bottom:1px solid var(--line);background:#FAFBFD;white-space:nowrap}
-.hdr .top .nm{font-size:13.5px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hdr .top .nm{font-size:14px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;min-width:0}
 .hdr .top .sp{flex:1}
 .hdr .top .who,.hdr .top .win,.hdr .top .n{font-size:13px;color:var(--text)}
 .hdr .top .win{font-variant-numeric:tabular-nums}
@@ -54,7 +43,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 .hdr td .st{display:block;font-size:13px;color:var(--red);margin-top:3px;white-space:nowrap}
 .hdr td.act{text-align:right;white-space:nowrap;overflow:visible}
 .mstones{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px}
-.mstone{border:1px solid #C3CEE0;background:var(--pale);border-radius:5px;padding:6px 11px;font-size:13px}
+.mstone{border:1px solid #C3CEE0;background:var(--pale);border-radius:var(--r);padding:6px 11px;font-size:13px}
 .mstone b{color:var(--navy);display:block;font-size:13px}
 </style>
 
@@ -69,7 +58,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
     {% endcomment %}
     <form method="get" style="display:flex;gap:6px;align-items:center;margin:0">
       <select name="project" onchange="this.form.submit()"
-              style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+             >
         {% for option in projects %}
           <option value="{{ option.pk }}" {% if option.pk == project.pk %}selected{% endif %}>
             {{ option.code }} — {{ option.name }}{% if option.status == 'completed' %} (completed){% endif %}
@@ -125,9 +114,9 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 
       <span style="display:flex;gap:5px;align-items:center">
         move
-        <input type="number" name="days" value="7" style="width:64px;padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:13px">
+        <input type="number" name="days" value="7" style="width:64px;">
         days
-        <select name="shift_reason" style="padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:13px;background:#fff">
+        <select name="shift_reason">
           <option value="">why?</option>
           {% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
         </select>
@@ -138,7 +127,7 @@ THE WORK BOARD — one project's milestones with their tasks underneath.
 
       <span style="display:flex;gap:5px;align-items:center">
         hand to
-        <select name="assignee" style="padding:4px 6px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:13px;background:#fff">
+        <select name="assignee">
           <option value="">nobody</option>
           {% for person in people %}
             <option value="{{ person.pk }}">{{ person.get_full_name|default:person.username }}</option>

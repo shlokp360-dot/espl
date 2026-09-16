@@ -31,7 +31,7 @@ the kind of thing that survives into production and is found by a customer.
 
 {% block content %}
 
-<div class="crumb" style="margin-bottom:10px;font-size:12.5px">
+<div class="crumb">
   <a href="{% url 'launchpad' %}">Home</a> &nbsp;▸&nbsp;
   <a href="{% url 'master_data' %}">Master data</a> &nbsp;▸&nbsp;
   <b>Company profile</b>
@@ -105,7 +105,7 @@ the kind of thing that survives into production and is found by a customer.
       copy-don't-link, and the live activity reserve remains the only documented
       exception anywhere in the system.
     {% endcomment %}
-    <h3 style="margin:22px 0 4px;font-size:13.5px;color:var(--navy)">Standard terms</h3>
+    <h3>Standard terms</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;max-width:820px">
       Copied onto each order when it is created, and editable on that order afterwards.
       <b>Changing them here does not touch an order already raised</b> &mdash; a document sent to a

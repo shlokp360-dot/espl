@@ -65,8 +65,8 @@ ONE PROJECT'S DRAWING REGISTER, grouped by section.
   </form>
 
   {% for block in groups %}
-    <div class="card" style="margin-bottom:11px;padding:0;overflow:hidden">
-      <div class="toolbar" style="margin:0;padding:7px 11px"><span class="ttl">{{ block.group.code }} — {{ block.group.name }}</span></div>
+    <div class="card" style="margin-bottom:11px;padding:0;overflow:auto">
+      <h3 style="margin:0;padding:9px 11px;border-bottom:1px solid var(--line)">{{ block.group.code }} — {{ block.group.name }}</h3>
       <table>
         <thead><tr class="hd">
           <th style="width:130px">Number</th>

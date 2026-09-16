@@ -14,7 +14,7 @@ from bom_calc.discard_effect.
 
 {% block content %}
 <div class="card">
-  <h3 style="margin-top:0;color:var(--navy)">Discard {{ order.number }}?</h3>
+  <h3 style="margin-top:0">Discard {{ order.number }}?</h3>
 
   {% if not order.is_editable %}
     <p><b>{{ order.number }} is {{ order.get_status_display }}, so it cannot be discarded.</b>

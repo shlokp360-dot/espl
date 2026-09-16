@@ -25,22 +25,15 @@ MY WORK — everything waiting on one person, across every project.
 {% block content %}
 
 <style>
-.wrow{background:#fff;border:1px solid var(--line);border-radius:6px;padding:11px 13px;margin-bottom:8px;
+.wrow{background:#fff;border:1px solid var(--line);border-radius:var(--rc);padding:11px 13px;margin-bottom:8px;
       display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .wrow.late{border-left:4px solid var(--red)}
 .wrow.stuck{border-left:4px solid var(--amber);background:#FFFCF5}
 .wrow .main{flex:1 1 260px;min-width:0}
-.wrow .ttl{font-size:13.5px;font-weight:600;color:var(--navy)}
+.wrow .ttl{font-size:14px;font-weight:600;color:var(--navy)}
 .wrow .where{font-size:13px;color:var(--muted);margin-top:2px}
 .wrow .acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .wrow .when{font-size:13px;color:var(--muted);white-space:nowrap;text-align:right}
-.dlgform{padding:14px 18px 18px;display:grid;gap:10px;font-size:12.5px}
-.dlgform label{display:block;font-size:13px;letter-spacing:.4px;text-transform:uppercase;
-               color:var(--muted);margin-bottom:3px}
-.dlgform select,.dlgform input{width:100%;padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;
-                               font:inherit;font-size:12.5px;background:#fff}
-.dlgform p{margin:0;color:var(--muted);font-size:13px;white-space:normal;line-height:1.5}
-.dlgform .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
 .done td{color:var(--muted)}
 </style>
 

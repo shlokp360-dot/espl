@@ -43,7 +43,8 @@ that project's position. The Excel button exports exactly what is filtered here.
   </div>
 </form>
 
-<table style="margin-top:12px">
+<div class="scroll" style="max-height:none;margin-top:12px;">
+<table>
   <thead><tr>
     <th>RA bill</th><th>No.</th><th>Status</th><th>Bill date</th><th>Work order</th><th>Project</th><th>Contractor</th>
     <th class="num">Taxable</th><th class="num">Invoice value</th>
@@ -89,4 +90,5 @@ that project's position. The Excel button exports exactly what is filtered here.
     {% endif %}
   </tfoot>
 </table>
+</div>
 {% endblock %}

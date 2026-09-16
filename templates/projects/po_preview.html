@@ -43,7 +43,7 @@ every time, so it cannot show you a plan that has since gone stale.
 
 {% if not groups %}
   <div class="card">
-    <h3 style="margin-top:0;color:var(--navy)">Nothing to create</h3>
+    <h3 style="margin-top:0">Nothing to create</h3>
     <p>No line has both a vendor and a quantity typed into Order Qty.
        {% if skipped %}
          {{ skipped|length }} line{{ skipped|length|pluralize }} ha{{ skipped|length|pluralize:"s,ve" }}

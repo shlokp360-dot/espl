@@ -42,7 +42,8 @@
   </div>
 </form>
 
-<table style="margin-top:12px">
+<div class="scroll" style="max-height:none;margin-top:12px;">
+<table>
   <thead><tr>
     <th>Date</th><th>PV</th><th>Vendor</th><th>GSTIN</th><th>Project</th><th>Document</th><th>Kind</th>
     <th class="num">Amount</th><th class="num">TDS</th><th>Mode</th><th>Reference</th>
@@ -71,4 +72,5 @@
   <tfoot><tr><td colspan="7">Total · {{ totals.count }} payment{{ totals.count|pluralize }}</td>
     <td class="num">₹{{ totals.amount|rupees }}</td><td class="num">₹{{ totals.tds|rupees }}</td><td colspan="2"></td></tr></tfoot>
 </table>
+</div>
 {% endblock %}

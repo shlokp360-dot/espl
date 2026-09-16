@@ -10,14 +10,14 @@ The filter bar, identical on every analytics page.
 {% endcomment %}
 <form method="get" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
   <select name="month" onchange="this.form.submit()"
-          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+         >
     <option value="">Year to date</option>
     {% for key, label in view.months %}
       <option value="{{ key }}" {% if view.month == key %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
   <select name="project" onchange="this.form.submit()"
-          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+         >
     <option value="">All projects</option>
     {% for option in view.projects %}
       <option value="{{ option.pk }}" {% if view.project.pk == option.pk %}selected{% endif %}>
@@ -25,7 +25,7 @@ The filter bar, identical on every analytics page.
     {% endfor %}
   </select>
   <select name="type" onchange="this.form.submit()"
-          style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+         >
     <option value="">PO and WO</option>
     <option value="PO" {% if view.doc_type == 'PO' %}selected{% endif %}>Purchase orders</option>
     <option value="WO" {% if view.doc_type == 'WO' %}selected{% endif %}>Work orders</option>
@@ -48,7 +48,7 @@ The filter bar, identical on every analytics page.
   {% endcomment %}
   {% if milestone_choices %}
     <select name="milestone" onchange="this.form.submit()"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       <option value="">All milestones</option>
       {% for pk, name in milestone_choices %}
         <option value="{{ pk }}" {% if milestone_id == pk %}selected{% endif %}>{{ name }}</option>
@@ -57,7 +57,7 @@ The filter bar, identical on every analytics page.
   {% endif %}
   {% if activity_choices %}
     <select name="activity" onchange="this.form.submit()"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       <option value="">All construction activities</option>
       {% for pk, name in activity_choices %}
         <option value="{{ pk }}" {% if activity_id == pk %}selected{% endif %}>{{ name }}</option>
@@ -72,7 +72,7 @@ The filter bar, identical on every analytics page.
   {% endcomment %}
   {% if group_choices %}
     <select name="group" onchange="this.form.submit()"
-            style="padding:6px 8px;border:1px solid #CBD2DC;border-radius:4px;font:inherit;font-size:12.5px;background:#fff">
+           >
       <option value="">All material groups</option>
       {% for pk, name in group_choices %}
         <option value="{{ pk }}" {% if group_id == pk %}selected{% endif %}>{{ name }}</option>
